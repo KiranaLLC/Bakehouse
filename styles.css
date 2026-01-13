@@ -42,6 +42,12 @@ body {
     letter-spacing: 1px;
 }
 
+.logo-image {
+    height: 50px;
+    width: auto;
+    display: block;
+}
+
 .nav-menu {
     display: flex;
     list-style: none;

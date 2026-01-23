@@ -6,246 +6,124 @@
    Brown: #8A5A3C
 */
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+:root {
+  --bg: #f7f5f2;
+  --text: #1c1c1c;
+  --muted: #7a7a7a;
+  --accent: #c6a15b;
+
+  --container: 1100px;
+  --pad-x: 32px;
+  --pad-y: 56px;
 }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'Georgia', serif;
-    background-color: #F7F2EA;
-    color: #5E6B73;
-    line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", sans-serif;
+  line-height: 1.6;
 }
 
-/* Navigation Bar */
-.navbar {
-    background-color: #243B6B;
-    padding: 1rem 2rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: var(--pad-y) var(--pad-x);
 }
 
-.nav-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 72px;
+  padding-bottom: 12px;
 }
+
+.header-image {
+  max-width: 420px; 
+  width: 100%;
+  transform: translateY(-4px);
+  filter: contrast(1.05);
+}
+
 
 .logo {
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: #F7F2EA;
-    text-decoration: none;
-    letter-spacing: 1px;
-}
-
-.logo-image {
-    height: 50px;
-    width: auto;
-    display: block;
-}
-
-.nav-menu {
-    display: flex;
-    list-style: none;
-    gap: 2rem;
+  font-family: "Playfair Display", serif;
+  font-size: 28px;
+  letter-spacing: 0.5px;
 }
 
 .nav-link {
-    color: #F7F2EA;
-    text-decoration: none;
-    font-size: 1.1rem;
-    transition: color 0.3s ease;
-    padding: 0.5rem 1rem;
+  margin-left: 32px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 14px;
+  transition: color 0.3s ease;
 }
 
-.nav-link:hover {
-    color: #6F7F4C;
-}
+.nav-link:hover { color: var(--text); }
 
-.nav-link.active {
-    color: #6F7F4C;
-    border-bottom: 2px solid #6F7F4C;
-}
-
-/* Hero Section (Landing Page) */
-.hero-section {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: calc(100vh - 80px);
-    padding: 2rem;
-}
-
-.hero-content {
-    text-align: center;
-    max-width: 1200px;
-}
-
-.hero-image {
-    width: 100%;
-    max-width: 1000px;
-    height: auto;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
-}
-
-.hero-title {
-    font-size: 4rem;
-    color: #243B6B;
-    margin-bottom: 1rem;
-    font-weight: bold;
-    letter-spacing: 2px;
-}
-
-.hero-subtitle {
-    font-size: 1.5rem;
-    color: #8A5A3C;
-    font-style: italic;
-    max-width: 600px;
+.hero { 
+    margin-left: 0;
+    max-width: 760px;      /* a bit wider */
     margin: 0 auto;
+    margin-top: -20px;        /* centers the block */ 
 }
 
-/* Page Content (Menu and Order Pages) */
-.page-content {
-    padding: 3rem 2rem;
-    min-height: calc(100vh - 80px);
+.hero::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: #c6a15b; /* your accent */
+  margin-bottom: 18px;
 }
 
-.content-container {
-    max-width: 1000px;
-    margin: 0 auto;
+
+.hero h1 {
+  font-family: "Playfair Display", serif;
+  font-size: 52px;
+  font-weight: 400;
+  line-height: 1.1;
+  margin-bottom: 24px;
 }
 
-.page-title {
-    font-size: 3rem;
-    color: #243B6B;
-    margin-bottom: 1rem;
-    text-align: center;
+.hero p {
+  font-size: 17px;
+  max-width: 52ch;
+  color: var(--muted);
+  margin-bottom: 40px;
+  margin-top: -4px;
 }
 
-.page-description {
-    font-size: 1.2rem;
-    color: #5E6B73;
-    text-align: center;
-    margin-bottom: 3rem;
-    font-style: italic;
+.button {
+  display: inline-block;
+  padding: 14px 36px;
+  border: 1px solid var(--accent);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  background: transparent;
 }
 
-.menu-section,
-.order-section {
-    background-color: white;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid #6F7F4C;
+.button:hover { background: var(--accent); color: #fff; }
+
+.footer {
+  margin-top: 160px;
+  padding-top: 40px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
 }
 
-.menu-section h2,
-.order-section h2 {
-    color: #243B6B;
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
-}
-
-.menu-section p,
-.order-section p {
-    color: #5E6B73;
-    font-size: 1.1rem;
-}
-
-/* Bread Grid */
-.bread-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
-    margin-top: 2rem;
-}
-
-.bread-item {
-    position: relative;
-    overflow: hidden;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.bread-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-.bread-image {
-    width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 8px;
-}
-
-/* Order Button */
-.order-button-container {
-    display: flex;
-    justify-content: center;
-    margin-top: 3rem;
-}
-
-.order-button {
-    display: inline-block;
-    background-color: #243B6B;
-    color: #F7F2EA;
-    padding: 1.2rem 3rem;
-    font-size: 1.3rem;
-    font-weight: bold;
-    text-decoration: none;
-    border-radius: 8px;
-    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.order-button:hover {
-    background-color: #6F7F4C;
-    transform: translateY(-3px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-
-.order-button:active {
-    transform: translateY(-1px);
-}
-
-/* Responsive Design */
 @media (max-width: 768px) {
-    .nav-container {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .nav-menu {
-        gap: 1rem;
-    }
-
-    .hero-title {
-        font-size: 2.5rem;
-    }
-
-    .hero-subtitle {
-        font-size: 1.2rem;
-    }
-
-    .page-title {
-        font-size: 2rem;
-    }
-
-    .navbar {
-        padding: 1rem;
-    }
-
-    .bread-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-    }
+  .header { flex-direction: column; gap: 24px; }
+  .nav-link { margin-left: 18px; }
+  .hero h1 { font-size: 40px; }
 }

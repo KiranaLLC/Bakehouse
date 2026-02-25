@@ -7,6 +7,10 @@
 */
 
 :root {
+  --color-cream:    #F0E7C8;    /* soft creamy background */
+  --color-red:      #B32000;    /* warm terracotta – great for CTAs */
+  --color-brown:    #4D1A00;    /* crusty brown – headings/nav */
+
   --bg: #f7f5f2;
   --text: #1c1c1c;
   --muted: #7a7a7a;

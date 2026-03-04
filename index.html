@@ -6,9 +6,45 @@
   <!-- <title>Kirana Bakehouse</title> -->
 
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Luxurious+Script&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
+<header class="site-header">
+  <div class="header-inner">
 
+    <div class="logo">
+      <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image">
+      <!-- <span>kirana bakehouse</span> -->
+    </div>
+
+    <nav class="desktop-nav">
+      <a href="#story">Our Story</a>
+      <a href="#menu">Menu</a>
+      <a href="#" class="waitlist-btn">Join Waitlist</a>
+    </nav>
+
+    <div class="hamburger" id="hamburger">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+  </div>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="#story">Our Story</a>
+    <a href="#menu">Menu</a>
+    <a href="#" class="waitlist-btn mobile">Join Waitlist</a>
+  </div>
+</header>
+<script>
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobileMenu');
+
+  hamburger.addEventListener('click', () => {
+    mobileMenu.classList.toggle('active');
+  });
+</script>
 <body>
 
   <main class="page">
@@ -18,20 +54,11 @@
       <img src="./img/CoverImage.png" alt="Kirana Bakehouse">
     </section>
 
-    <!-- HERO TEXT -->
-    <!-- <section class="hero">
-      <h1>French Technique meets Local Flavors</h1>
-      <p>
-        Handcrafted, naturally leavened loaves baked in small batches in The Willows.
-      </p>
-
-      <a href="#" class="cta-button">Pre-Order Now</a>
-    </section> -->
-
 
     <!-- STORY SECTION -->
-    <section class="story">
-      <div class="story-grid">
+    <section class="story-test">
+      <img src="./img/concept.png" alt="Our concept">
+      <!-- <div class="story-grid">
 
         <div class="story-image">
           <img src="./img/dough_hands.jpg" alt="Artisan bread concept">
@@ -53,15 +80,15 @@
             crafted in small batches, fermented slowly, and baked to a golden crust.
             No shortcuts. No commercial yeast. Just time, care, and tradition.
           </p>
-        </div>
+        </div> -->
 
-      </div>
+      <!-- </div> -->
     </section>
 
 
     <!-- FOOTER -->
     <footer class="footer">
-      <div>© 2026 Kirana Bakehouse</div>
+      <div>© 2026 Kirana</div>
 
       <a
         href="https://www.instagram.com/kiranabakehouse"

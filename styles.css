@@ -48,7 +48,7 @@ img {
   flex-direction: column;
   padding: 20px;
   gap: 18px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--cream);
 }
 
 .mobile-menu a {
@@ -58,7 +58,7 @@ img {
 }
 
 .mobile-menu .subscribe-btn.mobile {
-  text-align: center;
+  text-align: right;
 }
 
 .mobile-menu.active {
@@ -739,12 +739,14 @@ content: "";
   }
 }
 @media (max-width: 900px) {
-  .desktop-nav {
-    display: none;
+
+  /* Global mobile spacing & readability */
+  body {
+    font-size: 16px;                /* base font readable on phone */
   }
 
-  .hamburger {
-    display: flex;
+  .page {
+    padding: 16px;                  /* less side padding on small screens */
   }
 
   /* Global mobile spacing & readability */

@@ -61,6 +61,8 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: nowrap;                   /* prevent wrapping on mobile */
+  gap: 16px;
 }
 
 .logo {
@@ -94,35 +96,23 @@ img {
 }
 
 .subscribe-btn {
-  padding: 10px 18px;
-  border: 1px solid var(--cream);
+padding: 12px 28px;
+  background: var(--terracotta);
+  color: white;
+  border: none;
   border-radius: 30px;
+  font-size: 15px;
+  font-weight: 600;
   text-decoration: none;
-  font-size: 14px;
-  transition: 0.2s ease;
+  text-align: center;
+  transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .subscribe-btn:hover {
   background: var(--deep-brown);
   color: var(--cream);
-}
-
-.hamburger {
-  width: 26px;
-  height: 18px;
-  display: none;
-  flex-direction: column;
-  justify-content: space-between;
-  cursor: pointer;
-  border: 0;
-  background: transparent;
-}
-
-.hamburger span {
-  height: 2px;
-  width: 100%;
-  background: var(--cream);
-  display: block;
+  transform: scale(1.05);
 }
 
 .mobile-menu {
@@ -130,7 +120,7 @@ img {
   flex-direction: column;
   padding: 20px;
   gap: 18px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--cream);
 }
 
 .mobile-menu a {
@@ -140,7 +130,7 @@ img {
 }
 
 .mobile-menu .subscribe-btn.mobile {
-  text-align: center;
+  text-align: right;
 }
 
 .mobile-menu.active {
@@ -299,7 +289,7 @@ img {
 }
 
 .lineup-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Host Grotesk", sans-serif;
   font-size: 2.5rem;
   font-weight: 500;
   color: var(--deep-brown);
@@ -338,7 +328,7 @@ img {
 }
 
 .card-title {
-  font-family: 'Space Grotesk', sans-serif; 
+  font-family: 'Host Grotesk', sans-serif; 
   font-size: 1.5rem; 
   margin: 0 0 15px;
   font-weight: 1000;
@@ -398,53 +388,135 @@ img {
   transition: color 0.3s ease;
   font-weight: 500;
 }
+
 /* =========================
-   RESPONSIVE
+   RESPONSIVE – MOBILE FIRST IMPROVEMENTS
 ========================= */
-
 @media (max-width: 900px) {
-  .desktop-nav {
-    display: none;
+
+  /* Global mobile spacing & readability */
+  body {
+    font-size: 16px;                /* base font readable on phone */
   }
 
-  .hamburger {
-    display: flex;
+  .page {
+    padding: 16px;                  /* less side padding on small screens */
   }
 
-  .hero h1 {
-    font-size: 38px;
-  }
-
-  .story {
-    padding: 60px 24px;
-  }
-
-  .story-grid {
-    grid-template-columns: 1fr;
-    gap: 40px;
-  }
-
-  .footer {
+  /* Header – make everything center and compact */
+  .cover img ,
+.story-image img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  margin-top: 00px;
+}
+  .header-inner {
     flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 16px;
+    /* padding: 1px; */
+  }
+
+  .logo img {
+    width: 120px;                  
+     height: 30px;
+  object-fit: cover;
+  object-position: left;
+  }
+
+  /* .desktop-nav {
+    display: none !important;
+  } */
+
+  /* Very large titles – scale down dramatically */
+  .concept-title {
+    font-size: 5.5rem !important;     /* was 7.5rem → way too big */
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  .lineup-title {
+    font-size: 2.8rem !important;
     text-align: center;
   }
+
+  .lineup-subtitle {
+    font-size: 2.2rem !important;
+  }
+
+  .card-title {
+    font-size: 1.8rem !important;
+  }
+
+  /* Cards – stack vertically, full width, better spacing */
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  .card {
+    padding: 24px 20px !important;
+  }
+
+  .card-text {
+    font-size: 1.05rem !important;
+  }
+
+  /* Concept section – stack image/text vertically */
   .concept-container {
-    flex-direction: column;
-    gap: 40px;
+    flex-direction: column !important;
+    gap: 32px !important;
   }
 
+  .concept-image img {
+    border-radius: 8px;
+  }
+
+  .concept-text {
+    text-align: center;
+  }
+
+  .concept-body,
+  .concept-text p {
+    font-size: 1.1rem !important;
+    line-height: 1.6;
+  }
+
+  /* Footer – center everything */
+  .footer {
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 16px;
+    padding: 32px 20px;
+  }
+
+  .social-ig,
+  .ig-link {
+    justify-content: center;
+  }
+
+  .ig-logo {
+    width: 28px;
+  }
+}
+
+/* Extra-small screens (phones < 480px) */
+@media (max-width: 480px) {
   .concept-title {
-    font-size: 3.8rem;
+    font-size: 2.8rem !important;
   }
 
-  .concept-subtitle {
-    font-size: 1.4rem;
+  .lineup-title {
+    font-size: 2.2rem !important;
   }
 
-  .concept-highlight {
-    font-size: 1.8rem;
+  .lineup-subtitle {
+    font-size: 1.8rem !important;
   }
 
+  .page {
+    padding: 12px;
+  }
 }
 

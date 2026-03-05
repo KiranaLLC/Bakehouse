@@ -1,31 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order - Kirana</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Place Order - Kirana Bakehouse</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    /* Page-specific styles for clean form embedding */
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--deep-brown); /* matches your site theme */
+      color: var(--cream);
+      font-family: "Inter", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header.site-header {
+      background: var(--deep-brown);
+      padding: 20px 0;
+      border-bottom: none;
+    }
+
+    .form-container {
+      flex: 1;
+      width: 100%;
+      max-width: 800px; /* adjust if you want wider/narrower */
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .form-container iframe {
+      width: 100%;
+      min-height: 1200px; /* generous starting height - Google Forms are tall */
+      height: 100%; /* try to fill available space */
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      background: white; /* white bg for form contrast */
+    }
+
+    /* Hide scrollbars but allow scrolling inside iframe if needed */
+    .form-container iframe {
+      overflow: hidden;
+      scrollbar-width: none; /* Firefox */
+    }
+
+    .form-container iframe::-webkit-scrollbar {
+      display: none; /* Chrome/Safari */
+    }
+
+    /* Back link at bottom if you want */
+    .back-link {
+      text-align: center;
+      padding: 20px;
+      font-size: 1rem;
+      color: var(--cream);
+    }
+
+    .back-link a {
+      color: var(--gold-accent);
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="logo"><img src="img/kirana_logo_white.svg" alt="Kirana" class="logo-image"></a>
-            <ul class="nav-menu">
-                <li><a href="menu.html" class="nav-link">Menu</a></li>
-                <li><a href="order.html" class="nav-link active">Order</a></li>
-            </ul>
-        </div>
-    </nav>
 
-    <main class="page-content">
-        <div class="content-container">
-            <h1 class="page-title">Place Your Order</h1>
-            <p class="page-description">Ready to order? Fill out our order form and we'll get back to you soon!</p>
+  <!-- Reuse your header for consistency -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image" />
+      </div>
+      <nav class="desktop-nav">
+        <a href="./index.html" class="subscribe-btn">Back to Home</a>
+      </nav>
+    </div>
+  </header>
 
-            <div class="order-button-container">
-                <a href="https://docs.google.com/forms/d/e/1FAIpQLSe3gyM7wesD1tOIdOXRLr7QAiqeB_QFJIBR3twxtGfmXkKT_Q/viewform?usp=dialog" target="_blank" class="order-button">Order Now</a>
-            </div>
-        </div>
-    </main>
+  <!-- Main form area -->
+  <div class="form-container">
+    <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSccVjYuVW8f0QEdZaVnK3pnZ8B0L52HPRBtY62tUwmBAxUIuw/viewform?embedded=true"
+            frameborder="0" marginheight="0" marginwidth="0">
+      Loading…
+    </iframe>
+  </div>
+
+  <div class="back-link">
+    <a href="./index.html">← Back to Kirana Bakehouse</a>
+  </div>
+
 </body>
 </html>

@@ -1,26 +1,32 @@
 /* =========================
-   BRAND COLORS
+   TOKENS
 ========================= */
 
 :root {
-  --cream: #F0E7C8;
-  --terracotta: #B32000;
-  --deep-brown: #4D1A00;
+  --cream: #f0e7c8;
+  --terracotta: #b32000;
+  --deep-brown: #4d1a00;
   --text-dark: #1c1c1c;
   --muted: #6d6d6d;
+  --page-max-width: 1200px;
+  --page-padding: 20px;
 }
 
 /* =========================
-   RESET
+   BASE
 ========================= */
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  max-width: 100%;
 }
 
-html, body {
+html,
+body {
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
 }
 
@@ -32,32 +38,147 @@ body {
 }
 
 img {
+  display: block;
   max-width: 100%;
+  height: auto;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.site-header {
+  width: 100%;
+  padding: 20px 0;
+  position: relative;
+  background: var(--deep-brown);
+}
+
+.header-inner {
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding: 0 var(--page-padding);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--cream);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.logo img {
+  width: 150px;
+  height: 30px;
+  object-fit: cover;
+  object-position: center;
+}
+
+.desktop-nav {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+.desktop-nav a {
+  text-decoration: none;
+  color: var(--cream);
+  font-size: 15px;
+}
+
+.subscribe-btn {
+  padding: 10px 18px;
+  border: 1px solid var(--cream);
+  border-radius: 30px;
+  text-decoration: none;
+  font-size: 14px;
+  transition: 0.2s ease;
+}
+
+.subscribe-btn:hover {
+  background: var(--deep-brown);
+  color: var(--cream);
+}
+
+.hamburger {
+  width: 26px;
+  height: 18px;
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+}
+
+.hamburger span {
+  height: 2px;
+  width: 100%;
+  background: var(--cream);
   display: block;
 }
 
+.mobile-menu {
+  display: none;
+  flex-direction: column;
+  padding: 20px;
+  gap: 18px;
+  border-top: 1px solid #eee;
+}
+
+.mobile-menu a {
+  text-decoration: none;
+  color: var(--cream);
+  font-size: 16px;
+}
+
+.mobile-menu .subscribe-btn.mobile {
+  text-align: center;
+}
+
+.mobile-menu.active {
+  display: flex;
+}
+
 /* =========================
-   PAGE CONTAINER
+   LAYOUT
 ========================= */
 
 .page {
-  max-width: 1200px;
+  width: 100%;
+  max-width: var(--page-max-width);
   margin: 0 auto;
-  padding: 30px 24px 40px;
+  padding: 30px var(--page-padding) 40px;
 }
 
-/* =========================
-   COVER IMAGE
-========================= */
+.cover,
+.story,
+.story-image {
+  width: 100%;
+  overflow: hidden;
+}
+
+.cover img,
+.story-image img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
 
 .cover img {
-  width: 100%;
   border-radius: 4px;
-  margin-bottom: 0px;
+  margin-bottom: 0;
 }
 
 /* =========================
-   HERO TEXT
+   HERO
 ========================= */
 
 .hero {
@@ -67,7 +188,7 @@ img {
 }
 
 .hero h1 {
-  font-family: "Luxurious Script";
+  font-family: "Luxurious Script", cursive;
   font-size: 52px;
   font-weight: 500;
   line-height: 1.1;
@@ -80,7 +201,6 @@ img {
   margin-bottom: 40px;
 }
 
-/* Button restored properly */
 .cta-button {
   display: inline-block;
   padding: 16px 48px;
@@ -99,13 +219,13 @@ img {
 }
 
 /* =========================
-   STORY SECTION
+   STORY
 ========================= */
-.story-test {
+
+.concept {
   background: var(--cream);
-  padding: 20px 0px;
+  padding: 20px 0;
   border-radius: 8px;
-  
 }
 
 .story {
@@ -115,6 +235,7 @@ img {
 }
 
 .story-grid {
+  width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 60px;
@@ -171,6 +292,13 @@ img {
 ========================= */
 
 @media (max-width: 900px) {
+  .desktop-nav {
+    display: none;
+  }
+
+  .hamburger {
+    display: flex;
+  }
 
   .hero h1 {
     font-size: 38px;
@@ -190,197 +318,112 @@ img {
     gap: 10px;
     text-align: center;
   }
-
 }
-/* =========================
-   SAFARI OVERFLOW FIX
-========================= */
-
-html, body {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
+.bread-lineup {
+  background: #5c2d1f; /* deep warm maroon */
+  color: #f5e8d3; /* light cream */
+  padding: 80px 20px;
+  font-family: Georgia, 'Times New Roman', serif;
 }
 
-/* Prevent any element from exceeding viewport */
-* {
-  max-width: 100%;
-}
-
-/* Page container hard lock */
-.page {
-  width: 100%;
+.container {
   max-width: 1200px;
   margin: 0 auto;
-  padding-left: 20px;
-  padding-right: 20px;
 }
 
-/* Cover Image Fix */
-.cover {
-  width: 100%;
+.section-title {
+  text-align: center;
+  font-size: 3.5rem;
+  font-style: italic;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.section-subtitle {
+  text-align: center;
+  font-size: 1.4rem;
+  line-height: 1.6;
+  max-width: 800px;
+  margin: 0 auto 60px;
+  color: #f0d9b5;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 40px;
+  margin-bottom: 60px;
+}
+
+.card {
+  background: #8b4513; /* slightly lighter brown for cards */
+  border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  transition: transform 0.3s ease;
 }
 
-.cover img {
-  width: 100%;
-  height: auto;
-  display: block;
-  object-fit: cover;
+.card:hover {
+  transform: translateY(-10px);
 }
 
-/* Story Section Fix */
-.story {
-  width: 100%;
-  overflow: hidden;
-}
-
-.story-grid {
-  width: 100%;
-}
-
-.story-image {
-  width: 100%;
-  overflow: hidden;
-}
-
-.story-image img {
-  width: 100%;
-  height: auto;
-  display: block;
-  object-fit: cover;
-}
-
-/* Extra Safari safety */
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* =========================
-   HEADER
-========================= */
-
-.site-header {
-  width: 100%;
-  padding: 20px 0;
-  /* border-bottom: 1px solid #eee; */
-  position: relative;
-  background: var(--deep-brown);
-}
-
-.header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-display: flex;
-  flex-direction: column; /* Stacks image on top of text */
-  align-items: center;    /* Centers both horizontally */
-  justify-content: center;
-  color: var(--cream);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 1px;
-}
-
-/* Specific styling for the SVG image */
-.logo img {
-  display: block;
-  width: 150px;      /* Adjust width as needed for your design */
-  height: 30px;     /* Set a specific height to "crop" the empty space */
-  object-fit: cover; /* Crops the image to fill the 60px height */
-  object-position: center; /* Keeps the actual logo mark in focus */
-}
-
-.desktop-nav {
-  display: flex;
-  gap: 30px;
-  align-items: center;
-}
-
-.desktop-nav a {
-  text-decoration: none;
-  color: var(--cream);
-  font-size: 15px;
-}
-
-.waitlist-btn {
-  padding: 10px 18px;
-  border: 1px solid var(--cream);
-  border-radius: 30px;
-  text-decoration: none;
-  font-size: 14px;
-  transition: 0.2s ease;
-}
-
-.waitlist-btn:hover {
-  background: var(--deep-brown);
-  color: var(--cream);
-}
-
-/* =========================
-   HAMBURGER
-========================= */
-
-.hamburger {
-  width: 26px;
-  height: 18px;
-  display: none;
-  flex-direction: column;
-  justify-content: space-between;
-  cursor: pointer;
-}
-
-.hamburger span {
-  height: 2px;
-  width: 100%;
-  background: var(--cream);
-  display: block;
-}
-
-/* =========================
-   MOBILE MENU
-========================= */
-
-.mobile-menu {
-  display: none;
-  flex-direction: column;
-  padding: 20px;
-  gap: 18px;
-  border-top: 1px solid #eee;
-}
-
-.mobile-menu a {
-  text-decoration: none;
-  color: var(--cream);
-  font-size: 16px;
-}
-
-.mobile-menu .waitlist-btn.mobile {
+.card-content {
+  padding: 30px 25px 20px;
   text-align: center;
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
+.card-title {
+  font-size: 2.4rem;
+  font-style: italic;
+  margin: 0 0 12px;
+  color: #fff;
+}
 
-@media (max-width: 900px) {
+.card-desc {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  margin: 0;
+  color: #f0d9b5;
+}
 
-  .desktop-nav {
-    display: none;
-  }
+.card-image {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
 
-  .hamburger {
-    display: flex;
-  }
+.footer-note {
+  text-align: center;
+  font-size: 1.4rem;
+  font-style: italic;
+  color: #f0d9b5;
+}
 
-  .mobile-menu.active {
-    display: flex;
-  }
+.footer-note p {
+  margin-bottom: 30px;
+}
+
+.btn-join {
+  display: inline-block;
+  padding: 16px 50px;
+  background: #d4a373; /* warm gold */
+  color: #5c2d1f;
+  font-size: 1.3rem;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 50px;
+  transition: background 0.3s ease;
+}
+
+.btn-join:hover {
+  background: #e0b88a;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .section-title { font-size: 2.8rem; }
+  .section-subtitle { font-size: 1.25rem; }
+  .card-title { font-size: 2rem; }
+  .card-desc { font-size: 1.1rem; }
 }

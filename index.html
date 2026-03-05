@@ -2,105 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <!-- <title>Kirana Bakehouse</title> -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Luxurious+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./script.js" defer></script>
 </head>
-<header class="site-header">
-  <div class="header-inner">
-
-    <div class="logo">
-      <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image">
-      <!-- <span>kirana bakehouse</span> -->
-    </div>
-
-    <nav class="desktop-nav">
-      <a href="#story">Our Story</a>
-      <a href="#menu">Menu</a>
-      <a href="#" class="waitlist-btn">Join Waitlist</a>
-    </nav>
-
-    <div class="hamburger" id="hamburger">
-      <span></span>
-      <span></span>
-      <span></span>
-    </div>
-
-  </div>
-
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="#story">Our Story</a>
-    <a href="#menu">Menu</a>
-    <a href="#" class="waitlist-btn mobile">Join Waitlist</a>
-  </div>
-</header>
-<script>
-  const hamburger = document.getElementById('hamburger');
-  const mobileMenu = document.getElementById('mobileMenu');
-
-  hamburger.addEventListener('click', () => {
-    mobileMenu.classList.toggle('active');
-  });
-</script>
 <body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image" />
+      </div>
+
+      <nav class="desktop-nav" aria-label="Primary navigation">
+        <a href="#" data-link-key="subscribe" class="subscribe-btn">Join Now</a>
+      </nav>
+
+      <button class="hamburger" id="hamburger" aria-label="Toggle mobile menu" aria-controls="mobileMenu" aria-expanded="false" type="button">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+
+    <nav class="mobile-menu" id="mobileMenu" aria-label="Mobile navigation">
+      <a href="#" data-link-key="subscribe" class="subscribe-btn mobile">Join Now</a>
+    </nav>
+  </header>
 
   <main class="page">
-
-    <!-- COVER IMAGE -->
-    <section class="cover">
-      <img src="./img/CoverImage.png" alt="Kirana Bakehouse">
+    <section class="cover" id="menu">
+      <img src="./img/CoverImage.png" alt="Kirana Bakehouse" />
     </section>
 
-
-    <!-- STORY SECTION -->
-    <section class="story-test">
-      <img src="./img/concept.png" alt="Our concept">
-      <!-- <div class="story-grid">
-
-        <div class="story-image">
-          <img src="./img/dough_hands.jpg" alt="Artisan bread concept">
-        </div>
-
-        <div class="story-text">
-          <h2>Our Story</h2>
-
-          <p class="subtitle">
-            A monthly bread subscription rooted in slow baking and simple ingredients.
-          </p>
-
-          <p class="highlight">
-            4 weeks. 4 loaves. 1 intentional ritual.
-          </p>
-
-          <p>
-            Each week, you’ll receive an artisanal, naturally leavened loaf —
-            crafted in small batches, fermented slowly, and baked to a golden crust.
-            No shortcuts. No commercial yeast. Just time, care, and tradition.
-          </p>
-        </div> -->
-
-      <!-- </div> -->
+    <section class="concept" id="concept">
+      <img src="./img/concept.png" alt="Our concept" />
     </section>
+  <section class="concept" id="menu_ss">
+      <img src="./img/classic_ss.png" alt="Spring/Summer Classics" />
+    </section>
+     <section class="concept" id="menu_ss">
+      <img src="./img/inclusions_ss.png" alt="Spring/Summer Inclusions" />
+    </section> 
 
-
-    <!-- FOOTER -->
     <footer class="footer">
       <div>© 2026 Kirana</div>
-
       <a
-        href="https://www.instagram.com/kiranabakehouse"
-        target="_blank"
-        rel="noopener"
+        href="#"
+        data-link-key="instagram"
+        data-external="true"
         class="instagram-link"
       >
         @kiranabakehouse
       </a>
     </footer>
-
   </main>
-
 </body>
 </html>

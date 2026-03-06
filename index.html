@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Luxurious+Script&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
   <script src="./script.js" defer></script>
@@ -26,9 +27,9 @@
 
   <main class="page"> 
       <section class="cover" id="menu">
-        <div class="cover-container">
+        <div class="cover-container"  data-aos="fade-up" data-aos-delay="100">
           <img src="./img/CoverImage.png" alt="Kirana Bakehouse" />
-          <div class="cover-text">
+          <div class="cover-text" >
             <p>Love Fresh Bread? So Do We!</p>
           </div>
           <!-- Add any other text, tagline, or call-to-action here -->
@@ -37,7 +38,7 @@
 
 
     <!-- Our Concept Section -->
-<section class="concept-section">
+<section class="concept-section" data-aos="fade-up" data-aos-delay="300">
   <div class="concept-container">
     <!-- Left: Image -->
     <div class="concept-image">
@@ -48,24 +49,23 @@
 
     <!-- Right: Text Content -->
     <div class="concept-text">
-      <h2 class="concept-title">Concept</h2>
-      <p class="concept-text"> 
+      <h2 class="concept-title" data-aos="fade-up" data-aos-delay="300">Concept</h2>
+      <p class="concept-text" data-aos="fade-up" data-aos-delay="300"> 
         Kirana Bakehouse brings you a monthly bread subscription rooted in slow baking and simple ingredients.
         </p>
-        <p>Here’s how it works:</p>
-     <p><strong>4 weeks. 4 loaves. 1 intentional ritual.</strong></p>
-      <p>Each week, you’ll receive an artisanal, hand-made, naturally leavened loaf — crafted in small batches, fermented slowly, and baked to a golden crust.</p>
-      <p>No shortcuts. No commercial yeast. Just time, care, and traditional technique.</p>
+        <p data-aos="fade-up" data-aos-delay="300">Here’s how it works:</p>
+     <p data-aos="fade-up" data-aos-delay="300"><strong>4 weeks. 4 loaves. 1 intentional ritual.</strong></p>
+      <p data-aos="fade-up" data-aos-delay="300">Each week, you’ll receive an artisanal, hand-made, naturally leavened loaf — crafted in small batches, fermented slowly, and baked to a golden crust.</p>
+      <p data-aos="fade-up" data-aos-delay="300">No shortcuts. No commercial yeast. Just time, care, and traditional technique.</p>
     </div>
   </div>
 </section>
 
 <!-- Spring/Summer Inclusions Lineup Section -->
 <section class="lineup-section">
-  <div class="lineup-container">
     
     <!-- Header Title -->
-    <h2 class="lineup-title" id="lineup-title">
+    <h2 class="lineup-title" id="lineup-title" data-aos="fade-up" data-aos-delay="400">
       SPRING/SUMMER <span class = "lineup-subtitle">Lineup </span>
     </h2>
 
@@ -73,14 +73,14 @@
     <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 30px;">
      
             <!-- House White -->
-      <div class="card card-deep">
+      <div class="card card-deep" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">House White</h3>
          <p class="card-text">
           Classic white sourdough - crisp crust envelops a light, open crumb
         </p>
       </div>
             <!-- Everything Seasoning -->
-      <div class="card card-deep">
+      <div class="card card-deep" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Everything Seasoning</h3>
          <p class="card-text">
          A subtle crown of sesame, poppy, garlic, onion, and salt on our house white loaf
@@ -88,7 +88,7 @@
         </p>
       </div>
       <!-- Pesto -->
-      <div class="card">
+      <div class="card" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Pesto</h3>
         <p class="card-text">
           Subtly infused with basil pesto for soft, aromatic elegance
@@ -96,7 +96,7 @@
       </div>
 
       <!-- Olives -->
-      <div class="card">
+      <div class="card" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Olives</h3>
         <p class="card-text">
           Carefully folded Kalamata olives add understated brininess
@@ -104,7 +104,7 @@
       </div>
 
       <!-- Cheddar -->
-      <div class="card">
+      <div class="card" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Cheddar</h3>
         <p class="card-text">
           Delicate sharp cheddar pockets melt into creamy, savory richness
@@ -112,7 +112,7 @@
       </div>
 
       <!-- Cheddar + Jalapeño -->
-      <div class="card">
+      <div class="card" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Cheddar + Jalapeño</h3>
         <p class="card-text">
           Sharp cheddar and gentle jalapeño flecks create refined, layered savoriness with quiet spice
@@ -120,7 +120,7 @@
       </div>
 
       <!-- Strawberry + White Chocolate -->
-      <div class="card">
+      <div class="card" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Strawberry + White Choc</h3>
          <p class="card-text">
           Strawberry essence mingles with creamy white chocolate for soft, fruity sweetness
@@ -128,14 +128,12 @@
       </div>
 
       <!-- Milk Chocolate -->
-      <div class="card">
+      <div class="card" data-aos="fade-up" data-aos-delay="400">
         <h3 class = "card-title">Milk Chocolate</h3>
          <p class="card-text">
           Artisanal milk chocolate inclusions provide mellow cocoa notes in harmonious restraint
         </p>
       </div>
-
-    </div>
   </div>
 </section>
 
@@ -157,5 +155,14 @@
   </a></div>
     </footer>
   </main>
+  <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+<script>
+  AOS.init({
+    duration: 800,      // animation speed (ms)
+    once: true,         // animate only once (recommended)
+    easing: 'ease-out',
+    offset: 120         // start animation 120px before element enters view
+  });
+</script>
 </body>
 </html>

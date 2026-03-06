@@ -303,23 +303,73 @@ padding: 12px 28px;
 ========================= */
 .lineup-section {
   font-family: 'Montserrat', serif;
+  padding: 40px 20px;
+  background: var(--cream); /* light to contrast with cards */
+  text-align: center;
+}
+.lineup-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 60px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.lineup-left {
+  flex: 1 1 55%;
+  min-width: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.lineup-image::after {
+content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 30%, transparent 40%, rgba(77,26,0,0.12) 100%);
+  border-radius: 20px;
+  pointer-events: none;
+}
+.lineup-image {
+  flex: 1 1 40%;
+  min-width: 400px;
+  display: flex;
+  align-items: flex-start;          /* image starts at same top level as cards */
+  justify-content: center;
+}
+
+.lineup-image img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 1000px;                /* prevents overflow / blank space at bottom */
+  object-fit: cover;
+  border-radius: 20px;
+  box-shadow: 0 16px 48px rgba(77, 26, 0, 0.35);
+  filter: brightness(1.05) saturate(1.12) hue-rotate(8deg); /* warm match to cards */
 }
 
 .lineup-title {
   font-family: "Host Grotesk", sans-serif;
-  font-size: 2.5rem;
+  font-size: 3.0rem;
   font-weight: 500;
   color: var(--deep-brown);
   letter-spacing: 0.2px;
-  text-align: center;
+  text-align: center;               /* ← centered as requested */
+  margin: 0 auto 1.5rem;            /* centered + breathing room */
+  width: fit-content;
 }
 
 .lineup-subtitle {
  font-family: 'Luxurious Script', cursive; 
  font-size: 3em; 
  opacity: 0.95;
-  padding-right: 0.3em;
-  overflow: visible;
+ padding-right: 0.3em;   /* so that the P in lineup doesn't get cut off */
+ padding-left: 0.1em;    /* so that the L in lineup doesn't get cut off */
+ vertical-align: middle;
 }
 
 /* =========================
@@ -362,6 +412,37 @@ padding: 12px 28px;
   margin: 0;
   color: var(--cream);
 }
+
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 90%;
+  width: 400px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px; right: 15px;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #8B4513;
+}
+
+.modal-content h3 { margin-top: 0; color: #8B4513; }
+.modal-content ul { padding-left: 1.2rem; }
 
 /* =========================
    FOOTER
@@ -461,7 +542,24 @@ padding: 12px 28px;
     text-align: center;
     line-height: 1.1;
   }
+  .lineup-container {
+    flex-direction: column;
+    gap: 50px;
+  }
 
+   .lineup-left,
+  .lineup-image {
+    min-width: 100%;
+  }
+.lineup-left,
+  .lineup-image {
+    min-width: 100%;
+  }
+
+  .lineup-image img {
+    max-height: 500px;
+    border-radius: 16px;
+  }
   .lineup-title {
     font-size: 2.2rem !important;
     text-align: center;
@@ -533,8 +631,23 @@ padding: 12px 28px;
     font-size: 3.8rem !important;
   }
 
+  .lineup-container {
+    flex-direction: column;
+    gap: 50px;
+  }
+
+  .lineup-left,
+  .lineup-image {
+    min-width: 100%;
+  }
+
+.lineup-image img {
+    max-height: 500px;
+    border-radius: 16px;
+  }
   .lineup-title {
     font-size: 1.2rem !important;
+    text-align: center;
   }
 
   .lineup-subtitle {
@@ -542,7 +655,7 @@ padding: 12px 28px;
   }
 
   .page {
-    padding: 10px;
+    padding: 5px;
   }
 }
 

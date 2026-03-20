@@ -49,7 +49,7 @@ img {
 
 .site-header {
   width: 100%;
-  padding: 20px 0;
+  padding: 11px 0;
   position: relative;
   background: var(--deep-brown);
 }
@@ -86,7 +86,7 @@ img {
 .desktop-nav {
 display: flex;
   align-items: center;               /* vertical alignment */
-  gap: 2rem;                         /* space between IG and Order Now – adjust to taste */
+  gap: 1rem;                         /* space between IG and Order Now – adjust to taste */
   flex-wrap: nowrap;
   justify-content: flex-end;
 }

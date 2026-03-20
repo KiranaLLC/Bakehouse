@@ -10,19 +10,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css" />
-  <script src="./script.js" defer></script>
+  <!-- <link rel="stylesheet" href="./styles.css" /> -->
+  <link rel="stylesheet" href="./styles.css?v=999" />
 </head>
 <body>
 <header class="site-header">
+  
   <div class="header-inner">
-    <div class="logo">
-      <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image" />
-    </div>
-    <nav class="desktop-nav" aria-label="Primary navigation">
-      <a href="https://cash.app/$kiranabakehouse" class="subscribe-btn">Order Now</a>
-    </nav>
+  <div class="logo">
+    <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image" />
   </div>
+
+  <!-- Hamburger Menu (pure CSS) -->
+ <div class="mobile-menu-wrapper">
+    <input type="checkbox" id="menu-toggle" class="menu-toggle" />
+    <label for="menu-toggle" class="hamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </label>
+    <div class="menu-overlay">
+      <div class="menu-content">
+        <label for="menu-toggle" class="close-menu">×</label>
+        <ul class="menu-list">
+          <li><a href="https://cash.app/$kiranabakehouse" target="_blank">Order</a></li>
+          <li><a href="#faqs">FAQs</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <nav class="desktop-nav">
+    <a href="https://cash.app/$kiranabakehouse" class="subscribe-btn">Order Now</a>
+  </nav>
+</div>
 </header>
 
   <main class="page"> 
@@ -78,7 +98,7 @@
             <!-- House White -->
       <div class="card" data-aos="fade-up" data-aos-delay="300" onclick="showIngredients('House White Loaf Ingredients', `
        <ul>
-         <li>Organic bread flour</li>
+         <li>Organic All Purpose Flour</li>
          <li>Water</li>
          <li>Sea salt</li>
          <li>Liquid Levain Starter</li>
@@ -92,11 +112,11 @@
             <!-- Everything Seasoning -->
       <div class="card" data-aos="fade-up" data-aos-delay="300" onclick="showIngredients('Everything Seasoning Loaf Ingredients', `
        <ul>
-         <li>Organic bread flour</li>
+         <li>Organic All Purpose Flour</li>
           <li>Water</li>
          <li>Sea salt</li>
          <li>Liquid Levain Starter</li>
-         <li>Everything but the bagel seasoning</li>
+         <li>Everything but the Bagel Seasoning</li>
        </ul>
      `)"style="cursor: pointer;">
         <h3 class = "card-title">Everything Seasoning</h3>
@@ -108,11 +128,11 @@
       <!-- Pesto -->
       <div class="card" data-aos="fade-up" data-aos-delay="300" onclick="showIngredients('Pesto Loaf Ingredients', `
        <ul>
-         <li>Organic bread flour</li>
+         <li>Organic All Purpose Flour</li>
          <li>Water</li>
          <li>Sea salt</li>
          <li>Liquid Levain Starter</li>
-         <li>Organic Basil pesto</li>
+         <li>Organic Basil Pesto</li>
        </ul>
      `)"style="cursor: pointer;">
         <h3 class = "card-title">Pesto</h3>
@@ -124,13 +144,13 @@
       <!-- Olives -->
       <div class="card" data-aos="fade-up" data-aos-delay="300" onclick="showIngredients('Olive Loaf Ingredients', `
        <ul>
-         <li>Organic bread flour</li>
+         <li>Organic All Purpose Flour</li>
          <li>Water</li>
          <li>Sea salt</li>
          <li>Liquid Levain Starter</li>
-         <li>Organic Black/Green Olives</li>
+         <li>Organic Black Olives</li>
          <li>Extra Virgin Olive Oil</li>
-         <li>Herbs de Provence seasoning</li>
+         <li>Herbs de Provence Seasoning</li>
        </ul>
      `)"style="cursor: pointer;">
         <h3 class = "card-title">Olives</h3>
@@ -142,11 +162,11 @@
       <!-- Cheddar -->
       <div class="card" data-aos="fade-up" data-aos-delay="300" onclick="showIngredients('Cheddar Loaf Ingredients', `
        <ul>
-         <li>Organic bread flour</li>
+         <li>Organic All Purpose Flour</li>
          <li>Water</li>
          <li>Sea salt</li>
          <li>Liquid Levain Starter</li>
-         <li>Sharp Cheddar Cheese</li>
+         <li>Tilamook Sharp Cheddar Cheese</li>
        </ul>
      `)"style="cursor: pointer;">
         <h3 class = "card-title">Cheddar</h3>
@@ -158,11 +178,11 @@
       <!-- Cheddar + Jalapeño -->
       <div class="card" data-aos="fade-up" data-aos-delay="300" onclick="showIngredients('Cheddar & Jalapeño Loaf Ingredients', `
        <ul>
-         <li>Organic bread flour</li>
+         <li>Organic All Purpose Flour</li>
          <li>Water</li>
          <li>Sea salt</li>
          <li>Liquid Levain Starter</li>
-         <li>Sharp Cheddar Cheese</li>
+         <li>Tilamook Sharp Cheddar Cheese</li>
          <li>Pickled Organic Jalapeño Peppers</li>
        </ul>
      `)"style="cursor: pointer;" >
@@ -212,18 +232,107 @@
            data-aos="fade-up"
            data-aos-delay="100">
       </div>
-  </div> <!-- end .lineup-container -->
+  </div> <!-- end .lineup-container -->  
 </section>
 
-  <!-- <section class="concept" id="menu_ss">
-      <img src="./img/classic_ss.png" alt="Spring/Summer Classics" />
-    </section>
-     <section class="concept" id="menu_ss">
-      <img src="./img/inclusions_ss.png" alt="Spring/Summer Inclusions" />
-    </section>  -->
+<!-- FAQs Section – Image Left, Text Right (Matching Concept Layout) -->
+<!-- FAQs Section – Image Left, Text Right with Expandable Drop-Downs -->
+<section class="faqs-section">
+  <div class="faqs-container">
+    <!-- Left: Image -->
+    <div class="faqs-image">
+      <img 
+        src="./img/house_white_pinterest.JPEG" 
+        alt="Fresh sourdough crumb texture" 
+        loading="lazy"
+      />
+    </div>
 
+    <!-- Right: Text Content -->
+    <div class="faqs-text">
+      <h2 class="faqs-title">Frequently Asked Questions</h2>
+
+      <div class="faq-list">
+        <details class="faq-item">
+  <summary class="faq-question">How does the Bread Subscription work?</summary>
+  <div class="faq-answer">
+    <p>
+      After purchasing a subscription, please fill out the bread selection form on our website so we know which loaves to bake for you each week. You choose your plan once and receive 4 beautiful hand-crafted loaves — one each week for 4 weeks total. The plan does NOT auto-renew. 
+    </p>
+  </div>
+</details>
+        <details class="faq-item">
+  <summary class="faq-question">How does ordering work?</summary>
+  <div class="faq-answer">
+    <p>
+      You can order à la carte or subscribe from our menu <a href="https://cash.app/order/$kiranabakehouse">HERE</a>. À la carte loaves are made to order, while subscriptions reserve your weekly bread.
+    </p>
+  </div>
+</details>
+
+<details class="faq-item">
+  <summary class="faq-question">How long does it take to receive my loaf?</summary>
+  <div class="faq-answer">
+    <p>
+      Each loaf takes ~2-3 days to ferment and bake. Your bread will be delivered ~2-3 days after your order is placed. You will receive an email from us detailing the date and time slot that your bread will arrive. (Please disregard the prep times in the Square menu as they do not allow me to put more than 2hours as prep time).
+    </p>
+  </div>
+</details>
+
+<details class="faq-item">
+  <summary class="faq-question">Do you offer pickup or delivery?</summary>
+  <div class="faq-answer">
+    <p>
+      We are currently delivery only. We offer free delivery to your home if you are within our delivery zone.  Deliveries happen weekly on your selected day (Friday or Saturday) from the form. Porch / no-contact delivery available.
+    </p>
+  </div>
+</details>
+<details class="faq-item">
+  <summary class="faq-question">What ingredients do you use?</summary>
+  <div class="faq-answer">
+    <p>
+      We use high-quality, organic and, locally sourced ingredients for all our loaves. Our loaves are naturally leavened and DO NOT have preservatives or commercial yeast.
+    </p>
+  </div>
+</details>
+
+<details class="faq-item">
+  <summary class="faq-question">How should I store my bread?</summary>
+  <div class="faq-answer">
+    <p>
+      Store your loaf at room temperature in a paper bag or wrapped in a kitchen towel. Avoid refrigeration, as it can dry out the bread. If you cannot finish it within a few days, slice your loaf first, then freeze it in an airtight bag, freeze it for up to 2 months. When you want to eat it, pop it into a toaster or oven and enjoy!
+    </p>
+  </div>
+</details>
+
+        <details class="faq-item">
+          <summary class="faq-question">What if I have dietary restrictions or allergies?</summary>
+          <div class="faq-answer">
+            <p>
+              All loaves contain gluten (wheat flour). Some include dairy. See full details on the <a href="allergens.html">Allergen Info</a> page. Contact us before subscribing if needed.
+            </p>
+          </div>
+        </details>   
+        <details class="faq-item">
+          <summary class="faq-question">Is this a licensed bakery?</summary>
+          <div class="faq-answer">
+            <p>
+              Yes, we are a licensed California Cottage Food Operation, food safety certified, and registered under CFO Permit #26-00019589 in San Mateo County.
+            </p>
+          </div>
+        </details>      
+                <details class="faq-item">
+          <summary class="faq-question">I have more questions! How do I get in touch?</summary>
+          <div class="faq-answer">
+            <p>
+             You can email us at hellokiranabakehouse@gmail.com or send us a DM on our instagram <a href="https://www.instagram.com/kiranabakehouse/">@kiranabakehouse</a>
+            </p>
+          </div>
+        </details>     
+  </div>
+</section>
     <footer class="footer">
-      <p>© 2026 Kirana Bakehouse – Made in a Home Kitchen in San Mateo County. Permit #26-00019589.See full <a href="terms.html">Terms of Service</a>, <a href="privacy.html">Privacy Policy</a>, and <a href="allergens.html">Allergen Info</a>.</p>
+      <p>© 2026 Kirana Bakehouse – Made in a Home Kitchen in San Mateo County. Permit #26-00019589. See full <a href="terms.html">Terms of Service</a>, <a href="privacy.html">Privacy Policy</a>, and <a href="allergens.html">Allergen Info</a>.</p>
       <div class="ig-container">
      <a href="https://www.instagram.com/kiranabakehouse/" target="_blank" rel="noopener noreferrer" class="ig-link">
     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/1200px-Instagram_logo_2016.svg.png"" 

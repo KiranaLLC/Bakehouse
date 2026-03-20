@@ -84,15 +84,30 @@ img {
 }
 
 .desktop-nav {
-  display: flex;
-  gap: 30px;
-  align-items: center;
+display: flex;
+  align-items: center;               /* vertical alignment */
+  gap: 2rem;                         /* space between IG and Order Now – adjust to taste */
+  flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
 .desktop-nav a {
   text-decoration: none;
   color: var(--cream);
   font-size: 15px;
+}
+
+.order-btn {
+padding: 12px 28px;
+  background: var(--terracotta);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.3s ease;
 }
 
 .subscribe-btn {
@@ -107,6 +122,12 @@ padding: 12px 28px;
   text-align: center;
   transition: all 0.3s ease;
   white-space: nowrap;
+}
+
+.order-btn:hover {
+  background: var(--deep-brown);
+  color: var(--cream);
+  transform: scale(1.05);
 }
 
 .subscribe-btn:hover {
@@ -667,6 +688,18 @@ content: "";
 /* =========================
    RESPONSIVE – MOBILE FIRST IMPROVEMENTS
 ========================= */
+
+@media (min-width: 769px) {
+  .desktop-nav {
+    display: flex !important;     /* force show on desktop */
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none !important;     /* hide on mobile if you want */
+  }
+}
 @media (max-width: 900px) {
 
   /* Global mobile spacing & readability */

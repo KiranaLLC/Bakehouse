@@ -628,15 +628,25 @@ content: "";
     gap: 40px;
   }
   .faqs-title {
-    font-size: 5.5rem;
+    font-size: 2.5rem;
     text-align: center;
   }
   .faqs-text {
     text-align: center;
   }
   .faqs-image img {
-    border-radius: 8px;
+    width: 100px;
+  height: 100px;
+  display: block;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  object-fit: cover;
+    border-radius: 5px;
   }
+}
+
+@media (max-width: 480px) {
+  
 }
 /* =========================
    FOOTER
@@ -716,7 +726,7 @@ content: "";
     top: 8%;
   }
   .cover-text p {
-    font-size: 1rem;
+    font-size: 2rem;
   }
   
 .cover img {
@@ -813,6 +823,26 @@ content: "";
     font-size: 1.1rem !important;
     line-height: 1.6;
   }
+  .faqs-container {
+    flex-direction: column;
+    gap: 40px;
+  }
+  .faqs-title {
+    font-size: 3.5rem !important;
+    text-align: center;
+  }
+  .faqs-text {
+    text-align: center;
+  }
+  .faqs-image img {
+    width: 400px;
+  height: 400px;
+  display: block;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  object-fit: cover;
+    border-radius: 5px;
+  }
 
   /* Footer – center everything */
   .footer {
@@ -832,7 +862,7 @@ content: "";
   }
 }
 
-/* Extra-small screens (phones < 480px) */
+/* Extra-small screens (phones < 480px) like iphone 15 pro*/
 @media (max-width: 480px) {
   .concept-title {
     font-size: 3.8rem !important;
@@ -863,6 +893,26 @@ content: "";
 
   .page {
     padding: 5px;
+  }
+  .faqs-container {
+    flex-direction: column;
+    gap: 40px;
+  }
+  .faqs-title {
+    font-size: 3.5rem;
+    text-align: center;
+  }
+  .faqs-text {
+    text-align: center;
+  }
+  .faqs-image img {
+    width: 500px;
+  height: 500px;
+  display: block;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  object-fit: cover;
+    border-radius: 5px;
   }
 }
 

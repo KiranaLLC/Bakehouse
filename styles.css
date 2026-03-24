@@ -731,9 +731,15 @@ content: "";
   
 .cover img {
   width: 100%;
+  height: 650px;
   display: block;
   object-fit: cover;
-  /* margin-top: 00px; */
+  object-position: 45% center;   /* This moves the image to the right */
+  /* You can adjust the number:
+     50% = center (default)
+     60% = a bit to the right
+     70% = more to the right
+     100% = fully to the right */
 }
   .header-inner {
     flex-direction: column;

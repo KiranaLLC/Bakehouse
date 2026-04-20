@@ -928,8 +928,6 @@ content: "";
   }
 }
 
-<<<<<<< HEAD
-=======
 /* Extra Safari safety */
 img {
   max-width: 100%;
@@ -1063,4 +1061,3 @@ display: flex;
     display: flex;
   }
 }
->>>>>>> f65c394 (Added image instead of embedding. Added header)

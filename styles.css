@@ -300,6 +300,12 @@ padding: 12px 28px;
 /* =========================
    CONCEPT
 ========================= */
+.story-test {
+  background: var(--cream);
+  padding: 20px 0px;
+  border-radius: 8px;
+  
+}
 
 .concept {
   background: var(--cream);
@@ -922,3 +928,139 @@ content: "";
   }
 }
 
+<<<<<<< HEAD
+=======
+/* Extra Safari safety */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.site-header {
+  width: 100%;
+  padding: 20px 0;
+  /* border-bottom: 1px solid #eee; */
+  position: relative;
+  background: var(--deep-brown);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+display: flex;
+  flex-direction: column; /* Stacks image on top of text */
+  align-items: center;    /* Centers both horizontally */
+  justify-content: center;
+  color: var(--cream);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+/* Specific styling for the SVG image */
+.logo img {
+  display: block;
+  width: 150px;      /* Adjust width as needed for your design */
+  height: 30px;     /* Set a specific height to "crop" the empty space */
+  object-fit: cover; /* Crops the image to fill the 60px height */
+  object-position: center; /* Keeps the actual logo mark in focus */
+}
+
+.desktop-nav {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+.desktop-nav a {
+  text-decoration: none;
+  color: var(--cream);
+  font-size: 15px;
+}
+
+.waitlist-btn {
+  padding: 10px 18px;
+  border: 1px solid var(--cream);
+  border-radius: 30px;
+  text-decoration: none;
+  font-size: 14px;
+  transition: 0.2s ease;
+}
+
+.waitlist-btn:hover {
+  background: var(--deep-brown);
+  color: var(--cream);
+}
+
+/* =========================
+   HAMBURGER
+========================= */
+
+.hamburger {
+  width: 26px;
+  height: 18px;
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.hamburger span {
+  height: 2px;
+  width: 100%;
+  background: var(--cream);
+  display: block;
+}
+
+/* =========================
+   MOBILE MENU
+========================= */
+
+.mobile-menu {
+  display: none;
+  flex-direction: column;
+  padding: 20px;
+  gap: 18px;
+  border-top: 1px solid #eee;
+}
+
+.mobile-menu a {
+  text-decoration: none;
+  color: var(--cream);
+  font-size: 16px;
+}
+
+.mobile-menu .waitlist-btn.mobile {
+  text-align: center;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+  .desktop-nav {
+    display: none;
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  .mobile-menu.active {
+    display: flex;
+  }
+}
+>>>>>>> f65c394 (Added image instead of embedding. Added header)

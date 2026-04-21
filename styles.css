@@ -318,85 +318,6 @@ padding: 12px 28px;
 .cta-button:hover {
   background: var(--deep-brown);
 }
-
-/* =========================
-   CONCEPT
-========================= */
-
-.concept {
-  background: var(--cream);
-  padding: 20px 0;
-  border-radius: 8px;
-}
-
-.concept {
-  background: var(--cream);
-  padding: 20px 0;
-  border-radius: 8px;
-}
-
-.concept-section {
-  background: var(--deep-brown);           /* deep warm brown */
-  color: var(--cream);                /* light cream text */
-  padding: 40px 20px;
-  font-family: 'Montserrat', serif;
-}
-
-.concept-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 60px;
-  align-items: center;
-  justify-content: center;
-}
-
-.concept-image {
-  flex: 1 1 45%;
-  min-width: 300px;
-}
-
-.concept-image img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  object-fit: cover;
-}
-
-.concept-text {
-  flex: 1 1 45%;
-  min-width: 300px;
-}
-
-.concept-title {
-  font-family: 'Luxurious Script', cursive;
-  font-size: 7.5rem;
-  color: var(--terracotta);      
-  font-weight: 500;
-  margin: 0 0 20px;
-  text-align: left;
-  letter-spacing: 2px;
-}
-
-.concept-body {
-  font-size: 1.6rem;
-  color: var(--cream);
-  margin: 0 0 30px;
-}
-
-.concept-text p {
-  font-size: 1.25rem;
-  line-height: 1.7;
-  margin: 0 0 20px;
-  color: var(--cream);
-}
-
-/* Responsive: Stack on smaller screens */
-
- 
 /* =========================
    LINEUP
 ========================= */
@@ -542,6 +463,194 @@ content: "";
 
 .modal-content h3 { margin-top: 0; color: #8B4513; }
 .modal-content ul { padding-left: 1.2rem; }
+/* =========================
+   CONCEPT
+========================= */
+
+.concept {
+  background: var(--cream);
+  padding: 20px 0;
+  border-radius: 8px;
+}
+
+.concept {
+  background: var(--cream);
+  padding: 20px 0;
+  border-radius: 8px;
+}
+
+.concept-section {
+  background: var(--deep-brown);           /* deep warm brown */
+  color: var(--cream);                /* light cream text */
+  padding: 40px 20px;
+  font-family: 'Montserrat', serif;
+}
+
+.concept-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 60px;
+  align-items: center;
+  justify-content: center;
+}
+
+.concept-image {
+  flex: 1 1 45%;
+  min-width: 300px;
+}
+
+.concept-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  object-fit: cover;
+}
+
+.concept-text {
+  flex: 1 1 45%;
+  min-width: 300px;
+}
+
+.concept-title {
+  font-family: 'Luxurious Script', cursive;
+  font-size: 7.5rem;
+  color: var(--terracotta);      
+  font-weight: 500;
+  margin: 0 0 20px;
+  text-align: left;
+  letter-spacing: 2px;
+}
+
+.concept-body {
+  font-size: 1.6rem;
+  color: var(--cream);
+  margin: 0 0 30px;
+}
+
+.concept-text p {
+  font-size: 1.25rem;
+  line-height: 1.7;
+  margin: 0 0 20px;
+  color: var(--cream);
+}
+/* =========================
+   À LA CARTE SECTION – Fixed Clean Layout
+========================= */
+.a-la-carte-section {
+  background: var(--cream) !important;
+  padding: 80px 20px;
+  color: var(--deep-brown);
+}
+
+.a-la-carte-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 70px;
+  align-items: stretch !important;
+  justify-content: center;
+}
+
+.a-la-carte-text {
+  flex: 1 1 45% !important;
+  min-width: 300px;
+}
+
+.a-la-carte-image {
+  flex: 1 1 45% !important;
+  min-width: 300px;
+  display: flex;
+  align-items: center;
+}
+
+.a-la-carte-image img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 12px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+}
+
+.a-la-carte-title {
+  font-family: 'Luxurious Script', cursive;
+  font-size: 7rem;
+  color: var(--deep-brown);
+  font-weight: 500;
+  margin: 0 0 32px 0;
+  line-height: 1.05;
+}
+
+.a-la-carte-section p {
+  font-size: 1.25rem;
+  line-height: 1.65;
+  margin-bottom: 22px;
+  color: var(--deep-brown);
+}
+
+.a-la-carte-section .order-btn {
+  background: var(--terracotta);
+  color: white;
+  padding: 16px 44px;
+  font-size: 1.15rem;
+  border-radius: 30px;
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.a-la-carte-section .order-btn:hover {
+  background: var(--deep-brown);
+  transform: scale(1.05);
+}
+.a-la-carte-section ul {
+  margin: 18px 0 28px 0; /* space above and below list */
+}
+
+.a-la-carte-section ul li {
+  font-size: 1.25rem;
+  line-height: 1.7;
+  margin-bottom: 10px;     /* spacing between bullets */
+  color: var(--deep-brown);
+  text-align: left;
+}
+.a-la-carte-section ul li:last-child {
+  margin-bottom: 0;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .a-la-carte-container {
+    flex-direction: column !important;
+    gap: 50px;
+  }
+   .a-la-carte-section ul {
+    margin: 16px 0 24px 0;
+    padding-left: 18px;
+    text-align: left;
+  }
+
+  .a-la-carte-section ul li {
+    font-size: 1.15rem;
+    text-align: left; /* prevents awkward centered bullets on mobile */
+  }
+  .a-la-carte-title {
+    font-size: 5rem;
+    text-align: center;
+    color: var(--deep-brown);
+  }
+  .a-la-carte-text {
+    text-align: center;
+  }
+  .a-la-carte-image img {
+    height: auto !important;
+  }
+}
 
 /* =========================
    FAQs
@@ -866,6 +975,7 @@ content: "";
     font-size: 1.1rem !important;
     line-height: 1.6;
   }
+ 
   .faqs-container {
     flex-direction: column;
     gap: 40px;
@@ -1075,10 +1185,12 @@ display: flex;
 }
 
 .card-title {
-  font-size: 2.4rem;
-  font-style: italic;
-  margin: 0 0 12px;
-  color: #fff;
+    font-family: 'Host Grotesk', sans-serif; 
+  font-size: 1.5rem; 
+  margin: 0 0 15px;
+      font-style: italic;
+  font-weight: 1000;
+  color: var(--terracotta);
 }
 
 .card-desc {
@@ -1129,3 +1241,4 @@ display: flex;
   .card-title { font-size: 2rem; }
   .card-desc { font-size: 1.1rem; }
 }
+

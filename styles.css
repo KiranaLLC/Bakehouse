@@ -64,7 +64,40 @@ img {
 .mobile-menu.active {
   display: flex;
 }
+/* =========================
+   ANNOUNCEMENT BANNER
+========================= */
 
+.announcement-banner {
+  width: 100%;
+  background: #8f1d00;
+  color: #f5e8cf;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  padding: 12px 20px;
+
+  font-family: 'Host Grotesk', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1.4;
+
+  position: relative;
+  z-index: 999;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .announcement-banner {
+    font-size: 0.82rem;
+    padding: 10px 14px;
+  }
+}
 /* =========================
    HEADER
 ========================= */

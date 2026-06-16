@@ -23,10 +23,13 @@
     </div>
 
     <!-- Order Now button - visible on both mobile and desktop -->
-    <a href="https://cash.app/$kiranabakehouse" class="order-btn mobile-order-btn">
-      Order Now
+    <a href="https://hotplate.com/kiranabakehouse" class="order-btn mobile-order-btn">
+      Order Pickup
     </a>
 
+   <a href="https://cash.app/$kiranabakehouse" class="order-btn mobile-order-btn">
+      Order Delivery
+    </a>
     <!-- Desktop only: Instagram link -->
     <nav class="desktop-nav">
       <a href="https://www.instagram.com/kiranabakehouse/" target="_blank" rel="noopener noreferrer" class="ig-link">
@@ -45,287 +48,91 @@
   ✈️ We are out of town until June 6! Pre-order your loaf for after we're back.
 </div> -->
 
-  <main class="page"> 
-      <section class="cover" id="menu">
-        <div class="cover-container"  data-aos="fade-up" data-aos-delay="100">
-          <img src="./img/CoverImage.png" alt="Kirana Bakehouse" />
-          <div class="cover-text" >
-            <p>Love Fresh Bread? So Do We!</p>
-          </div>
-          <!-- Add any other text, tagline, or call-to-action here -->
-        </div>
-      </section>
-
-      <!---About Us Section-->
-<section class="concept-section" data-aos="fade-up" data-aos-delay="200">
-  <div class="concept-container">
-    <!-- Left: Image -->
-    <div class="concept-image">
-      <img src="img/dough_hands.jpg" 
-           alt="Food on a shared table" 
-           loading="lazy">
+<main class="page">
+  <!-- Cover -->
+  <section class="cover" id="menu">
+    <div class="cover-container" data-aos="fade-up" data-aos-delay="100">
+      <img src="./img/CoverImage.png" alt="Kirana Bakehouse" />
+      <div class="cover-text">
+        <p>Love Fresh Bread? So Do We!</p>
+      </div>
     </div>
+  </section>
 
-    <!-- Right: Text Content -->
-    <div class="concept-text">
+  <!-- About Us -->
+  <section class="concept-section" data-aos="fade-up" data-aos-delay="200">
+    <div class="concept-container">
+      <div class="concept-image">
+        <img src="img/breadcrosssection.png" alt="Hands kneading sourdough" loading="lazy">
+      </div>
+      <div class="concept-text">
       <h2 class="concept-title" data-aos="fade-up" data-aos-delay="200">About Us</h2>
-      <p class="concept-text" data-aos="fade-up" data-aos-delay="200"> 
-        Kirana Bakehouse is a Microbakery specializing in <strong><i>Made-to-order Artisanal Sourdough</i></strong>, based in the Palo Alto/Menlo Park area. </p>
-        <p class="concept-text" data-aos="fade-up" data-aos-delay="200"> Each loaf is hand-made and naturally leavened — crafted in small batches, fermented slowly, and baked to a golden crust. </p> 
-        <p data-aos="fade-up" data-aos-delay="200">
-    No shortcuts. No commercial yeast. Just time, care, and traditional technique.
-</p>
-<p class="concept-text" data-aos="fade-up" data-aos-delay="200"> 
-At its heart, Kirana Bakehouse is about more than just bread — <strong><i>it’s about bringing people together</i></strong>.</p> 
-<p class="concept-text" data-aos="fade-up" data-aos-delay="200">Our <strong><i><a href="#lineup">Seasonal Loaves</a></i></strong> are available <strong><u><i><a href="#a-la-carte">À la carte</a></i></u></strong> or through a <strong><u><i><a href="#subscription">4 week Subscription</a></i></u></strong> making it easy to enjoy fresh. </p>
-<p class="concept-text" data-aos="fade-up" data-aos-delay="200"> 
-It is a <strong><i>catalyst for community</i></strong>, whether for a planned gathering or part of your everyday table, creating space for connections, both old and new, around the table. </p>
-<p class="concept-text" data-aos="fade-up" data-aos-delay="200">
-    <a href="https://cash.app/$kiranabakehouse" class="order-btn mobile-order-btn">
-      Order Now
-    </a>
-  </p>  
-    </div>
-  </div>
-</section>
-      <!-- Spring/Summer Inclusions Lineup Section -->
-<section id="lineup" class="lineup-section">
-   <div class="lineup-container">
-      <div class="lineup-left">
-
-    <!-- Header Title -->
-    <h2 class="lineup-title" id="lineup-title" data-aos="fade-up" data-aos-delay="200">
-      SPRING/SUMMER <span class = "lineup-subtitle">Lineup </span>
-    </h2>
-   
-    <!-- 3x2 Grid of Inclusion Cards -->
-    <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 30px;">
-
-            <!-- House White -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('House White Loaf Ingredients', `
-       <ul>
-         <li>Organic All Purpose Flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">House White</h3>
-         <p class="card-text">
-          Classic white sourdough - crisp crust envelops a light, open crumb
-        </p>
-      </div>
-            <!-- Everything Seasoning -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Everything Seasoning Loaf Ingredients', `
-       <ul>
-         <li>Organic All Purpose Flour</li>
-          <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Everything but the Bagel Seasoning</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">Everything Seasoning</h3>
-         <p class="card-text">
-         A crown of sesame, poppy, garlic, onion, and salt on our house white
-
-        </p>
-      </div>
-      <!-- Pesto -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Pesto Loaf Ingredients', `
-       <ul>
-         <li>Organic All Purpose Flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Organic Extra Virgin Olive Oil</li>
-         <li>Organic Basil Pesto</li>
-         <li>Chlorophyll</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">Pesto</h3>
-        <p class="card-text">
-          Subtly infused with basil pesto for soft, aromatic elegance
-        </p>
-      </div>
-
-      <!-- Olives -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Olive Loaf Ingredients', `
-       <ul>
-         <li>Organic All Purpose Flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Organic Black Olives</li>
-         <li>Organic Extra Virgin Olive Oil</li>
-         <li>Herbs de Provence Seasoning</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">Olives</h3>
-        <p class="card-text">
-          Carefully folded olives with a hint of herbes de Provence
-        </p>
-      </div>
-
-      <!-- Cheddar -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Cheddar Loaf Ingredients', `
-       <ul>
-         <li>Organic All Purpose Flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Tilamook Sharp Cheddar Cheese</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">Cheddar</h3>
-        <p class="card-text">
-          Delicate sharp cheddar pockets melt into creamy, savory richness
-        </p>
-      </div>
-
-      <!-- Cheddar + Jalapeño -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Cheddar & Jalapeño Loaf Ingredients', `
-       <ul>
-         <li>Organic All Purpose Flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Tilamook Sharp Cheddar Cheese</li>
-         <li>Organic Pickled Jalapeño Peppers</li>
-       </ul>
-     `)"style="cursor: pointer;" >
-        <h3 class = "card-title">Cheddar & Jalapeño</h3>
-        <p class="card-text">
-          Sharp cheddar and gentle jalapeño flecks create layered savoriness with quiet spice
-        </p>
-      </div>
-
-      <!-- Strawberry + White Chocolate -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Strawberry & White Chocolate Loaf Ingredients', `
-       <ul>
-         <li>Organic bread flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Freeze dried Strawberry Pieces</li>
-         <li>White Chocolate Pieces</li>
-         <li>Organic Dragon Fruit Powder</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">Strawberry & White Choc</h3>
-         <p class="card-text">
-          Strawberry essence mingles with creamy white chocolate for soft, fruity sweetness
-        </p>
-      </div>
-
-      <!-- Milk Chocolate -->
-      <div class="card" data-aos="fade-up" data-aos-delay="200" onclick="showIngredients('Milk Chocolate Loaf Ingredients', `
-       <ul>
-         <li>Organic bread flour</li>
-         <li>Water</li>
-         <li>Sea salt</li>
-         <li>Liquid Levain Starter</li>
-         <li>Milk Chocolate Pieces</li>
-       </ul>
-     `)"style="cursor: pointer;">
-        <h3 class = "card-title">Milk Chocolate</h3>
-         <p class="card-text">
-          Artisanal milk chocolate inclusions provide mellow cocoa notes in harmonious restraint
-        </p>
-      </div>
-</div> <!-- end .grid -->
-    </div> <!-- end .lineup-left -->
-          <div class="lineup-image">
-      <img src="./img/brie_fig_jam.JPG" 
-           >
-      </div>
-  </div> <!-- end .lineup-container -->  
-</section>
-
-
-    <!-- Subscription Section -->
-<section id="subscription"class="concept-section" data-aos="fade-up" data-aos-delay="200">
-  <div class="concept-container">
-    <!-- Left: Image -->
-    <div class="concept-image">
-      <img src="img/packaging.JPEG" 
-           alt="Hands kneading artisan sourdough dough on floured surface" 
-           loading="lazy">
-    </div>
-
-    <!-- Right: Text Content -->
-    <div class="concept-text">
-      <h2 class="concept-title" data-aos="fade-up" data-aos-delay="200">Subscription</h2>
-<p class="concept-text" data-aos="fade-up" data-aos-delay="200">
-    Kirana Bakehouse brings you a monthly bread subscription designed as a slow, grounding ritual rooted in simple ingredients and intentional baking.
-</p>
-
-<p data-aos="fade-up" data-aos-delay="200">
-   <strong>Month-to-month commitment</strong> :  4 weeks, 4 artisanal loaves. 
-   </p>
-   <p data-aos="fade-up" data-aos-delay="200">
-   <strong>Weekly delivery</strong>: Every FRIDAY, receive one beautiful, golden-crusted loaf each week straight to your home. No delivery fee!</p>
-   <p data-aos="fade-up" data-aos-delay="200">
-   <strong>One loaf per week</strong>: 3 inclusion loaves + 1 classic loaf (each weighing ~450g)</p>
-   <p data-aos="fade-up" data-aos-delay="200">
-   <strong>You choose your lineup</strong>: Select which breads you want for the month. You can change them each subscription cycle. </p>
-   <p data-aos="fade-up" data-aos-delay="200">
-   <strong>Dealers Choice</strong>:  We'll curate the list of breads for you and you get to unbox it on delivery each week.</p>
-</p>
-      <p class="concept-text" data-aos="fade-up" data-aos-delay="200">
-      <a data-aos="fade-up" data-aos-delay="100" href="./order.html" class="subscribe-btn">Subscribe</a></p>
-    </div>
-  </div>
-</section>
-
-<!-- À La Carte Section -->
-<section id="a-la-carte" class="a-la-carte-section" data-aos="fade-up" data-aos-delay="100">
-  <div class="a-la-carte-container">
-    
-    <!-- LEFT: Text -->
-    <div class="a-la-carte-text">
-      <h2 class="a-la-carte-title">À La Carte</h2>
       
- <p class="a-la-carte-text" data-aos="fade-up" data-aos-delay="200">
-Each loaf is made fresh to order, crafted just for you through a slow fermentation process that takes 2–3 days to develop its depth of flavor and perfect texture.
-</p>
-
-<p class="a-la-carte-text" data-aos="fade-up" data-aos-delay="200">
-These loaves fit just as naturally into everyday moments as they do into celebrations, adding warmth, intention, and care to whatever you’re sharing. It works beautifully for:
-</p>
-
-<ul class="a-la-carte-text">
-  <li data-aos="fade-up" data-aos-delay="200">Relaxed picnics in the park</li>
-  <li data-aos="fade-up" data-aos-delay="200">Beautiful charcuterie boards and grazing tables</li>
-  <li data-aos="fade-up" data-aos-delay="200">Celebrating life's milestones like Birthdays, Baby showers and more</li>
-  <li data-aos="fade-up" data-aos-delay="200">Cozy “girl dinners” and casual nights in</li>
-  <li data-aos="fade-up" data-aos-delay="200">Presents for bread lovers in your life</li>
-  <li data-aos="fade-up" data-aos-delay="200">Gatherings with friends and family</li>
-</ul>
-
-
-      <a href="https://cash.app/order/$kiranabakehouse" class="order-btn">
-        Shop À La Carte Loaves
-      </a>
+      <p class="concept-text" data-aos="fade-up" data-aos-delay="200">
+        Kirana Bakehouse is a microbakery based in Menlo Park, specializing in <strong><i>Made-to-Order Artisanal Sourdough</i></strong>.
+      </p>
+      
+      <p class="concept-text" data-aos="fade-up" data-aos-delay="200">
+        Each loaf is naturally leavened, slowly fermented, and baked to a deep golden crust in small batches.
+      </p>
+      
+      <p data-aos="fade-up" data-aos-delay="200">
+        No shortcuts. No commercial yeast. Just time, care, and tradition.
+      </p>
+      
+      <p class="concept-text" data-aos="fade-up" data-aos-delay="200">
+        Trained at <i><strong>Le Cordon Bleu in Paris</strong></i>, Kirana Bakehouse is rooted in classical technique with a deep love for sourdough, reimagined with inspired, seasonal inclusions and flavors.
+      </p>
+      
+      <p class="concept-text" data-aos="fade-up" data-aos-delay="200">
+        At its heart, this is about community. Bread meant to be shared, to bring people together, and to be part of everyday moments.
+      </p>
+      
     </div>
+  </section>
 
-    <!-- RIGHT: Image -->
-    <div class="a-la-carte-image">
-      <img src="./img/shared_table.JPG" 
-           alt="Sourdough bread on a shared table with friends"
-           loading="lazy">
+  <section id="pickup" class="pickup-section" data-aos="fade-up" data-aos-delay="100">
+    <div class="pickup-container">
+      <div class="pickup-text">
+       <h1 class="pickup-delivery-intro">
+        All of our loaves are Made-to-Order, ~450g each, and require ~<strong>3 days of preparation</strong>, whether you choose pickup or delivery. We appreciate your patience, it ensures every loaf is baked especially for you.
+       </h1>
+        <div class="option-block">
+        <h2 class="pickup-title">Pickup</h2>
+        <p>Prefer to pick up your fresh loaves in person? We’d love to see you.</p>
+        <ul>
+          <li><strong>Pickup days:</strong> Wednesdays & Saturdays</li>
+          <li><strong>Location:</strong> Lytton Plaza, Downtown Palo Alto (more to come! Join our storefront on <a href="https://hotplate.com/kiranabakehouse">Hotplate</a> for the latest)</li>
+        </ul>
+        <p class="note">Your order will be freshly baked the same day as your pickup. Just come by at your selected pickup time on Hotplate—we’ll have everything prepared for you</p>
+      </div>
+        <!-- Delivery -->
+      <div class="option-block">
+        <h2 class="pickup-title">Delivery</h2>
+        <p>We offer limited local delivery for added flexibility and ideal for,
+          <ul>
+            <li>Busy parents</li>
+            <li>Demanding work schedules</li>
+            <li>Anyone who prefers doorstep service</li>
+          </ul>
+        </p>
+      <p class="note">We handle all deliveries ourselves and do not use third-party delivery services, which is why availability is limited to certain areas.
+</p>
+        
+      </div>
+      </div>
+      <div class="pickup-image">
+        <img src="./img/packaging.JPEG" alt="Fresh sourdough bread for pickup" loading="lazy">
+      </div>
     </div>
-
-  </div>
-</section> 
-
-<!-- FAQs Section – Image Left, Text Right with Expandable Drop-Downs -->
+  </section>
+  <!-- FAQs Section – Image Left, Text Right with Expandable Drop-Downs -->
 <section class="faqs-section">
   <div class="faqs-container">
     <!-- Left: Image -->
     <div class="faqs-image" data-aos="fade-up">
       <img 
-        src="./img/house_white_pinterest.JPEG" 
+        src="./img/shared_table.JPG" 
         alt="Fresh sourdough crumb texture" 
         loading="lazy"
       />
@@ -336,37 +143,38 @@ These loaves fit just as naturally into everyday moments as they do into celebra
       <h2 class="faqs-title" data-aos="fade-up">Frequently Asked Questions</h2>
 
       <div class="faq-list" data-aos="fade-up">
-        <details class="faq-item" >
-  <summary class="faq-question">How does the Bread Subscription work?</summary>
-  <div class="faq-answer">
-    <p>
-      After purchasing a subscription, please fill out the bread selection form on our website so we know which loaves to bake for you each week. You choose your plan once and receive 4 beautiful hand-crafted loaves — one each week for 4 weeks total. The plan does NOT auto-renew. 
-    </p>
-  </div>
-</details>
         <details class="faq-item">
   <summary class="faq-question">How does ordering work?</summary>
   <div class="faq-answer">
     <p>
-      You can order à la carte or subscribe from our menu <a href="https://cash.app/order/$kiranabakehouse">HERE</a>. À la carte loaves are made to order, while subscriptions reserve your weekly bread.
+      You can order for a <a href="https://hotplate.com/kiranabakehouse">PICKUP</a> through Hotplate or <a href="https://cash.app/order/$kiranabakehouse">DELIVERY</a> through Square.
     </p>
   </div>
 </details>
 
 <details class="faq-item">
-  <summary class="faq-question">How long does it take to receive my loaf?</summary>
+  <summary class="faq-question">Do the loaves come pre-sliced?</summary>
   <div class="faq-answer">
     <p>
-      Each loaf takes ~2-3 days to ferment and bake. Your bread will be delivered ~2-3 days after your order is placed. You will receive an email from us detailing the date and time slot that your bread will arrive. (Please disregard the prep times in the Square menu as they do not allow me to put more than 2hours as prep time).
+      Yes, we pre-slice them to make it ready to eat, share, or freeze. If you prefer not to have them sliced, please let us know in the order notes.
     </p>
   </div>
 </details>
 
 <details class="faq-item">
-  <summary class="faq-question">Do you offer pickup or delivery?</summary>
+  <summary class="faq-question">Do you have a physical location?</summary>
   <div class="faq-answer">
     <p>
-      We are currently delivery only. We offer free delivery to your home if you are within our delivery zone.  Deliveries happen weekly on your selected day (Friday or Saturday) from the form. Porch / no-contact delivery available.
+      No we do not have a physical location currently. We are online only.
+    </p>
+  </div>
+</details>
+
+<details class="faq-item">
+  <summary class="faq-question">Can I make a request for inclusions or submit ideas?</summary>
+  <div class="faq-answer">
+    <p>
+     Yes! We'd love to hear your ideas. Please contact us directly through email or Instagram. Although we can't promise to make all of them, we'll definitely consider your suggestions!
     </p>
   </div>
 </details>
@@ -374,7 +182,7 @@ These loaves fit just as naturally into everyday moments as they do into celebra
   <summary class="faq-question">What ingredients do you use?</summary>
   <div class="faq-answer">
     <p>
-      We use high-quality, organic and, locally sourced ingredients for all our loaves. Our loaves are naturally leavened and DO NOT have preservatives or commercial yeast.
+      We only use high-quality, organic and, locally sourced ingredients for all our loaves. Our loaves are naturally leavened and DO NOT have preservatives or commercial yeast.
     </p>
   </div>
 </details>
@@ -383,7 +191,7 @@ These loaves fit just as naturally into everyday moments as they do into celebra
   <summary class="faq-question">How should I store my bread?</summary>
   <div class="faq-answer">
     <p>
-      Store your loaf at room temperature in a paper bag or wrapped in a kitchen towel. Avoid refrigeration, as it can dry out the bread. If you cannot finish it within a few days, slice your loaf first, then freeze it in an airtight bag, freeze it for up to 2 months. When you want to eat it, pop it into a toaster or oven and enjoy!
+      Store your loaf at room temperature in a paper bag or wrapped in a kitchen towel. It is best consumed within 2-3 days. Avoid refrigeration, as it can dry out the bread. If you cannot finish it within a few days, slice your loaf first, then freeze it in an airtight bag, freeze it for up to 1-2 months. When you want to eat it, pop it into a toaster or oven and enjoy!
     </p>
   </div>
 </details>
@@ -400,7 +208,7 @@ These loaves fit just as naturally into everyday moments as they do into celebra
           <summary class="faq-question">Is this a licensed bakery?</summary>
           <div class="faq-answer">
             <p>
-              Yes, we are a licensed California Cottage Food Operation, food safety certified, and registered under CFO Permit #26-00019589 in San Mateo County.
+              Yes, we are a licensed California Cottage Food Operation, food safety certified staff, and registered under CFO Permit #26-00019589 in San Mateo County.
             </p>
           </div>
         </details>      
@@ -414,17 +222,9 @@ These loaves fit just as naturally into everyday moments as they do into celebra
         </details>     
   </div>
 </section>
-    <footer class="footer">
-      <p>© 2026 Kirana Bakehouse – Made in a Home Kitchen in San Mateo County. Permit #26-00019589. See full <a href="terms.html">Terms of Service</a>, <a href="privacy.html">Privacy Policy</a>, and <a href="allergens.html">Allergen Info</a>.</p>
-      <div class="ig-container">
-     <a href="https://www.instagram.com/kiranabakehouse/" target="_blank" rel="noopener noreferrer" class="ig-link">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/5/58/Instagram-Icon.png"" 
-         alt="Instagram" 
-         class="ig-logo">
-    <span>@kiranabakehouse</span>
-  </a></div>
-    </footer>
-  </main>
+
+</main>
+  <!-- </main> -->
   
   <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
 <script>

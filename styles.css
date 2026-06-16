@@ -1275,3 +1275,195 @@ display: flex;
   .card-desc { font-size: 1.1rem; }
 }
 
+/* =========================
+   FIXED PICKUP & DELIVERY SECTIONS (Mobile Friendly)
+========================= */
+
+.pickup-section, .delivery-section {
+  padding: 60px 20px;
+}
+
+.pickup-container, .delivery-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 60px;
+  align-items: center;
+  justify-content: center;
+}
+
+.pickup-text, .delivery-text {
+  flex: 1 1 45%;
+  min-width: 300px;
+}
+
+.pickup-image, .delivery-image {
+  flex: 1 1 45%;
+  min-width: 300px;
+}
+
+.pickup-image img, .delivery-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+  object-fit: cover;
+}
+
+.pickup-title, .delivery-title {
+  font-family: 'Luxurious Script', cursive;
+  font-size: 5.5rem;
+  line-height: 1.05;
+  margin-bottom: 24px;
+  color: var(--deep-brown);
+}
+
+.pickup-section .pickup-title {
+  color: var(--terracotta);
+}
+
+.pickup-list, .delivery-list {
+  margin: 28px 0 32px;
+  padding-left: 22px;
+}
+
+.pickup-list li, .delivery-list li {
+  margin-bottom: 14px;
+  font-size: 1.18rem;
+  line-height: 1.65;
+}
+
+/* About Us Title Fix */
+.concept-title {
+  font-size: 6rem;
+  line-height: 1.05;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 900px) {
+  .concept-title,
+  .pickup-title,
+  .delivery-title {
+    font-size: 3.8rem !important;
+    text-align: center;
+  }
+
+  .pickup-container,
+  .delivery-container,
+  .concept-container {
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .pickup-text,
+  .delivery-text,
+  .concept-text {
+    text-align: center;
+  }
+
+  .cover img {
+    height: 550px;
+  }
+}
+
+@media (max-width: 480px) {
+  .concept-title,
+  .pickup-title,
+  .delivery-title {
+    font-size: 3.2rem !important;
+  }
+}
+
+/* =========================
+   PICKUP & DELIVERY SECTION
+========================= */
+.pickup-delivery-section {
+  background: var(--cream);
+  padding: 80px 20px;
+  color: var(--deep-brown);
+}
+
+.pickup-delivery-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 70px;
+  align-items: center;
+  justify-content: center;
+}
+
+.pickup-delivery-text {
+  flex: 1 1 48%;
+  min-width: 300px;
+}
+
+.pickup-delivery-image {
+  flex: 1 1 45%;
+  min-width: 300px;
+}
+
+.pickup-delivery-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+  object-fit: cover;
+}
+
+.pickup-delivery-title {
+  font-family: 'Luxurious Script', cursive;
+  font-size: 5.8rem;
+  color: var(--deep-brown);
+  line-height: 1.05;
+  margin-bottom: 28px;
+}
+
+.pickup-delivery-intro {
+  font-size: 1.25rem;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.option-block {
+  margin-bottom: 40px;
+}
+
+.option-block h3 {
+  font-family: 'Host Grotesk', sans-serif;
+  color: var(--terracotta);
+  font-size: 2rem;
+  margin-bottom: 12px;
+}
+
+.option-block ul {
+  padding-left: 22px;
+  margin: 16px 0;
+}
+
+.option-block li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.note {
+  font-style: italic;
+  color: #555;
+  margin-top: 12px;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .pickup-delivery-container {
+    flex-direction: column;
+    gap: 50px;
+  }
+  .pickup-delivery-title {
+    font-size: 4.2rem;
+    text-align: center;
+  }
+  .pickup-delivery-text {
+    text-align: center;
+  }
+}

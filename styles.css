@@ -96,6 +96,7 @@ img {
   font-size: 18px;
   font-weight: 500;
   letter-spacing: 1px;
+  /* margin-right: auto !important; */
 }
 
 .logo img {
@@ -112,6 +113,7 @@ img {
   gap: 1rem;
   flex-wrap: nowrap;
   justify-content: flex-end;
+  min-width: 180px;
 }
 
 .desktop-nav a {
@@ -121,6 +123,17 @@ img {
 }
 
 /* Order Buttons */
+.order-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 420px;
+  padding: 0px 30px !important;
+}
+
 .order-btn {
   padding: 12px 28px;
   background: var(--terracotta);
@@ -142,6 +155,13 @@ img {
 }
 
 /* Mobile Order Buttons */
+  .mobile-order-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+ justify-content: center;
+  width: 100%; 
+}
 .mobile-order-btn {
   margin-left: auto;
 }
@@ -260,15 +280,15 @@ img {
 
 .concept-title {
   font-family: 'Luxurious Script', cursive;
-  font-size: 7.5rem;
+  font-size: 7.0rem;
   color: var(--terracotta);
   font-weight: 500;
-  margin: 0 0 20px;
+  margin: 0 0 10px;
   letter-spacing: 2px;
 }
 
 .concept-text p {
-  font-size: 1.25rem;
+  font-size: 1.20rem;
   line-height: 1.7;
   margin-bottom: 20px;
   color: var(--cream);
@@ -502,9 +522,16 @@ img {
     width: 120px;
   }
 
+  .mobile-order-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
   .mobile-order-btn {
     width: 100%;
     text-align: center;
+    flex: 1;
   }
 }
 
@@ -578,9 +605,16 @@ img {
   .logo img {
     width: 120px;
   }
+    .mobile-order-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
   .mobile-order-btn {
     width: 100%;
     text-align: center;
+    flex: 1;
   }
 }
 

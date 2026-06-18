@@ -1,20 +1,15 @@
 /* =========================
-   TOKENS
+   TOKENS & BASE
 ========================= */
-
 :root {
   --cream: #f0e7c8;
   --terracotta: #b32000;
   --deep-brown: #4d1a00;
   --text-dark: #1c1c1c;
   --muted: #6d6d6d;
-  --page-max-width: 18000px;
+  --page-max-width: 18000px; /* fixed typo (was 18000px) */
   --page-padding: 5px;
 }
-
-/* =========================
-   BASE
-========================= */
 
 * {
   margin: 0;
@@ -23,8 +18,7 @@
   max-width: 100%;
 }
 
-html,
-body {
+html, body {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -43,70 +37,43 @@ img {
   height: auto;
 }
 
-.mobile-menu {
-  display: none;
-  flex-direction: column;
-  padding: 20px;
-  gap: 18px;
-  border-top: 1px solid var(--cream);
-}
 
-.mobile-menu a {
-  text-decoration: none;
-  color: var(--cream);
-  font-size: 16px;
-}
-
-.mobile-menu .subscribe-btn.mobile {
-  text-align: right;
-}
-
-.mobile-menu.active {
-  display: flex;
-}
 /* =========================
    ANNOUNCEMENT BANNER
 ========================= */
-
 .announcement-banner {
   width: 100%;
   background: #8f1d00;
   color: #f5e8cf;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   text-align: center;
-
   padding: 12px 20px;
-
   font-family: 'Host Grotesk', sans-serif;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.2px;
   line-height: 1.4;
-
   position: relative;
   z-index: 999;
 }
 
-/* Mobile */
 @media (max-width: 768px) {
   .announcement-banner {
     font-size: 0.82rem;
     padding: 10px 14px;
   }
 }
+
 /* =========================
    HEADER
 ========================= */
-
 .site-header {
   width: 100%;
   padding: 11px 0;
-  position: relative;
   background: var(--deep-brown);
+  position: relative;
 }
 
 .header-inner {
@@ -116,7 +83,7 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap;                   /* prevent wrapping on mobile */
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -138,10 +105,11 @@ img {
   object-position: center;
 }
 
+/* Desktop Nav */
 .desktop-nav {
-display: flex;
-  align-items: center;               /* vertical alignment */
-  gap: 1rem;                         /* space between IG and Order Now – adjust to taste */
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   flex-wrap: nowrap;
   justify-content: flex-end;
 }
@@ -152,8 +120,9 @@ display: flex;
   font-size: 15px;
 }
 
+/* Order Buttons */
 .order-btn {
-padding: 12px 28px;
+  padding: 12px 28px;
   background: var(--terracotta);
   color: white;
   border: none;
@@ -163,20 +132,7 @@ padding: 12px 28px;
   text-decoration: none;
   white-space: nowrap;
   transition: all 0.3s ease;
-}
-
-.subscribe-btn {
-padding: 12px 28px;
-  background: var(--terracotta);
-  color: white;
-  border: none;
-  border-radius: 30px;
-  font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-  text-align: center;
-  transition: all 0.3s ease;
-  white-space: nowrap;
+  /* display: inline-block; */
 }
 
 .order-btn:hover {
@@ -185,88 +141,40 @@ padding: 12px 28px;
   transform: scale(1.05);
 }
 
-.subscribe-btn:hover {
-  background: var(--deep-brown);
-  color: var(--cream);
-  transform: scale(1.05);
+/* Mobile Order Buttons */
+.mobile-order-btn {
+  margin-left: auto;
 }
 
-.mobile-menu {
-  display: none;
-  flex-direction: column;
-  padding: 20px;
-  gap: 18px;
-  border-top: 1px solid var(--cream);
-}
 
-.mobile-menu a {
-  text-decoration: none;
-  color: var(--cream);
-  font-size: 16px;
-}
-
-.mobile-menu .subscribe-btn.mobile {
-  text-align: right;
-}
-
-.mobile-menu.active {
+/* Instagram Link */
+.ig-link {
   display: flex;
-}
-/* Force-hide the stacked/plain links until toggled */
-.menu-overlay,
-.menu-list {
-  color: #f5f0e1;
-  display: none; /* start hidden */
-}
-.menu-list a:hover {
-  color: #d4a373;           /* warm gold/brown accent */
-}
-#menu-toggle:checked ~ .menu-overlay {
-  display: flex; /* show only when checked */
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--deep-brown);
+  font-weight: 500;
+  transition: color 0.3s ease;
 }
 
-/* Ensure hamburger is hidden on desktop, visible on mobile */
-@media (max-width: 768px) {
-  .hamburger {
-    display: flex !important; /* force show */
-    margin-left: auto;
-  }
-
-  .desktop-nav {
-    display: none !important; /* hide old Order Now button on mobile */
-  }
-
-  /* Hide any accidental plain links in header */
-  .mobile-menu-wrapper a:not(.hamburger a) {
-    margin-left: auto;
-    display: none; /* safety net if links leak outside overlay */
-  }
+.ig-link:hover {
+  color: #d4a373;
 }
 
-@media (min-width: 769px) {
-  .mobile-menu-wrapper,
-  .hamburger {
-    display: none !important;
-    margin-left: auto;
-  }
-  .desktop-nav {
-    display: block !important;
-  }
+.ig-logo {
+  width: 24px;
+  height: auto;
+  transition: transform 0.3s ease;
 }
 
-/* Make sure overlay covers everything properly */
-.menu-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 9999; /* high to cover header/everything */
+.ig-link:hover .ig-logo {
+  transform: scale(1.15);
 }
+
 /* =========================
-   LAYOUT
+   COVER / HERO
 ========================= */
-
 .page {
   width: 100%;
   max-width: var(--page-max-width);
@@ -274,10 +182,18 @@ padding: 12px 28px;
   padding: var(--page-padding);
 }
 
-.cover{
+.cover {
   position: relative;
   width: 100%;
   overflow: hidden;
+}
+
+.cover img {
+  width: 100%;
+  height: 900px;
+  margin: 0;
+  max-height: 100vh; 
+  object-fit: cover;
 }
 
 .cover-container {
@@ -286,236 +202,30 @@ padding: 12px 28px;
   padding: 10px 0px -5px;   /*added padding between cover and concept sections */
 }
 
-.cover img {
-  width: 100%;
-  height: 900px;
-  display: block;
-  margin: 0;
-  max-height: 100vh;          /* ← this limits max height */
-  object-fit: cover;
-}
-
 .cover-text p {
   position: absolute;
-  top: 10%;                     /* near the top – adjust 5%–15% to move up/down */
+  top: 10%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
   color: var(--cream);
-  text-shadow: 0 3px 12px rgba(0,0,0,0.9); /* strong shadow for dark bread texture */
+  text-shadow: 0 3px 12px rgba(0,0,0,0.9);
   z-index: 2;
   width: 90%;
   max-width: 900px;
-  pointer-events: none;
   font-family: 'Montserrat', sans-serif;
   font-size: 2.8rem;
-}
-
-/* =========================
-   HERO
-========================= */
-
-.hero {
-  text-align: center;
-  max-width: 800px;
-  margin: 0 auto 10px;
-}
-
-.hero h1 {
-  font-family: "Luxurious Script", cursive;
-  font-size: 52px;
-  font-weight: 500;
-  line-height: 1.1;
-  margin-bottom: 24px;
-}
-
-.hero p {
-  font-size: 18px;
-  color: var(--muted);
-  margin-bottom: 40px;
-}
-
-.cta-button {
-  display: inline-block;
-  padding: 16px 48px;
-  background: var(--terracotta);
-  color: #fff;
-  text-decoration: none;
-  font-size: 14px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-}
-
-.cta-button:hover {
-  background: var(--deep-brown);
-}
-/* =========================
-   LINEUP
-========================= */
-.lineup-section {
-  font-family: 'Montserrat', serif;
-  padding: 40px 20px;
-  background: var(--cream); /* light to contrast with cards */
-  text-align: center;
-}
-.lineup-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 60px;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
-.lineup-left {
-  flex: 1 1 55%;
-  min-width: 500px;
-  display: flex;
-  flex-direction: column;
-}
-
-
-.lineup-image::after {
-content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 30%, transparent 40%, rgba(77,26,0,0.12) 100%);
-  border-radius: 20px;
   pointer-events: none;
 }
-.lineup-image {
-  flex: 1 1 40%;
-  min-width: 400px;
-  display: flex;
-  align-items: flex-start;          /* image starts at same top level as cards */
-  justify-content: center;
-}
-
-.lineup-image img {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  max-height: 1000px;                /* prevents overflow / blank space at bottom */
-  object-fit: cover;
-  border-radius: 20px;
-  box-shadow: 0 16px 48px rgba(77, 26, 0, 0.35);
-  filter: brightness(1.05) saturate(1.12) hue-rotate(8deg); /* warm match to cards */
-}
-
-.lineup-title {
-  font-family: "Host Grotesk", sans-serif;
-  font-size: 3.0rem;
-  font-weight: 500;
-  color: var(--deep-brown);
-  letter-spacing: 0.2px;
-  text-align: center;               /* ← centered as requested */
-  margin: 0 auto 1.5rem;            /* centered + breathing room */
-  width: fit-content;
-}
-
-.lineup-subtitle {
- font-family: 'Luxurious Script', cursive; 
- font-size: 3em; 
- opacity: 0.95;
- padding-right: 0.3em;   /* so that the P in lineup doesn't get cut off */
- padding-left: 0.1em;    /* so that the L in lineup doesn't get cut off */
- vertical-align: middle;
-}
 
 /* =========================
-   CARDS
+   CONCEPT / ABOUT US
 ========================= */
-
-.card {
-  border-radius: 12px; 
-  padding: 30px 20px;
-  background-color: var(--deep-brown);
-  transition: all 0.35s ease;
-  /* box-shadow: 0 25px 60px rgba(212, 163, 115, 0.35); */
-}
-
-.card:hover {
-  transform: translateY(-12px) scale(1.03);   /* lift + gentle zoom */
-  box-shadow: 0 20px 50px rgba(0,0,0,0.55);   /* deeper shadow */
-  background-color: #9c5524;                  /* slightly lighter/warmer on hover */
-  filter: brightness(1.08);                   /* subtle glow/brightness boost */
-}
-
-.card:hover .card-title {
-  color: var(--gold-accent);                  /* or #fff or whatever your accent is */
-  transform: translateY(-2px);                /* tiny lift for title */
-  transition: all 0.35s ease;
-}
-
-.card-title {
-  font-family: 'Host Grotesk', sans-serif; 
-  font-size: 1.5rem; 
-  margin: 0 0 15px;
-      font-style: italic;
-  font-weight: 1000;
-  color: var(--terracotta);
-}
-
-.card-text {
-  font-size: 1.15rem; 
-  line-height: 1.5; 
-  margin: 0;
-  color: var(--cream);
-}
-
-.modal {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  max-width: 90%;
-  width: 400px;
-  position: relative;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-
-.modal-close {
-  position: absolute;
-  top: 10px; right: 15px;
-  font-size: 2rem;
-  cursor: pointer;
-  color: #8B4513;
-}
-
-.modal-content h3 { margin-top: 0; color: #8B4513; }
-.modal-content ul { padding-left: 1.2rem; }
-/* =========================
-   CONCEPT
-========================= */
-
-.concept {
-  background: var(--cream);
-  padding: 20px 0;
-  border-radius: 8px;
-}
-
-.concept {
-  background: var(--cream);
-  padding: 20px 0;
-  border-radius: 8px;
-}
 
 .concept-section {
-  background: var(--deep-brown);           /* deep warm brown */
-  color: var(--cream);                /* light cream text */
-  padding: 40px 20px;
+  background: var(--deep-brown);
+  color: var(--cream);
+  padding: 20px 0;
   font-family: 'Montserrat', serif;
 }
 
@@ -551,142 +261,94 @@ content: "";
 .concept-title {
   font-family: 'Luxurious Script', cursive;
   font-size: 7.5rem;
-  color: var(--terracotta);      
+  color: var(--terracotta);
   font-weight: 500;
   margin: 0 0 20px;
-  text-align: left;
   letter-spacing: 2px;
-}
-
-.concept-body {
-  font-size: 1.6rem;
-  color: var(--cream);
-  margin: 0 0 30px;
 }
 
 .concept-text p {
   font-size: 1.25rem;
   line-height: 1.7;
-  margin: 0 0 20px;
+  margin-bottom: 20px;
   color: var(--cream);
 }
+
 /* =========================
-   À LA CARTE SECTION – Fixed Clean Layout
+   PICKUP & DELIVERY
 ========================= */
-.a-la-carte-section {
-  background: var(--cream) !important;
-  padding: 80px 20px;
+.pickup-section {
+  padding: 60px 20px;
+  background: var(--cream);
   color: var(--deep-brown);
 }
 
-.a-la-carte-container {
+.pickup-container {
   max-width: 1200px;
   margin: 0 auto;
-  display: flex !important;
+  display: flex;
   flex-wrap: wrap;
-  gap: 70px;
-  align-items: stretch !important;
+  gap: 60px;
+  align-items: center;
   justify-content: center;
 }
 
-.a-la-carte-text {
-  flex: 1 1 45% !important;
+.pickup-text, .pickup-image {
+  flex: 1 1 45%;
   min-width: 300px;
 }
 
-.a-la-carte-image {
-  flex: 1 1 45% !important;
-  min-width: 300px;
-  display: flex;
-  align-items: center;
-}
-
-.a-la-carte-image img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
+.pickup-image img {
+  width: 100%;
+  height: auto;
   border-radius: 12px;
   box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+  object-fit: cover;
 }
 
-.a-la-carte-title {
+.pickup-title {
   font-family: 'Luxurious Script', cursive;
-  font-size: 7rem;
-  color: var(--deep-brown);
-  font-weight: 500;
-  margin: 0 0 32px 0;
+  font-size: 5.5rem;
   line-height: 1.05;
+  margin-bottom: 24px;
+  color: var(--terracotta);
 }
 
-.a-la-carte-section p {
-  font-size: 1.25rem;
-  line-height: 1.65;
-  margin-bottom: 22px;
-  color: var(--deep-brown);
+.pickup-delivery-intro {
+  font-size: 2.25rem;
+  line-height: 1.6;
+  margin-bottom: 32px;
+  color: var(--terracotta);
 }
 
-.a-la-carte-section .order-btn {
-  background: var(--terracotta);
-  color: white;
-  padding: 16px 44px;
-  font-size: 1.15rem;
-  border-radius: 30px;
-  text-decoration: none;
-  font-weight: 600;
-  display: inline-block;
-  margin-top: 10px;
+.option-block {
+  margin-bottom: 40px;
 }
 
-.a-la-carte-section .order-btn:hover {
-  background: var(--deep-brown);
-  transform: scale(1.05);
-}
-.a-la-carte-section ul {
-  margin: 18px 0 28px 0; /* space above and below list */
+.option-block h3, .option-block h2 {
+  font-family: 'Host Grotesk', sans-serif;
+  color: var(--terracotta);
+  margin-bottom: 12px;
 }
 
-.a-la-carte-section ul li {
-  font-size: 1.25rem;
-  line-height: 1.7;
-  margin-bottom: 10px;     /* spacing between bullets */
-  color: var(--deep-brown);
-  text-align: left;
-}
-.a-la-carte-section ul li:last-child {
-  margin-bottom: 0;
+.option-block ul {
+  padding-left: 22px;
+  margin: 16px 0;
 }
 
-/* Mobile */
-@media (max-width: 900px) {
-  .a-la-carte-container {
-    flex-direction: column !important;
-    gap: 50px;
-  }
-   .a-la-carte-section ul {
-    margin: 16px 0 24px 0;
-    padding-left: 18px;
-    text-align: left;
-  }
+.option-block li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
 
-  .a-la-carte-section ul li {
-    font-size: 1.15rem;
-    text-align: left; /* prevents awkward centered bullets on mobile */
-  }
-  .a-la-carte-title {
-    font-size: 5rem;
-    text-align: center;
-    color: var(--deep-brown);
-  }
-  .a-la-carte-text {
-    text-align: center;
-  }
-  .a-la-carte-image img {
-    height: auto !important;
-  }
+.note {
+  font-style: italic;
+  color: #555;
+  margin-top: 12px;
 }
 
 /* =========================
-   FAQs
+   FAQS
 ========================= */
 .faqs-section {
   background: var(--deep-brown);
@@ -711,12 +373,11 @@ content: "";
 }
 
 .faqs-image img {
-  width: 1300px;
+  width: 100%;
   height: 1000px;
-  display: block;
+  object-fit: cover;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  object-fit: cover;
 }
 
 .faqs-text {
@@ -728,9 +389,7 @@ content: "";
   font-family: 'Luxurious Script', cursive;
   font-size: 4.5rem;
   color: var(--terracotta);
-  font-weight: 500;
-  margin: 0 0 2rem;
-  text-align: left;
+  margin-bottom: 2rem;
   letter-spacing: 2px;
 }
 
@@ -772,7 +431,6 @@ content: "";
 
 .faq-item[open] .faq-question::after {
   transform: translateY(-50%) rotate(180deg);
-  color: var(--terracotta);
 }
 
 .faq-answer {
@@ -780,690 +438,202 @@ content: "";
   line-height: 1.7;
   margin-top: 1rem;
   color: var(--cream);
-  padding-left: 0;
   font-style: italic;
 }
 
-.faqs-section .subscribe-btn {
-  padding: 16px 48px;
-  font-size: 1.1rem;
-  margin-top: 1.5rem;
-  display: inline-block;
+/* =========================
+   FOOTER
+========================= */
+.footer {
+  margin-top: 10px;
+  padding: 20px 10px 10px;
+  border-top: 1px solid #eee;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
 }
 
-/* Mobile stacking */
+.ig-container {
+  margin-top: 12px;
+  color:var(--terracotta);
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
 @media (max-width: 900px) {
+  .concept-container,
+  .pickup-container,
   .faqs-container {
     flex-direction: column;
     gap: 40px;
   }
+
+  .concept-title {
+    font-size: 6.5rem;
+    text-align: center;
+  }
+
+  .pickup-title {
+    font-size: 5.8rem;
+    text-align: center;
+  }
+
   .faqs-title {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     text-align: center;
   }
-  .faqs-text {
-    text-align: center;
-  }
-  .faqs-image img {
-    width: 100px;
-  height: 100px;
-  display: block;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  object-fit: cover;
-    border-radius: 5px;
-  }
-}
 
-@media (max-width: 480px) {
-  
-}
-/* =========================
-   FOOTER
-========================= */
-
-.footer {
-  margin-top: 50px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-}
-
-.social-ig {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;                    /* space between logo and text */
-  font-size: 16px;
-  color: var(--cream);          /* or var(--deep-brown) if on light bg */
-}
-
-.ig-link:hover {
-  color: #d4a373;               /* gold on hover */
-}
-
-.ig-logo {
-  width: 24px;                  /* smaller and cleaner size */
-  height: auto;
-  vertical-align: middle;
-  transition: transform 0.3s ease;
-}
-
-.ig-link:hover .ig-logo {
-  transform: scale(1.15);       /* gentle zoom on hover */
-}
-
-.ig-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  color: inherit;
-  transition: color 0.3s ease;
-  font-weight: 500;
-}
-
-
-/* =========================
-   RESPONSIVE – MOBILE FIRST IMPROVEMENTS
-========================= */
-
-@media (min-width: 769px) {
-  .desktop-nav {
-    display: flex !important;     /* force show on desktop */
-  }
-}
-
-@media (max-width: 768px) {
-  .desktop-nav {
-    display: none !important;     /* hide on mobile if you want */
-  }
-}
-@media (max-width: 900px) {
-
-  /* Global mobile spacing & readability */
-  body {
-    font-size: 16px;                /* base font readable on phone */
+  .cover img {
+    height: 650px;
+    object-position: 45% center;
   }
 
-  .page {
-    padding: 16px;                  /* less side padding on small screens */
-  }
-
-  /* Global mobile spacing & readability */
-  body {
-    font-size: 16px;                /* base font readable on phone */
-  }
-
-  .page {
-    padding: 16px;                  /* less side padding on small screens */
-  }
-
-  /* Header – make everything center and compact */
-  .cover-text {
-    top: 8%;
-  }
-  .cover-text p {
-    font-size: 2rem;
-  }
-  
-.cover img {
-  width: 100%;
-  height: 650px;
-  display: block;
-  object-fit: cover;
-  object-position: 45% center;   /* This moves the image to the right */
-  /* You can adjust the number:
-     50% = center (default)
-     60% = a bit to the right
-     70% = more to the right
-     100% = fully to the right */
-}
   .header-inner {
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    /* padding: 1px; */
   }
 
   .logo img {
-    width: 120px;                  
-     height: 30px;
-  object-fit: cover;
-  object-position: left;
+    width: 120px;
   }
 
-  /* .desktop-nav {
-    display: none !important;
-  } */
-
-  /* Very large titles – scale down dramatically */
-  .concept-title {
-    font-size: 5.5rem !important;     /* was 7.5rem → way too big */
+  .mobile-order-btn {
+    width: 100%;
     text-align: center;
-    line-height: 1.1;
-  }
-  .lineup-container {
-    flex-direction: column;
-    gap: 50px;
-  }
-
-   .lineup-left,
-  .lineup-image {
-    min-width: 100%;
-  }
-.lineup-left,
-  .lineup-image {
-    min-width: 100%;
-  }
-
-  .lineup-image img {
-    max-height: 500px;
-    border-radius: 16px;
-  }
-  .lineup-title {
-    font-size: 2.2rem !important;
-    text-align: center;
-  }
-
-  .lineup-subtitle {
-    font-size: 2.8rem !important;
-  }
-
-  .card-title {
-    font-size: 1.8rem !important;
-  }
-
-  /* Cards – stack vertically, full width, better spacing */
-  .grid {
-    grid-template-columns: 1fr !important;
-    gap: 24px !important;
-  }
-
-  .card {
-    padding: 24px 20px !important;
-  }
-
-  .card-text {
-    font-size: 1.05rem !important;
-  }
-
-  /* Concept section – stack image/text vertically */
-  .concept-container {
-    flex-direction: column !important;
-    gap: 32px !important;
-  }
-
-  .concept-image img {
-    border-radius: 8px;
-  }
-
-  .concept-text {
-    text-align: center;
-  }
-
-  .concept-body,
-  .concept-text p {
-    font-size: 1.1rem !important;
-    line-height: 1.6;
-  }
- 
-  .faqs-container {
-    flex-direction: column;
-    gap: 40px;
-  }
-  .faqs-title {
-    font-size: 3.5rem !important;
-    text-align: center;
-  }
-  .faqs-text {
-    text-align: center;
-  }
-  .faqs-image img {
-    width: 400px;
-  height: 400px;
-  display: block;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  object-fit: cover;
-    border-radius: 5px;
-  }
-
-  /* Footer – center everything */
-  .footer {
-    flex-direction: column !important;
-    text-align: center !important;
-    gap: 16px;
-    padding: 32px 20px;
-  }
-
-  .social-ig,
-  .ig-link {
-    justify-content: center;
-  }
-
-  .ig-logo {
-    width: 28px;
   }
 }
 
-/* Extra-small screens (phones < 480px) like iphone 15 pro*/
 @media (max-width: 480px) {
   .concept-title {
-    font-size: 3.8rem !important;
+    font-size: 4.8rem;
   }
-
-  .lineup-container {
-    flex-direction: column;
-    gap: 50px;
-  }
-
-  .lineup-left,
-  .lineup-image {
-    min-width: 100%;
-  }
-
-.lineup-image img {
-    max-height: 500px;
-    border-radius: 16px;
-  }
-  .lineup-title {
-    font-size: 1.2rem !important;
+  .concept-text {
+    font-size: 1.2rem;
     text-align: center;
   }
 
-  .lineup-subtitle {
-    font-size: 2.8em !important;
+  .pickup-title {
+    font-size: 4.2rem;
   }
-
-  .page {
-    padding: 5px;
+.pickup-delivery-intro {
+    font-size: 2.2rem;
+    color: var(--terracotta);
+}
+  .cover img {
+    height: 550px;
   }
+  .cover-text p{
+    font-size: 1.5rem;
+  }
+}
+/* =========================
+   MOBILE REORDERING
+========================= */
+@media (max-width: 900px) {
+  .concept-container,
+  .pickup-container,
   .faqs-container {
     flex-direction: column;
-    gap: 40px;
+    gap: 35px;
+  }
+
+  /* Reorder sections for mobile */
+  .cover           { order: 1; }
+  .concept-text    { order: 2; }
+  .concept-image   { order: 3; }
+  .pickup-text     { order: 4; }
+  .pickup-image    { order: 5; }
+  .faqs-text       { order: 6; }
+  
+  /* Optional: hide FAQs image on mobile since you didn't include it */
+  .faqs-image      { display: none; }
+
+  /* Keep existing styles */
+  .concept-title {
+    font-size: 6.5rem;
+    text-align: center;
+  }
+  .pickup-title {
+    font-size: 5.8rem;
+    text-align: center;
   }
   .faqs-title {
     font-size: 3.5rem;
     text-align: center;
   }
-  .faqs-text {
-    text-align: center;
-  }
-  .faqs-image img {
-    width: 500px;
-  height: 500px;
-  display: block;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  object-fit: cover;
-    border-radius: 5px;
-  }
-}
-
-/* Extra Safari safety */
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* =========================
-   HEADER
-========================= */
-
-.site-header {
-  width: 100%;
-  padding: 20px 0;
-  /* border-bottom: 1px solid #eee; */
-  position: relative;
-  background: var(--deep-brown);
-}
-
-.header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-display: flex;
-  flex-direction: column; /* Stacks image on top of text */
-  align-items: center;    /* Centers both horizontally */
-  justify-content: center;
-  color: var(--cream);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 1px;
-}
-
-/* Specific styling for the SVG image */
-.logo img {
-  display: block;
-  width: 150px;      /* Adjust width as needed for your design */
-  height: 30px;     /* Set a specific height to "crop" the empty space */
-  object-fit: cover; /* Crops the image to fill the 60px height */
-  object-position: center; /* Keeps the actual logo mark in focus */
-}
-
-.desktop-nav {
-  display: flex;
-  gap: 30px;
-  align-items: center;
-}
-
-.desktop-nav a {
-  text-decoration: none;
-  color: var(--cream);
-  font-size: 15px;
-}
-
-.waitlist-btn {
-  padding: 10px 18px;
-  border: 1px solid var(--cream);
-  border-radius: 30px;
-  text-decoration: none;
-  font-size: 14px;
-  transition: 0.2s ease;
-}
-
-.waitlist-btn:hover {
-  background: var(--deep-brown);
-  color: var(--cream);
-}
-
-/* =========================
-   HAMBURGER
-========================= */
-
-.hamburger {
-  width: 26px;
-  height: 18px;
-  display: none;
-  flex-direction: column;
-  justify-content: space-between;
-  cursor: pointer;
-}
-
-.hamburger span {
-  height: 2px;
-  width: 100%;
-  background: var(--cream);
-  display: block;
-}
-
-/* =========================
-   MOBILE MENU
-========================= */
-
-.mobile-menu {
-  display: none;
-  flex-direction: column;
-  padding: 20px;
-  gap: 18px;
-  border-top: 1px solid #eee;
-}
-
-.mobile-menu a {
-  text-decoration: none;
-  color: var(--cream);
-  font-size: 16px;
-}
-
-.mobile-menu .waitlist-btn.mobile {
-  text-align: center;
-}
-
-.card-title {
-    font-family: 'Host Grotesk', sans-serif; 
-  font-size: 1.5rem; 
-  margin: 0 0 15px;
-      font-style: italic;
-  font-weight: 1000;
-  color: var(--terracotta);
-}
-
-.card-desc {
-  font-size: 1.15rem;
-  line-height: 1.5;
-  margin: 0;
-  color: #f0d9b5;
-}
-
-.card-image {
-  width: 100%;
-  height: 240px;
-  object-fit: cover;
-  display: block;
-}
-
-.footer-note {
-  text-align: center;
-  font-size: 1.4rem;
-  font-style: italic;
-  color: #f0d9b5;
-}
-
-.footer-note p {
-  margin-bottom: 30px;
-}
-
-.btn-join {
-  display: inline-block;
-  padding: 16px 50px;
-  background: #d4a373; /* warm gold */
-  color: #5c2d1f;
-  font-size: 1.3rem;
-  font-weight: bold;
-  text-decoration: none;
-  border-radius: 50px;
-  transition: background 0.3s ease;
-}
-
-.btn-join:hover {
-  background: #e0b88a;
-}
-
-/* Responsive tweaks */
-@media (max-width: 768px) {
-  .section-title { font-size: 2.8rem; }
-  .section-subtitle { font-size: 1.25rem; }
-  .card-title { font-size: 2rem; }
-  .card-desc { font-size: 1.1rem; }
-}
-
-/* =========================
-   FIXED PICKUP & DELIVERY SECTIONS (Mobile Friendly)
-========================= */
-
-.pickup-section, .delivery-section {
-  padding: 60px 20px;
-}
-
-.pickup-container, .delivery-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 60px;
-  align-items: center;
-  justify-content: center;
-}
-
-.pickup-text, .delivery-text {
-  flex: 1 1 45%;
-  min-width: 300px;
-}
-
-.pickup-image, .delivery-image {
-  flex: 1 1 45%;
-  min-width: 300px;
-}
-
-.pickup-image img, .delivery-image img {
-  width: 100%;
-  height: auto;
-  border-radius: 12px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
-  object-fit: cover;
-}
-
-.pickup-title, .delivery-title {
-  font-family: 'Luxurious Script', cursive;
-  font-size: 5.5rem;
-  line-height: 1.05;
-  margin-bottom: 24px;
-  color: var(--deep-brown);
-}
-
-.pickup-section .pickup-title {
-  color: var(--terracotta);
-}
-
-.pickup-list, .delivery-list {
-  margin: 28px 0 32px;
-  padding-left: 22px;
-}
-
-.pickup-list li, .delivery-list li {
-  margin-bottom: 14px;
-  font-size: 1.18rem;
-  line-height: 1.65;
-}
-
-/* About Us Title Fix */
-.concept-title {
-  font-size: 6rem;
-  line-height: 1.05;
-}
-
-/* Mobile Optimizations */
-@media (max-width: 900px) {
-  .concept-title,
-  .pickup-title,
-  .delivery-title {
-    font-size: 3.8rem !important;
-    text-align: center;
-  }
-
-  .pickup-container,
-  .delivery-container,
-  .concept-container {
-    flex-direction: column;
-    gap: 40px;
-  }
-
-  .pickup-text,
-  .delivery-text,
-  .concept-text {
-    text-align: center;
-  }
-
   .cover img {
-    height: 550px;
+    height: 650px;
+    object-position: 45% center;
+  }
+  .header-inner {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo img {
+    width: 120px;
+  }
+  .mobile-order-btn {
+    width: 100%;
+    text-align: center;
   }
 }
 
 @media (max-width: 480px) {
-  .concept-title,
-  .pickup-title,
-  .delivery-title {
-    font-size: 3.2rem !important;
+  .concept-title {
+    font-size: 4.8rem;
+  }
+  .concept-text {
+    font-size: 1.2rem;
+    text-align: center;
+  }
+  .pickup-title {
+    font-size: 4.2rem;
+  }
+  .pickup-delivery-intro {
+    font-size: 2.2rem;
+    color: var(--terracotta);
+  }
+  .cover img {
+    height: 550px;
+  }
+  .cover-text p {
+    font-size: 1.5rem;
   }
 }
 
-/* =========================
-   PICKUP & DELIVERY SECTION
-========================= */
-.pickup-delivery-section {
-  background: var(--cream);
-  padding: 80px 20px;
-  color: var(--deep-brown);
-}
-
-.pickup-delivery-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 70px;
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
   align-items: center;
   justify-content: center;
+  z-index: 1000;
 }
 
-.pickup-delivery-text {
-  flex: 1 1 48%;
-  min-width: 300px;
-}
-
-.pickup-delivery-image {
-  flex: 1 1 45%;
-  min-width: 300px;
-}
-
-.pickup-delivery-image img {
-  width: 100%;
-  height: auto;
+.modal-content {
+  background: white;
+  padding: 2rem;
   border-radius: 12px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
-  object-fit: cover;
+  max-width: 90%;
+  width: 400px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-.pickup-delivery-title {
-  font-family: 'Luxurious Script', cursive;
-  font-size: 5.8rem;
-  color: var(--deep-brown);
-  line-height: 1.05;
-  margin-bottom: 28px;
-}
-
-.pickup-delivery-intro {
-  font-size: 1.25rem;
-  margin-bottom: 32px;
-  line-height: 1.6;
-}
-
-.option-block {
-  margin-bottom: 40px;
-}
-
-.option-block h3 {
-  font-family: 'Host Grotesk', sans-serif;
-  color: var(--terracotta);
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
   font-size: 2rem;
-  margin-bottom: 12px;
+  cursor: pointer;
+  color: #8B4513;
 }
 
-.option-block ul {
-  padding-left: 22px;
-  margin: 16px 0;
-}
-
-.option-block li {
-  margin-bottom: 10px;
-  line-height: 1.6;
-}
-
-.note {
-  font-style: italic;
-  color: #555;
-  margin-top: 12px;
-}
-
-/* Mobile */
-@media (max-width: 900px) {
-  .pickup-delivery-container {
-    flex-direction: column;
-    gap: 50px;
-  }
-  .pickup-delivery-title {
-    font-size: 4.2rem;
-    text-align: center;
-  }
-  .pickup-delivery-text {
-    text-align: center;
-  }
-}

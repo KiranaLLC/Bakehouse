@@ -243,7 +243,7 @@ img {
 ========================= */
 
 .concept-section {
-  background: var(--deep-brown);
+  background: var(--cream);
   color: var(--cream);
   padding: 20px 0;
   font-family: 'Montserrat', serif;
@@ -291,7 +291,7 @@ img {
   font-size: 1.20rem;
   line-height: 1.7;
   margin-bottom: 20px;
-  color: var(--cream);
+  color: var(--deep-brown);
 }
 
 /* =========================
@@ -299,8 +299,8 @@ img {
 ========================= */
 .pickup-section {
   padding: 60px 20px;
-  background: var(--cream);
-  color: var(--deep-brown);
+  background: var(--deep-brown);
+  color: var(--cream);
 }
 
 .pickup-container {
@@ -316,6 +316,7 @@ img {
 .pickup-text, .pickup-image {
   flex: 1 1 45%;
   min-width: 300px;
+  font-family: 'Montserrat', serif;
 }
 
 .pickup-image img {
@@ -328,6 +329,7 @@ img {
 
 .pickup-title {
   font-family: 'Luxurious Script', cursive;
+  font-weight: 400;
   font-size: 5.5rem;
   line-height: 1.05;
   margin-bottom: 24px;
@@ -363,8 +365,84 @@ img {
 
 .note {
   font-style: italic;
-  color: #555;
+  color: var(--muted);
   margin-top: 12px;
+}
+
+/* =========================
+   MEDIA SECTION
+========================= */
+
+.media-section {
+  background: var(--cream);
+  /* padding: 0px 20px; */
+  color: var(--deep-brown);
+}
+
+.media-container {
+  background: var(--cream);
+  padding: 10px 20px;
+  color: var(--deep-brown);
+}
+
+.media-title {
+  font-family: 'Luxurious Script', cursive;
+  font-size: 5.5rem;
+  font-weight: 400;
+  color: var(--terracotta);
+  margin-bottom: 2px;
+}
+
+.press-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;                    /* ← Reduced horizontal & vertical gap */
+  max-width: 1100px;
+  margin: 40px auto;            /* ← Reduced top/bottom margin */
+}
+
+.press-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--cream);
+  border-radius: 16px;
+  border: 1px solid var(--deep-brown);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 100%;
+}
+
+.press-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 10px 10px var(--deep-brown);
+}
+
+.press-image img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-color: var(--deep-brown);
+}
+
+.press-content {
+  padding: 24px 24px 28px;      /* ← Reduced padding inside cards */
+  text-align: left;
+}
+
+.press-source {
+  font-family: 'Host Grotesk', sans-serif;
+  font-size: 0.95rem;
+  color: var(--terracotta);
+  font-weight: 500;
+}
+
+.press-content h3 {
+  font-size: 1.55rem;
+  margin: 12px 0 14px;
+  line-height: 1.3;
+  color: var(--deep-brown);
 }
 
 /* =========================
@@ -407,9 +485,10 @@ img {
 
 .faqs-title {
   font-family: 'Luxurious Script', cursive;
-  font-size: 4.5rem;
+  font-size: 5.5rem;
+  font-weight: 400;
   color: var(--terracotta);
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   letter-spacing: 2px;
 }
 
@@ -640,6 +719,7 @@ img {
     font-size: 1.5rem;
   }
 }
+
 
 /* Modal */
 .modal {

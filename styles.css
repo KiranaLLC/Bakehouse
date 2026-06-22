@@ -391,6 +391,7 @@ img {
   font-weight: 400;
   color: var(--terracotta);
   margin-bottom: 2px;
+  text-align: center;
 }
 
 .press-grid {

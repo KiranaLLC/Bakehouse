@@ -31,6 +31,17 @@ body {
   line-height: 1.6;
 }
 
+/* General hyperlinks */
+a {
+  color: #90D5FF;
+  text-decoration: underline;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: #d4a373;
+}
+
 img {
   display: block;
   max-width: 100%;

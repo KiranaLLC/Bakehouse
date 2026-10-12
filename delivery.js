@@ -1,5 +1,5 @@
 import { DELIVERY_SERVICE } from "./macros.js";
-import { formatMoney } from "./delivery-rules.js";
+import { describeDeliveryFee } from "./delivery-rules.js";
 import { checkDeliveryArea } from "./delivery-area.js";
 
 const form = document.getElementById("delivery-check-form");
@@ -18,8 +18,7 @@ form.addEventListener("submit", async event => {
   try {
     const { distanceMiles, zone } = await checkDeliveryArea(address);
     if (!zone) return showResult("invalid", "Sorry, we don't deliver there yet.", `This address is outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area. It is about ${distanceMiles} miles from our kitchen.`);
-    const feeMessage = zone.feeCents === 0 ? "Delivery is free." : `${formatMoney(zone.feeCents)} delivery, free for orders over ${formatMoney(zone.freeOverCents)}.`;
-    showResult("valid", "Good news — we deliver to this address!", `It is about ${distanceMiles} miles away. ${feeMessage}`);
+    showResult("valid", "Good news — we deliver to this address!", `It is about ${distanceMiles} miles away. ${describeDeliveryFee(zone)}`);
   } catch (error) {
     showResult("error", "We couldn't check that address.", error.message);
   } finally {

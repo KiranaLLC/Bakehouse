@@ -1,50 +1,38 @@
 /*
 ==================================================
 KIRANA BAKEHOUSE
-DELIVERY ORDERING SYSTEM
+DELIVERY ORDERING
+==================================================
+
+The customer checks their address here, picks a
+delivery date, and is sent to the Stripe Payment
+Link for their delivery zone. Loaves, quantities,
+tip, contact details and payment are all handled
+on Stripe's page.
 ==================================================
 */
 
-import { DELIVERY_SERVICE, PRODUCTS, STRIPE } from "./macros.js";
+import { DELIVERY_SERVICE, PRODUCTS } from "./macros.js";
 import {
-  calculateDeliveryFee,
-  calculateSubtotal,
   describeDeliveryDays,
-  formatDeliveryDate,
+  describeDeliveryFee,
   formatMoney,
   getDeliveryDates
 } from "./delivery-rules.js";
 import { checkDeliveryArea } from "./delivery-area.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
-const PLACED_ORDER_KEY = "kirana-placed-order";
-const ADDRESS_CHECK_DELAY_MS = 800;
+const ADDRESS_CHECK_DELAY_MS = 1200;
+const MIN_ADDRESS_LENGTH = 8;
 
 const form = document.getElementById("order-form");
-const fields = {
-  line1: document.getElementById("address-line1"),
-  city: document.getElementById("address-city"),
-  postalCode: document.getElementById("address-zip"),
-  deliveryDate: document.getElementById("delivery-date")
-};
-const ADDRESS_FIELDS = ["line1", "city", "postalCode"];
-
-
-/*
-==================================================
-STATE
-==================================================
-*/
-
-const cart = {};
-
-Object.keys(PRODUCTS).forEach(productId => {
-  cart[productId] = 0;
-});
+const addressField = document.getElementById("delivery-address");
+const dateField = document.getElementById("delivery-date");
+const button = document.getElementById("checkout-button");
 
 /*
   The result of the last delivery-area check:
-  { key, status: "checking" | "valid" | "invalid" | "error", zone, message }
+  { key, status: "checking" | "valid" | "invalid" | "error", zone, distanceMiles, message }
 */
 let addressCheck = null;
 let addressCheckTimer;
@@ -52,7 +40,7 @@ let addressCheckTimer;
 
 /*
 ==================================================
-RENDER PRODUCTS
+MENU
 ==================================================
 */
 
@@ -63,240 +51,44 @@ function renderProducts() {
 
   grid.innerHTML = "";
 
-  Object.entries(PRODUCTS).forEach(
-    ([id, product]) => {
+  Object.values(PRODUCTS).forEach(product => {
 
-      const card =
-        document.createElement("article");
+    const card =
+      document.createElement("article");
 
-      card.className =
-        "product-card";
+    card.className =
+      "product-card";
 
-      card.innerHTML = `
+    card.innerHTML = `
 
-        <img
-          src="${product.image}"
-          alt="${product.name}"
-          class="product-image"
-          loading="lazy"
-        />
+      <img
+        src="${product.image}"
+        alt="${product.name}"
+        class="product-image"
+        loading="lazy"
+      />
 
-        <div class="product-info">
+      <div class="product-info">
 
-          <h2 class="product-name">
-            ${product.name}
-          </h2>
+        <h2 class="product-name">
+          ${product.name}
+        </h2>
 
-          <p class="product-description">
-            ${product.description}
-          </p>
+        <p class="product-description">
+          ${product.description}
+        </p>
 
-          <div class="product-price">
-            ${formatMoney(product.price)}
-          </div>
-
-          <div class="quantity-row">
-
-            <button
-              type="button"
-              data-action="minus"
-              data-product="${id}"
-              aria-label="Remove one ${product.name}"
-            >
-              −
-            </button>
-
-            <span
-              id="quantity-${id}"
-              class="quantity"
-              aria-live="polite"
-            >
-              0
-            </span>
-
-            <button
-              type="button"
-              data-action="plus"
-              data-product="${id}"
-              aria-label="Add one ${product.name}"
-            >
-              +
-            </button>
-
-          </div>
-
+        <div class="product-price">
+          ${formatMoney(product.price)}
         </div>
 
-      `;
-
-      grid.appendChild(card);
-
-    }
-  );
-
-  grid.addEventListener(
-    "click",
-    handleProductClick
-  );
-
-}
-
-
-/*
-==================================================
-PRODUCT BUTTONS
-==================================================
-*/
-
-function handleProductClick(event) {
-
-  const button =
-    event.target.closest("button");
-
-  if (!button) return;
-
-  const productId =
-    button.dataset.product;
-
-  const product =
-    PRODUCTS[productId];
-
-  if (!product) return;
-
-  if (button.dataset.action === "plus" && cart[productId] < product.maxQuantity) {
-    cart[productId]++;
-  }
-
-  if (button.dataset.action === "minus" && cart[productId] > 0) {
-    cart[productId]--;
-  }
-
-  hideError();
-  updateCart();
-  saveOrder();
-
-}
-
-
-/*
-==================================================
-UPDATE CART
-==================================================
-*/
-
-function getCartItems() {
-  return Object.entries(cart)
-    .filter(([, quantity]) => quantity > 0)
-    .map(([productId, quantity]) => ({ productId, quantity }));
-}
-
-function updateCart() {
-
-  const cartElement =
-    document.getElementById("cart-items");
-
-  const items =
-    getCartItems();
-
-  cartElement.innerHTML = "";
-
-  items.forEach(({ productId, quantity }) => {
-
-    const product =
-      PRODUCTS[productId];
-
-    const item =
-      document.createElement("div");
-
-    item.className =
-      "cart-item";
-
-    item.innerHTML = `
-
-      <span>
-        ${product.name} × ${quantity}
-      </span>
-
-      <span>
-        ${formatMoney(product.price * quantity)}
-      </span>
+      </div>
 
     `;
 
-    cartElement.appendChild(item);
+    grid.appendChild(card);
 
   });
-
-  if (items.length === 0) {
-
-    cartElement.innerHTML = `
-
-      <p class="empty-cart">
-        Your cart is empty.
-      </p>
-
-    `;
-
-  }
-
-  Object.entries(PRODUCTS).forEach(([productId, product]) => {
-    const quantityElement = document.getElementById(`quantity-${productId}`);
-    if (!quantityElement) return;
-
-    quantityElement.textContent = cart[productId];
-
-    const row = quantityElement.parentElement;
-    row.querySelector('[data-action="minus"]').disabled = cart[productId] === 0;
-    row.querySelector('[data-action="plus"]').disabled = cart[productId] >= product.maxQuantity;
-  });
-
-  updateTotals();
-
-}
-
-
-/*
-==================================================
-TOTALS
-==================================================
-
-The delivery fee depends on the address
-(distance zone) and the subtotal (free over
-a certain amount). The server recalculates
-both before creating the Stripe checkout.
-==================================================
-*/
-
-function updateTotals() {
-
-  const subtotal =
-    calculateSubtotal(getCartItems());
-
-  const feeElement =
-    document.getElementById("cart-delivery-fee");
-
-  let deliveryFee = 0;
-
-  if (addressCheck?.status === "valid") {
-
-    deliveryFee =
-      calculateDeliveryFee(addressCheck.zone, subtotal);
-
-    feeElement.textContent =
-      deliveryFee === 0 ? "Free" : formatMoney(deliveryFee);
-
-  } else {
-
-    feeElement.textContent =
-      addressCheck?.status === "checking" ? "Checking…" : "Enter your address";
-
-  }
-
-  document.getElementById("cart-subtotal").textContent =
-    formatMoney(subtotal);
-
-  document.getElementById("cart-total").textContent =
-    formatMoney(subtotal + deliveryFee);
 
 }
 
@@ -308,19 +100,11 @@ DELIVERY ADDRESS CHECK
 */
 
 function getAddress() {
-  return {
-    line1: fields.line1.value.trim(),
-    city: fields.city.value.trim(),
-    postalCode: fields.postalCode.value.trim()
-  };
+  return addressField.value.trim().replace(/\s+/g, " ");
 }
 
-function addressKey({ line1, city, postalCode }) {
-  return [line1, city, postalCode].join("|").toLowerCase();
-}
-
-function isAddressComplete({ line1, city, postalCode }) {
-  return Boolean(line1 && city && /^\d{5}(-\d{4})?$/.test(postalCode));
+function isAddressComplete(address) {
+  return address.length >= MIN_ADDRESS_LENGTH && /\d/.test(address);
 }
 
 function scheduleAddressCheck() {
@@ -329,10 +113,9 @@ function scheduleAddressCheck() {
 
   const address = getAddress();
 
-  if (addressCheck && addressCheck.key !== addressKey(address)) {
+  if (addressCheck && addressCheck.key !== address.toLowerCase()) {
     addressCheck = null;
     showAddressStatus("", "");
-    updateTotals();
   }
 
   if (isAddressComplete(address)) {
@@ -343,7 +126,7 @@ function scheduleAddressCheck() {
 
 /*
   Resolves to the check result for the address
-  currently in the form. Re-uses the last result
+  currently in the box. Re-uses the last result
   if the address hasn't changed.
 */
 async function checkAddress() {
@@ -351,7 +134,7 @@ async function checkAddress() {
   clearTimeout(addressCheckTimer);
 
   const address = getAddress();
-  const key = addressKey(address);
+  const key = address.toLowerCase();
 
   if (addressCheck?.key === key && addressCheck.status !== "error") {
     return addressCheck.promise;
@@ -360,7 +143,6 @@ async function checkAddress() {
   const check = { key, status: "checking" };
   addressCheck = check;
   showAddressStatus("checking", "Checking your address…");
-  updateTotals();
 
   check.promise = (async () => {
 
@@ -369,12 +151,12 @@ async function checkAddress() {
       const { distanceMiles, zone } =
         await checkDeliveryArea(address);
 
+      check.distanceMiles = distanceMiles;
+
       if (zone) {
         check.status = "valid";
         check.zone = zone;
-        check.message = zone.feeCents > 0
-          ? `We deliver to you! About ${distanceMiles} miles away — delivery is free on orders over ${formatMoney(zone.freeOverCents)}.`
-          : `We deliver to you! About ${distanceMiles} miles away — delivery is free.`;
+        check.message = `We deliver to you! About ${distanceMiles} miles away. ${describeDeliveryFee(zone)}`;
       } else {
         check.status = "invalid";
         check.message = `Sorry, this address is about ${distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`;
@@ -390,7 +172,6 @@ async function checkAddress() {
     // Ignore the result if the address was edited while we were checking.
     if (addressCheck === check) {
       showAddressStatus(check.status, check.message);
-      updateTotals();
     }
 
     return check;
@@ -417,14 +198,11 @@ function showAddressStatus(status, message) {
 
 /*
 ==================================================
-DELIVERY DATES
+DELIVERY DATES AND FEES
 ==================================================
 */
 
-function renderDeliveryDates() {
-
-  const select =
-    fields.deliveryDate;
+function renderDeliveryInfo() {
 
   getDeliveryDates().forEach(({ value, label }) => {
 
@@ -437,7 +215,7 @@ function renderDeliveryDates() {
     option.textContent =
       label;
 
-    select.appendChild(option);
+    dateField.appendChild(option);
 
   });
 
@@ -448,25 +226,31 @@ function renderDeliveryDates() {
   document.getElementById("delivery-radius").textContent =
     DELIVERY_SERVICE.maxMiles;
 
+  // e.g. "Free under 1 mile, $3.00 up to 2 miles, …"
+  const fees = DELIVERY_SERVICE.zones.map(({ maxMiles, feeCents }, index) => {
+    const fee = feeCents === 0 ? "Free" : formatMoney(feeCents);
+    const miles = `${maxMiles} mile${maxMiles === 1 ? "" : "s"}`;
+    return index === 0 ? `${fee} under ${miles}` : `${fee} up to ${miles}`;
+  });
+
+  document.getElementById("delivery-fees").textContent =
+    `Delivery: ${fees.join(", ")}.`;
+
 }
 
 
 /*
 ==================================================
-SAVE ORDER IN PROGRESS
+REMEMBER THE ADDRESS AND DATE
 
-Keeps the cart and form filled in if the
-customer goes back from Stripe Checkout or
-refreshes the page.
+So they are still filled in if the customer
+comes back from Stripe or refreshes the page.
 ==================================================
 */
 
-const SAVED_FIELDS = ["line1", "city", "postalCode", "deliveryDate"];
-
 function saveOrder() {
   try {
-    const values = Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]));
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ address: addressField.value, deliveryDate: dateField.value }));
   } catch {
     // Storage can be unavailable (e.g. private browsing). Nothing to do.
   }
@@ -484,19 +268,14 @@ function restoreOrder() {
 
   if (!saved) return;
 
-  Object.entries(saved.cart || {}).forEach(([productId, quantity]) => {
-    if (Object.hasOwn(cart, productId) && Number.isInteger(quantity)) {
-      cart[productId] = Math.min(Math.max(quantity, 0), PRODUCTS[productId].maxQuantity);
-    }
-  });
+  if (typeof saved.address === "string") {
+    addressField.value = saved.address;
+  }
 
-  SAVED_FIELDS.forEach(name => {
-    const value = saved.values?.[name];
-    if (typeof value !== "string") return;
-    // Only restore a delivery date that is still available.
-    if (name === "deliveryDate" && ![...fields.deliveryDate.options].some(option => option.value === value)) return;
-    fields[name].value = value;
-  });
+  // Only restore a delivery date that is still available.
+  if ([...dateField.options].some(option => option.value === saved.deliveryDate)) {
+    dateField.value = saved.deliveryDate;
+  }
 
 }
 
@@ -521,8 +300,6 @@ function showError(message, focusElement) {
   if (focusElement) {
     focusElement.focus();
     focusElement.scrollIntoView({ behavior: "smooth", block: "center" });
-  } else {
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
 }
@@ -532,46 +309,9 @@ function hideError() {
 }
 
 
-
 /*
 ==================================================
-VALIDATION
-==================================================
-*/
-
-function validateForm() {
-
-  Object.values(fields).forEach(field => field.removeAttribute("aria-invalid"));
-
-  if (getCartItems().length === 0) {
-    return { message: "Your cart is empty. Add some sourdough above to get started.", field: document.getElementById("product-grid") };
-  }
-
-  const required = [
-    ["line1", "Please enter your street address."],
-    ["city", "Please enter your city."],
-    ["postalCode", "Please enter a valid 5-digit ZIP code."]
-  ];
-
-  for (const [name, message] of required) {
-    if (!fields[name].value.trim() || !fields[name].checkValidity()) {
-      fields[name].setAttribute("aria-invalid", "true");
-      return { message, field: fields[name] };
-    }
-  }
-
-  if (!fields.deliveryDate.value) {
-    return { message: "Please select a delivery date.", field: fields.deliveryDate };
-  }
-
-  return null;
-
-}
-
-
-/*
-==================================================
-CHECKOUT
+GO TO STRIPE
 ==================================================
 */
 
@@ -581,68 +321,56 @@ async function checkout(event) {
 
   hideError();
 
-  const invalid =
-    validateForm();
-
-  if (invalid) {
-    showError(invalid.message, invalid.field);
+  if (!isAddressComplete(getAddress())) {
+    showError("Please enter your full delivery address, including the street number.", addressField);
     return;
   }
 
-  const button =
-    document.getElementById("checkout-button");
+  if (!dateField.value) {
+    showError("Please select a delivery date.", dateField);
+    return;
+  }
 
   button.disabled =
     true;
 
   button.textContent =
-    "Opening secure payment…";
+    "Checking your address…";
 
   try {
-
-    /*
-    ------------------------------------------
-    CONFIRM WE DELIVER TO THIS ADDRESS
-    ------------------------------------------
-    */
 
     const check =
       await checkAddress();
 
     if (check.status !== "valid") {
-      throw Object.assign(new Error(check.message), { field: fields.line1 });
+      throw Object.assign(new Error(check.message), { field: addressField });
+    }
+
+    if (!check.zone.paymentLinkUrl) {
+      throw new Error("Online ordering isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order.");
     }
 
     /*
-    ------------------------------------------
-    GO TO STRIPE
-
-    The total is filled in on the Stripe
-    payment page, and the order code (date,
-    loaves, delivery fee and expected total)
-    is attached to the payment so you can see
-    what was ordered.
-    ------------------------------------------
+      The zone, distance and delivery date are
+      attached to the Stripe payment so the order
+      can be checked against the address the
+      customer gives Stripe. Stripe only allows
+      letters, numbers, dashes and underscores.
     */
 
-    if (STRIPE.paymentLinkUrl.includes("REPLACE_WITH_YOUR_LINK")) {
-      throw new Error("Online payment isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order.");
-    }
-
-    const order =
-      buildOrder(check.zone);
-
-    try {
-      sessionStorage.setItem(PLACED_ORDER_KEY, JSON.stringify(order));
-    } catch {
-      // The success page just won't show a summary.
-    }
+    const reference = [
+      `ZONE${DELIVERY_SERVICE.zones.indexOf(check.zone) + 1}`,
+      `${String(check.distanceMiles).replace(".", "")}MI`,
+      dateField.value.replaceAll("-", "")
+    ].join("-");
 
     const paymentUrl =
-      new URL(STRIPE.paymentLinkUrl);
+      new URL(check.zone.paymentLinkUrl);
 
-    paymentUrl.searchParams.set("prefilled_amount", order.total);
-    paymentUrl.searchParams.set("client_reference_id", order.code);
+    paymentUrl.searchParams.set("client_reference_id", reference);
+
+    button.textContent =
+      "Opening secure ordering…";
 
     window.location.href =
       paymentUrl.toString();
@@ -669,59 +397,11 @@ async function checkout(event) {
 
 function resetCheckoutButton() {
 
-  const button =
-    document.getElementById("checkout-button");
-
   button.disabled =
     false;
 
   button.textContent =
-    "Continue to Payment";
-
-}
-
-
-/*
-==================================================
-ORDER
-
-The order code is attached to the Stripe
-payment, e.g. 20261015-HW2-MA1-D450-T4450:
-delivery date, product codes with quantities,
-delivery fee and expected total (in cents).
-Stripe only allows letters, numbers, dashes
-and underscores here.
-==================================================
-*/
-
-function buildOrder(zone) {
-
-  const items =
-    getCartItems();
-
-  const subtotal =
-    calculateSubtotal(items);
-
-  const deliveryFee =
-    calculateDeliveryFee(zone, subtotal);
-
-  const total =
-    subtotal + deliveryFee;
-
-  const code = [
-    fields.deliveryDate.value.replaceAll("-", ""),
-    ...items.map(({ productId, quantity }) => `${PRODUCTS[productId].code}${quantity}`),
-    `D${deliveryFee}`,
-    `T${total}`
-  ].join("-");
-
-  return {
-    code,
-    deliveryDate: formatDeliveryDate(fields.deliveryDate.value),
-    items: items.map(({ productId, quantity }) => ({ name: PRODUCTS[productId].name, quantity, amount: PRODUCTS[productId].price * quantity })),
-    deliveryFee,
-    total
-  };
+    "Choose Your Loaves & Pay";
 
 }
 
@@ -734,30 +414,25 @@ INITIALIZE
 
 renderProducts();
 
-renderDeliveryDates();
+renderDeliveryInfo();
 
 restoreOrder();
-
-updateCart();
 
 if (isAddressComplete(getAddress())) {
   checkAddress();
 }
 
-ADDRESS_FIELDS.forEach(name => {
-  fields[name].addEventListener("input", scheduleAddressCheck);
-  fields[name].addEventListener("change", () => isAddressComplete(getAddress()) && checkAddress());
+addressField.addEventListener("input", () => {
+  hideError();
+  saveOrder();
+  scheduleAddressCheck();
 });
 
-Object.values(fields).forEach(field => {
-  field.addEventListener("input", () => {
-    field.removeAttribute("aria-invalid");
-    hideError();
-    saveOrder();
-  });
+addressField.addEventListener("change", () => {
+  if (isAddressComplete(getAddress())) checkAddress();
 });
 
-fields.deliveryDate.addEventListener("change", () => {
+dateField.addEventListener("change", () => {
   hideError();
   saveOrder();
 });

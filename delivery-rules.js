@@ -1,7 +1,7 @@
 /**
  * Delivery dates and pricing rules used by the order pages.
  */
-import { DELIVERY, DELIVERY_SERVICE, MONEY, PRODUCTS } from "./macros.js";
+import { DELIVERY, DELIVERY_SERVICE, MONEY } from "./macros.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -57,19 +57,14 @@ export function describeDeliveryDays() {
 
 /*
 ==================================================
-PRICING
+DELIVERY FEE
 ==================================================
 */
-
-export function calculateSubtotal(items) {
-  return items.reduce((total, { productId, quantity }) => total + PRODUCTS[productId].price * quantity, 0);
-}
 
 export function findDeliveryZone(distanceMiles) {
   return DELIVERY_SERVICE.zones.find(({ maxMiles }) => distanceMiles <= maxMiles) || null;
 }
 
-export function calculateDeliveryFee(zone, subtotalCents) {
-  if (!zone || zone.feeCents === 0) return 0;
-  return subtotalCents >= zone.freeOverCents ? 0 : zone.feeCents;
+export function describeDeliveryFee(zone) {
+  return zone.feeCents === 0 ? "Delivery is free." : `Delivery is ${formatMoney(zone.feeCents)}.`;
 }

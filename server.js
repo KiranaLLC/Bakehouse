@@ -9,8 +9,21 @@ import {
   PRODUCTS,
   SERVER
 } from "./macros.js";
+import {
+  calculateDeliveryFee,
+  calculateSubtotal,
+  describeDeliveryDays,
+  findDeliveryZone,
+  formatDeliveryDate,
+  isDeliveryDateAvailable
+} from "./delivery-rules.js";
 
 dotenv.config();
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error("STRIPE_SECRET_KEY is not set. Copy .env.example to .env and add your Stripe key.");
+  process.exit(1);
+}
 
 /*
 ==================================================
@@ -19,6 +32,9 @@ APP
 */
 
 const app = express();
+
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
 
 /*
 ==================================================
@@ -31,24 +47,32 @@ const stripe = new Stripe(
 );
 
 let originCoordinates;
+const geocodeCache = new Map();
+const GEOCODE_CACHE_LIMIT = 500;
 
-/*
-==================================================
-PRODUCT CATALOG
-
-IMPORTANT:
-Prices are stored on the SERVER.
-
-Do not trust prices sent
-from the browser.
-==================================================
-*/
+class AddressNotFoundError extends Error {}
+class OrderValidationError extends Error {}
 
 /*
 ==================================================
 SERVE WEBSITE
+
+The website files live next to the server code,
+so make sure the server's own files are never
+served. (Dotfiles such as .env are already
+ignored by express.static.)
 ==================================================
 */
+
+const PRIVATE_PATHS = ["/server.js", "/package.json", "/package-lock.json", "/node_modules"];
+
+app.use((req, res, next) => {
+  const path = req.path.toLowerCase();
+  if (PRIVATE_PATHS.some(privatePath => path === privatePath || path.startsWith(`${privatePath}/`))) {
+    return res.sendStatus(HTTP_STATUS.notFound);
+  }
+  next();
+});
 
 app.use(express.static(SERVER.staticDirectory));
 
@@ -58,29 +82,52 @@ JSON API
 ==================================================
 */
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+// Only needed when the website is hosted somewhere other than this server
+// (for example GitHub Pages). See README.md.
+app.use(SERVER.apiBasePath, (req, res, next) => {
+  const origin = req.get("Origin");
+  if (origin && allowedOrigins.includes(origin)) {
+    res.set({ "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "GET, POST", Vary: "Origin" });
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(
   SERVER.apiBasePath,
-  express.json()
+  express.json({ limit: "20kb" })
 );
 
 app.post(API.checkDelivery, async (req, res) => {
-  const address = typeof req.body.address === "string" ? req.body.address.trim() : "";
+  let address;
+
+  try {
+    address = typeof req.body.address === "string" ? cleanText(req.body.address, 300) : parseAddress(req.body.address);
+  } catch (error) {
+    return res.status(HTTP_STATUS.badRequest).json({ error: error.message });
+  }
 
   if (!address) {
     return res.status(HTTP_STATUS.badRequest).json({ error: "Please enter a delivery address." });
   }
 
   try {
-    const [destination, origin] = await Promise.all([geocodeAddress(address), getOriginCoordinates()]);
-    const distanceMiles = calculateDistanceMiles(origin, destination);
-    const zone = DELIVERY_SERVICE.zones.find(({ maxMiles }) => distanceMiles <= maxMiles);
+    const { distanceMiles, zone } = await checkDeliveryArea(address);
 
     if (!zone) {
-      return res.json({ deliverable: false, distanceMiles: Number(distanceMiles.toFixed(1)), message: "This address is outside our 4-mile delivery area." });
+      return res.json({ deliverable: false, distanceMiles, message: `This address is outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.` });
     }
 
-    res.json({ deliverable: true, distanceMiles: Number(distanceMiles.toFixed(1)), feeCents: zone.feeCents, freeOverCents: zone.freeOverCents });
+    res.json({ deliverable: true, distanceMiles, feeCents: zone.feeCents, freeOverCents: zone.freeOverCents });
   } catch (error) {
+    if (error instanceof AddressNotFoundError) {
+      return res.status(HTTP_STATUS.badRequest).json({ error: error.message });
+    }
     console.error("Delivery area check error:", error);
     res.status(HTTP_STATUS.internalServerError).json({ error: "We couldn't check that address right now. Please try again." });
   }
@@ -89,6 +136,12 @@ app.post(API.checkDelivery, async (req, res) => {
 /*
 ==================================================
 CREATE STRIPE CHECKOUT SESSION
+
+IMPORTANT:
+Prices, the delivery fee and the delivery area
+are all worked out here on the SERVER.
+
+Do not trust prices sent from the browser.
 ==================================================
 */
 
@@ -98,92 +151,26 @@ app.post(
 
     try {
 
-      const {
-        items,
-        deliveryDate
-      } = req.body;
+      const items = parseItems(req.body.items);
+      const deliveryDate = parseDeliveryDate(req.body.deliveryDate);
+      const customer = parseCustomer(req.body.customer);
+      const address = parseAddress(req.body.address);
+      const notes = parseNotes(req.body.notes);
 
       /*
       ==========================================
-      VALIDATE CART
+      DELIVERY AREA + FEE
       ==========================================
       */
 
-      if (
-        !Array.isArray(items) ||
-        items.length === 0
-      ) {
+      const { distanceMiles, zone } = await checkDeliveryArea(address);
 
-        return res.status(HTTP_STATUS.badRequest).json({
-          error: "Your cart is empty."
-        });
-
+      if (!zone) {
+        throw new OrderValidationError(`Sorry, this address is about ${distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`);
       }
 
-      /*
-      ==========================================
-      VALIDATE DELIVERY DATE
-      ==========================================
-
-      Delivery:
-      Tuesday
-      Wednesday
-      Thursday
-      Friday
-      Saturday
-
-      NO DELIVERY:
-      Sunday
-      Monday
-      ==========================================
-      */
-
-      if (!deliveryDate) {
-
-        return res.status(HTTP_STATUS.badRequest).json({
-          error: "Please select a delivery date."
-        });
-
-      }
-
-      const selectedDate =
-        new Date(`${deliveryDate}T12:00:00`);
-
-      if (
-        Number.isNaN(
-          selectedDate.getTime()
-        )
-      ) {
-
-        return res.status(HTTP_STATUS.badRequest).json({
-          error: "Invalid delivery date."
-        });
-
-      }
-
-      const day =
-        selectedDate.getDay();
-
-      /*
-        Sunday = 0
-        Monday = 1
-        Tuesday = 2
-        Wednesday = 3
-        Thursday = 4
-        Friday = 5
-        Saturday = 6
-      */
-
-      if (
-        DELIVERY.unavailableDays.includes(day)
-      ) {
-
-        return res.status(HTTP_STATUS.badRequest).json({
-          error:
-            "Delivery is not available on Sunday or Monday."
-        });
-
-      }
+      const subtotal = calculateSubtotal(items);
+      const deliveryFee = calculateDeliveryFee(zone, subtotal);
 
       /*
       ==========================================
@@ -191,227 +178,104 @@ app.post(
       ==========================================
       */
 
-      const lineItems = [];
+      const lineItems = items.map(({ productId, quantity }) => ({
+        price_data: {
+          currency: "usd",
+          product_data: { name: PRODUCTS[productId].name },
+          unit_amount: PRODUCTS[productId].price
+        },
+        quantity
+      }));
 
-      for (
-        const item of items
-      ) {
-
-        const product =
-          PRODUCTS[item.productId];
-
-        if (!product) {
-
-          return res.status(HTTP_STATUS.badRequest).json({
-            error: "Invalid product."
-          });
-
-        }
-
-        const quantity =
-          Number(item.quantity);
-
-        if (
-          !Number.isInteger(quantity) ||
-          quantity < 1
-        ) {
-
-          return res.status(HTTP_STATUS.badRequest).json({
-            error: "Invalid quantity."
-          });
-
-        }
-
-        if (
-          quantity >
-          product.maxQuantity
-        ) {
-
-          return res.status(HTTP_STATUS.badRequest).json({
-            error:
-              `${product.name} has a maximum quantity of ${product.maxQuantity}.`
-          });
-
-        }
-
+      if (deliveryFee > 0) {
         lineItems.push({
-
           price_data: {
-
             currency: "usd",
-
-            product_data: {
-              name: product.name
-            },
-
-            unit_amount:
-              product.price
-
+            product_data: { name: "Local delivery" },
+            unit_amount: deliveryFee
           },
-
-          quantity
-
+          quantity: 1
         });
-
       }
 
       /*
       ==========================================
+      ORDER DETAILS
+
+      Saved on the Stripe payment so every order
+      shows its delivery date, address and phone
+      number in the Stripe Dashboard.
+      ==========================================
+      */
+
+      const deliveryDateLabel = formatDeliveryDate(deliveryDate);
+      const addressLine = formatAddress(address);
+
+      const metadata = {
+        delivery_date: deliveryDate,
+        delivery_date_label: deliveryDateLabel,
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        delivery_address: addressLine,
+        delivery_distance_miles: String(distanceMiles),
+        delivery_notes: notes
+      };
+
+      const siteUrl = (process.env.SITE_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+
+      /*
+      ==========================================
       STRIPE CHECKOUT
+
+      Stripe collects the email address and card
+      details. The delivery address was already
+      checked above, so Stripe doesn't ask for it
+      again (and the customer can't change it to
+      one outside the delivery area).
       ==========================================
       */
 
       const session =
         await stripe.checkout.sessions.create({
 
-          /*
-          --------------------------------------
-          PAYMENT
-          --------------------------------------
-          */
-
           mode: "payment",
 
           line_items: lineItems,
 
-          /*
-          --------------------------------------
-          CUSTOMER EMAIL
-          --------------------------------------
-
-          Stripe collects this directly.
-          */
-
           customer_creation: "always",
 
-          /*
-          --------------------------------------
-          SHIPPING ADDRESS
-          --------------------------------------
-
-          Stripe collects:
-
-          Name
-          Street
-          City
-          State
-          ZIP
-          Country
-          */
-
-          shipping_address_collection: {
-            allowed_countries: ["US"]
+          payment_intent_data: {
+            description: `Kirana Bakehouse delivery — ${deliveryDateLabel}`,
+            shipping: {
+              name: customer.name,
+              phone: customer.phone,
+              address: {
+                line1: address.line1,
+                line2: address.line2 || undefined,
+                city: address.city,
+                state: DELIVERY.state,
+                postal_code: address.postalCode,
+                country: "US"
+              }
+            },
+            metadata
           },
 
-          /*
-          --------------------------------------
-          PHONE
-          --------------------------------------
-
-          Stripe collects phone number.
-          */
-
-          phone_number_collection: {
-            enabled: true
-          },
-
-          /*
-          --------------------------------------
-          DELIVERY DATE
-          --------------------------------------
-
-          Stripe shows a dropdown on checkout.
-          */
-
-          custom_fields: [
-
-            {
-              key: "delivery_date",
-
-              label: {
-                type: "custom",
-                custom: "Delivery Date"
-              },
-
-              type: "dropdown",
-
-              dropdown: {
-
-                options:
-                  generateDeliveryDateOptions(),
-
-                default_value:
-                  generateDeliveryDateOptions()[0].value
-
-              },
-
-              optional: false
-            }
-
-          ],
-
-          /*
-          --------------------------------------
-          CHECKOUT TEXT
-          --------------------------------------
-          */
+          metadata,
 
           custom_text: {
-
-            shipping_address: {
-              message:
-                "Please enter the address where you would like your sourdough delivered."
-            },
-
             submit: {
-              message:
-                "Your order will be prepared fresh for your selected delivery date."
+              message: `Delivering to ${addressLine} on ${deliveryDateLabel}. Your sourdough will be baked fresh for your delivery date.`
             }
-
           },
-
-          /*
-          --------------------------------------
-          METADATA
-          --------------------------------------
-
-          We keep the date in metadata too so
-          your order information is easy to
-          reference from Stripe/webhooks.
-          */
-
-          metadata: {
-
-            delivery_date:
-              deliveryDate
-
-          },
-
-          /*
-          --------------------------------------
-          SUCCESS
-          --------------------------------------
-          */
 
           success_url:
-            `${process.env.SITE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-
-          /*
-          --------------------------------------
-          CANCEL
-          --------------------------------------
-          */
+            `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
 
           cancel_url:
-            `${process.env.SITE_URL}/order.html?cancelled=true`
+            `${siteUrl}/order.html?cancelled=true`
 
         });
-
-      /*
-      ==========================================
-      RETURN STRIPE CHECKOUT URL
-      ==========================================
-      */
 
       res.json({
         url: session.url
@@ -421,16 +285,17 @@ app.post(
 
     catch (error) {
 
+      if (error instanceof OrderValidationError || error instanceof AddressNotFoundError) {
+        return res.status(HTTP_STATUS.badRequest).json({ error: error.message });
+      }
+
       console.error(
         "Stripe error:",
         error
       );
 
       res.status(HTTP_STATUS.internalServerError).json({
-
-        error:
-          "Unable to start Stripe checkout."
-
+        error: "Unable to start Stripe checkout. Please try again."
       });
 
     }
@@ -438,97 +303,143 @@ app.post(
   }
 );
 
-
 /*
 ==================================================
-GENERATE DELIVERY DATES
-==================================================
-
-Tuesday-Saturday only.
-
-Generates the next 30 available
-delivery dates.
+ORDER SUMMARY (success page)
 ==================================================
 */
 
-function generateDeliveryDateOptions() {
+app.get(API.orderSummary, async (req, res) => {
+  const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : "";
 
-  const options = [];
-
-  const today = new Date();
-
-  for (
-    let i = 0;
-    i < DELIVERY.serverDatesToScan;
-    i++
-  ) {
-
-    const date =
-      new Date(today);
-
-    date.setDate(
-      today.getDate() + i + DELIVERY.firstAvailableOffsetDays
-    );
-
-    const day =
-      date.getDay();
-
-    /*
-      Skip:
-
-      Sunday = 0
-      Monday = 1
-    */
-
-    if (
-      DELIVERY.unavailableDays.includes(day)
-    ) {
-
-      continue;
-
-    }
-
-    const year =
-      date.getFullYear();
-
-    const month =
-      String(
-        date.getMonth() + 1
-      ).padStart(2, "0");
-
-    const dayNumber =
-      String(
-        date.getDate()
-      ).padStart(2, "0");
-
-    // Stripe dropdown values may contain only alphanumeric characters.
-    // Keep the formatted date for display and order metadata, but use a
-    // Stripe-safe identifier for the checkout custom field.
-    const value =
-      `date${year}${month}${dayNumber}`;
-
-    const label =
-      date.toLocaleDateString(
-        DELIVERY.locale,
-        {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric"
-        }
-      );
-
-    options.push({
-
-      label,
-
-      value
-
-    });
-
+  if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+    return res.status(HTTP_STATUS.badRequest).json({ error: "Invalid order reference." });
   }
 
-  return options;
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["line_items"] });
+
+    if (session.payment_status !== "paid") {
+      return res.status(HTTP_STATUS.notFound).json({ error: "We couldn't find a completed payment for this order." });
+    }
+
+    res.json({
+      email: session.customer_details?.email || "",
+      name: session.metadata.customer_name,
+      deliveryDate: session.metadata.delivery_date_label,
+      address: session.metadata.delivery_address,
+      items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_total })),
+      amountTotal: session.amount_total
+    });
+  } catch (error) {
+    console.error("Order summary error:", error);
+    res.status(HTTP_STATUS.notFound).json({ error: "We couldn't load your order details." });
+  }
+});
+
+/*
+==================================================
+VALIDATION
+==================================================
+*/
+
+function parseItems(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new OrderValidationError("Your cart is empty.");
+  }
+
+  // Combine repeated products so the per-product limit can't be bypassed.
+  const quantities = new Map();
+
+  for (const item of items) {
+    const product = PRODUCTS[item?.productId];
+    const quantity = Number(item?.quantity);
+
+    if (!product || !Object.hasOwn(PRODUCTS, item.productId)) {
+      throw new OrderValidationError("Invalid product.");
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new OrderValidationError("Invalid quantity.");
+    }
+
+    const total = (quantities.get(item.productId) || 0) + quantity;
+
+    if (total > product.maxQuantity) {
+      throw new OrderValidationError(`${product.name} has a maximum quantity of ${product.maxQuantity}.`);
+    }
+
+    quantities.set(item.productId, total);
+  }
+
+  return [...quantities].map(([productId, quantity]) => ({ productId, quantity }));
+}
+
+function parseDeliveryDate(deliveryDate) {
+  if (!deliveryDate) {
+    throw new OrderValidationError("Please select a delivery date.");
+  }
+
+  if (typeof deliveryDate !== "string" || !isDeliveryDateAvailable(deliveryDate)) {
+    throw new OrderValidationError(`That delivery date is no longer available. We deliver ${describeDeliveryDays()} — please choose another date.`);
+  }
+
+  return deliveryDate;
+}
+
+function parseCustomer(customer) {
+  const name = cleanText(customer?.name, 100);
+  const phone = cleanText(customer?.phone, 30);
+
+  if (!name) throw new OrderValidationError("Please enter your name.");
+
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) {
+    throw new OrderValidationError("Please enter a valid phone number so we can reach you on delivery day.");
+  }
+
+  return { name, phone };
+}
+
+function parseAddress(address) {
+  const line1 = cleanText(address?.line1, 200);
+  const line2 = cleanText(address?.line2, 100);
+  const city = cleanText(address?.city, 100);
+  const postalCode = cleanText(address?.postalCode, 10);
+
+  if (!line1 || !city) {
+    throw new OrderValidationError("Please enter your street address and city.");
+  }
+
+  if (!/^\d{5}(-\d{4})?$/.test(postalCode)) {
+    throw new OrderValidationError("Please enter a valid 5-digit ZIP code.");
+  }
+
+  return { line1, line2, city, postalCode };
+}
+
+function parseNotes(notes) {
+  return cleanText(notes, DELIVERY.notesMaxLength);
+}
+
+function cleanText(value, maxLength) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, maxLength) : "";
+}
+
+function formatAddress({ line1, line2, city, postalCode }) {
+  return [line1, line2, `${city}, ${DELIVERY.state} ${postalCode}`].filter(Boolean).join(", ");
+}
+
+/*
+==================================================
+DELIVERY AREA
+==================================================
+*/
+
+async function checkDeliveryArea(address) {
+  const [destination, origin] = await Promise.all([geocodeAddress(address), getOriginCoordinates()]);
+  const distanceMiles = Number(calculateDistanceMiles(origin, destination).toFixed(1));
+  return { distanceMiles, zone: findDeliveryZone(distanceMiles) };
 }
 
 async function getOriginCoordinates() {
@@ -536,15 +447,44 @@ async function getOriginCoordinates() {
   return originCoordinates;
 }
 
+/*
+  Accepts a free-form string (delivery.html) or a
+  { line1, city, postalCode } object (order page).
+  Structured searches are more accurate, so try
+  that first and fall back to a free-form search.
+*/
 async function geocodeAddress(address) {
-  const searchParams = new URLSearchParams({ q: address, format: "jsonv2", limit: "1", countrycodes: DELIVERY_SERVICE.countryCode });
-  const response = await fetch(`${DELIVERY_SERVICE.geocoderUrl}?${searchParams}`, { headers: { "User-Agent": "Kirana-Bakehouse-Delivery-Checker/1.0" } });
+  const searches = typeof address === "string"
+    ? [{ q: address }]
+    : [
+      { street: address.line1, city: address.city, state: DELIVERY.state, postalcode: address.postalCode },
+      { q: `${address.line1}, ${address.city}, ${DELIVERY.state} ${address.postalCode}` }
+    ];
+
+  const cacheKey = JSON.stringify(searches[0]).toLowerCase();
+  if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey);
+
+  for (const search of searches) {
+    const location = await searchGeocoder(search);
+    if (location) {
+      if (geocodeCache.size >= GEOCODE_CACHE_LIMIT) geocodeCache.delete(geocodeCache.keys().next().value);
+      geocodeCache.set(cacheKey, location);
+      return location;
+    }
+  }
+
+  throw new AddressNotFoundError("We couldn't find that address. Please check the street address and ZIP code.");
+}
+
+async function searchGeocoder(search) {
+  const searchParams = new URLSearchParams({ ...search, format: "jsonv2", limit: "1", countrycodes: DELIVERY_SERVICE.countryCode });
+  const response = await fetch(`${DELIVERY_SERVICE.geocoderUrl}?${searchParams}`, { headers: { "User-Agent": DELIVERY_SERVICE.userAgent } });
   if (!response.ok) throw new Error(`Geocoder request failed with status ${response.status}.`);
 
   const [location] = await response.json();
   const latitude = Number(location?.lat);
   const longitude = Number(location?.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error("Address could not be geocoded.");
+  if (!location || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   return { latitude, longitude };
 }
 

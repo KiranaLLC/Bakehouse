@@ -9,82 +9,93 @@ export const PRODUCTS = Object.freeze({
     name: "French Onion Soup",
     description: "A deeply savory sourdough inspired by classic French onion soup.",
     price: 1600,
-    image: "./img/french-onion-soup.png",
+    image: "./img/menu/french-onion-soup.jpg",
     maxQuantity: 6
   },
   cheddar_jalapeno: {
     name: "Cheddar & Jalapeño",
     description: "Sharp cheddar and jalapeño folded into naturally leavened sourdough.",
     price: 1600,
-    image: "./img/cheddar-jalapeno.png",
+    image: "./img/menu/cheddar-jalapeno.jpg",
     maxQuantity: 6
   },
   cong_la: {
     name: "Cong La",
     description: "A Kirana Bakehouse seasonal inclusion sourdough.",
     price: 1600,
-    image: "./img/cong-la.png",
+    image: "./img/menu/cong-la.jpg",
     maxQuantity: 6
   },
   margherita: {
     name: "Margherita",
     description: "A sourdough inspired by the classic Margherita.",
     price: 1600,
-    image: "./img/margherita.png",
+    image: "./img/menu/margherita.jpg",
     maxQuantity: 6
   },
   birds_eye: {
     name: "Bird's Eye",
     description: "A bright and spicy inclusion sourdough featuring bird's eye chili.",
     price: 1600,
-    image: "./img/birds-eye.png",
+    image: "./img/menu/birds-eye.jpg",
     maxQuantity: 6
   },
   coconut_laddoo: {
     name: "Coconut Laddoo",
     description: "A sweet-inspired seasonal sourdough featuring coconut.",
     price: 1600,
-    image: "./img/coconut-laddoo.png",
+    image: "./img/menu/coconut-laddoo.jpg",
     maxQuantity: 6
   },
   birthday: {
     name: "Birthday",
     description: "A celebratory seasonal sourdough created for special occasions.",
     price: 1600,
-    image: "./img/birthday.png",
+    image: "./img/menu/birthday.jpg",
     maxQuantity: 6
   },
   everything_seasoning: {
     name: "Everything Seasoning",
     description: "Our sourdough with a generous everything-seasoning crust.",
     price: 1300,
-    image: "./img/everything-seasoning.png",
+    image: "./img/menu/everything-seasoning.jpg",
     maxQuantity: 6
   },
   house_white: {
     name: "House White",
     description: "Our classic everyday sourdough — simple, naturally leavened and versatile.",
     price: 1200,
-    image: "./img/house-white.png",
+    image: "./img/menu/house-white.jpg",
     maxQuantity: 6
   }
 });
 
 export const DELIVERY = Object.freeze({
+  // Dates are always calculated in the bakery's time zone so the server
+  // (which may run in UTC) and the customer's browser agree on "today".
+  timeZone: "America/Los_Angeles",
   firstAvailableOffsetDays: 3,
-  clientDatesToScan: 15,
-  serverDatesToScan: 30,
+  bookingWindowDays: 21,
+  // Sunday = 0 … Saturday = 6
   unavailableDays: Object.freeze([0, 1, 2, 6]),
-  locale: "en-US"
+  state: "CA",
+  locale: "en-US",
+  notesMaxLength: 300
 });
 
 export const API = Object.freeze({
+  // Leave empty when the checkout server also serves the website. If the
+  // pages stay on GitHub Pages and the server runs elsewhere, set this to the
+  // server's address, e.g. "https://kirana-checkout.onrender.com".
+  origin: "",
   createCheckoutSession: "/api/create-checkout-session",
-  checkDelivery: "/api/check-delivery"
+  checkDelivery: "/api/check-delivery",
+  orderSummary: "/api/order-summary"
 });
 
 export const HTTP_STATUS = Object.freeze({
   badRequest: 400,
+  notFound: 404,
   internalServerError: 500
 });
 
@@ -102,6 +113,8 @@ export const SERVER = Object.freeze({
 
 export const DELIVERY_SERVICE = Object.freeze({
   originAddress: "335 Trenton Way, Menlo Park, CA 94025",
+  maxMiles: 4,
+  userAgent: "Kirana-Bakehouse-Delivery-Checker/1.0 (hellokiranabakehouse@gmail.com)",
   countryCode: "us",
   geocoderUrl: "https://nominatim.openstreetmap.org/search",
   earthRadiusMiles: 3958.8,

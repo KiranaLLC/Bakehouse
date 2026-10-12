@@ -13,7 +13,7 @@ form.addEventListener("submit", async event => {
   result.className = "delivery-result";
   result.textContent = "";
   try {
-    const response = await fetch(API.checkDelivery, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: addressInput.value }) });
+    const response = await fetch(`${API.origin}${API.checkDelivery}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: addressInput.value }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Unable to check this address.");
     if (!data.deliverable) return showResult("invalid", "Sorry, we don't deliver there yet.", `${data.message} It is about ${data.distanceMiles} miles from our kitchen.`);

@@ -172,6 +172,75 @@
     }
 
 
+    .order-summary {
+
+      margin: 30px auto 0;
+
+      padding: 25px;
+
+      max-width: 520px;
+
+      background: #f7f0d9;
+
+      border: 1px solid rgba(77, 26, 0, 0.2);
+
+      border-radius: 14px;
+
+      text-align: left;
+
+      color: var(--deep-brown);
+
+    }
+
+
+    .order-summary h2 {
+
+      font-family: 'Montserrat', sans-serif;
+
+      font-size: 1.2rem;
+
+      margin-bottom: 15px;
+
+    }
+
+
+    .order-summary .summary-row {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 20px;
+
+      padding: 8px 0;
+
+      border-bottom: 1px solid rgba(77, 26, 0, 0.12);
+
+    }
+
+
+    .order-summary .summary-total {
+
+      font-weight: 600;
+
+      border-bottom: none;
+
+    }
+
+
+    .order-summary .summary-delivery {
+
+      margin-top: 15px;
+
+      margin-bottom: 0;
+
+      font-size: 0.95rem;
+
+      line-height: 1.6;
+
+    }
+
+
     @media (max-width: 600px) {
 
       .success-title {
@@ -246,6 +315,13 @@
     </p>
 
 
+    <section
+      id="order-summary"
+      class="order-summary"
+      hidden
+    ></section>
+
+
     <p class="success-note">
       Your sourdough will be freshly prepared
       for your selected delivery date.
@@ -263,6 +339,9 @@
   </div>
 
 </main>
+
+
+<script type="module" src="./success.js"></script>
 
 </body>
 

@@ -72,6 +72,7 @@
     }
 
     .product-image {
+      display: block;
       width: 100%;
       height: 300px;
       object-fit: cover;
@@ -118,9 +119,14 @@
       cursor: pointer;
     }
 
-    .quantity-row button:hover {
+    .quantity-row button:hover:not(:disabled) {
       background: var(--deep-brown);
       color: var(--cream);
+    }
+
+    .quantity-row button:disabled {
+      opacity: .35;
+      cursor: not-allowed;
     }
 
     .quantity {
@@ -170,6 +176,79 @@
       opacity: .85;
       margin-bottom: 25px;
       font-style: italic;
+    }
+
+    .cart-line {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 14px;
+      opacity: .9;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 15px;
+    }
+
+    .field-wide {
+      grid-column: 1 / -1;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .field .optional {
+      font-weight: 400;
+      opacity: .7;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      font-size: 1rem;
+      font-family: inherit;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .field textarea {
+      resize: vertical;
+    }
+
+    .field input[aria-invalid="true"] {
+      border-color: #ff9b80;
+    }
+
+    .address-status {
+      min-height: 1.5em;
+      margin-bottom: 10px;
+      font-size: .95rem;
+    }
+
+    .address-status.valid::before {
+      content: "✓ ";
+    }
+
+    .address-status.invalid,
+    .address-status.error {
+      color: #ffb4a1;
+    }
+
+    .notice-message {
+      display: none;
+      background: var(--cream);
+      color: var(--deep-brown);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
     }
 
     .delivery-date-label {
@@ -242,6 +321,14 @@
       margin-top: 18px;
     }
 
+    @media (max-width: 1000px) and (min-width: 801px) {
+
+      .shop-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+    }
+
     @media (max-width: 800px) {
 
       .shop-grid {
@@ -254,6 +341,14 @@
 
       .checkout-section {
         padding: 25px 20px;
+      }
+
+      .checkout-section h2 {
+        font-size: 3rem;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
       }
 
     }
@@ -313,7 +408,7 @@
     </p>
 
     <p class="shop-subtitle">
-      Local delivery Tuesday through Saturday
+      Local delivery <span class="delivery-days">Wednesday, Thursday, and Friday</span>
     </p>
 
   </section>
@@ -333,7 +428,7 @@
        CHECKOUT
   ========================== -->
 
-  <section class="checkout-section">
+  <section class="checkout-section" id="checkout">
 
     <h2>
       Your Order
@@ -341,8 +436,9 @@
 
 
     <div
-      id="checkout-error"
-      class="error-message"
+      id="checkout-notice"
+      class="notice-message"
+      role="status"
     ></div>
 
 
@@ -357,6 +453,16 @@
     </div>
 
 
+    <div class="cart-line">
+      <span>Subtotal</span>
+      <span id="cart-subtotal">$0.00</span>
+    </div>
+
+    <div class="cart-line">
+      <span>Delivery</span>
+      <span id="cart-delivery-fee">Enter your address</span>
+    </div>
+
     <div class="cart-total">
 
       <span>
@@ -370,20 +476,77 @@
     </div>
 
 
-    <!-- =========================
-         DELIVERY DATE
-    ========================== -->
+    <form id="order-form" class="delivery-form" novalidate>
 
-    <div class="delivery-form">
+      <!-- =========================
+           DELIVERY DETAILS
+      ========================== -->
+
+      <h3 class="section-label">
+        Delivery Details
+      </h3>
+
+      <p class="delivery-note">
+        We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
+      </p>
+
+      <div class="field-grid">
+
+        <div class="field">
+          <label for="customer-name">Full name</label>
+          <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
+        </div>
+
+        <div class="field">
+          <label for="customer-phone">Phone</label>
+          <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
+        </div>
+
+        <div class="field field-wide">
+          <label for="address-line1">Street address</label>
+          <input id="address-line1" name="line1" type="text" autocomplete="address-line1" maxlength="200" required />
+        </div>
+
+        <div class="field field-wide">
+          <label for="address-line2">Apt, suite, unit <span class="optional">(optional)</span></label>
+          <input id="address-line2" name="line2" type="text" autocomplete="address-line2" maxlength="100" />
+        </div>
+
+        <div class="field">
+          <label for="address-city">City</label>
+          <input id="address-city" name="city" type="text" autocomplete="address-level2" maxlength="100" required />
+        </div>
+
+        <div class="field">
+          <label for="address-zip">ZIP code</label>
+          <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" required />
+        </div>
+
+        <div class="field field-wide">
+          <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
+          <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
+        </div>
+
+      </div>
+
+      <div
+        id="address-status"
+        class="address-status"
+        aria-live="polite"
+      ></div>
+
+
+      <!-- =========================
+           DELIVERY DATE
+      ========================== -->
 
       <h3 class="section-label">
         Delivery Date
       </h3>
 
       <p class="delivery-note">
-        We deliver Wenesday through Friday.
-        Delivery is not available Saturday through Tuesday.
-        Your address and contact information will be collected securely on Stripe Checkout.
+        We deliver <span class="delivery-days">Wednesday, Thursday, and Friday</span>.
+        Please order at least three days ahead.
       </p>
 
 
@@ -396,6 +559,7 @@
 
       <select
         id="delivery-date"
+        name="deliveryDate"
         class="delivery-date-select"
         required
       >
@@ -407,6 +571,13 @@
       </select>
 
 
+      <div
+        id="checkout-error"
+        class="error-message"
+        role="alert"
+      ></div>
+
+
       <!-- =========================
            CHECKOUT BUTTON
       ========================== -->
@@ -414,17 +585,17 @@
       <button
         id="checkout-button"
         class="checkout-button"
-        disabled
+        type="submit"
       >
-        Proceed to Secure Checkout
+        Continue to Payment
       </button>
 
       <p class="stripe-note">
+        You'll enter your email and card details on the next page.
         Secure payment powered by Stripe.
-        Your payment and customer details are handled securely by Stripe.
       </p>
 
-    </div>
+    </form>
 
   </section>
 

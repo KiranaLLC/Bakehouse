@@ -100,5 +100,7 @@ python3 -m http.server 8000
 cd worker && npx wrangler dev
 ```
 
-Then open http://localhost:8000/order.html. The page automatically talks to
-the local worker when opened from `localhost`.
+Then open http://localhost:8000/order.html.
+
+Once `WORKER_URL` in `macros.js` points at your deployed worker, the local
+page talks to that worker and Terminal 2 isn't needed.

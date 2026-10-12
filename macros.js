@@ -88,13 +88,17 @@ export const DELIVERY = Object.freeze({
   for address checks and to start a Stripe payment.
 */
 const WORKER_URL = "https://REPLACE_WITH_YOUR_WORKER.workers.dev";
+
+// While WORKER_URL is still the placeholder, a page opened from localhost
+// talks to a worker started locally with `npx wrangler dev`.
 const LOCAL_WORKER_URL = "http://localhost:8787";
 
+const isWorkerConfigured = !WORKER_URL.includes("REPLACE_WITH_YOUR_WORKER");
 const isLocalSite = typeof location !== "undefined" && ["localhost", "127.0.0.1"].includes(location.hostname);
 
 export const API = Object.freeze({
-  origin: isLocalSite ? LOCAL_WORKER_URL : WORKER_URL,
-  isConfigured: isLocalSite || !WORKER_URL.includes("REPLACE_WITH_YOUR_WORKER"),
+  origin: isWorkerConfigured ? WORKER_URL : LOCAL_WORKER_URL,
+  isConfigured: isWorkerConfigured || isLocalSite,
   createCheckoutSession: "/api/create-checkout-session",
   checkDelivery: "/api/check-delivery",
   orderSummary: "/api/order-summary"

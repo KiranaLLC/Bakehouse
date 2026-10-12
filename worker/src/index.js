@@ -311,7 +311,10 @@ async function stripe(env, method, path, params) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw Object.assign(new Error(`Stripe ${response.status}: ${data.error?.message}`), { publicMessage: "Unable to start Stripe checkout. Please try again." });
+    const publicMessage = response.status === 401
+      ? "Online payment isn't set up correctly (Stripe rejected the key). Please email us at hellokiranabakehouse@gmail.com to place your order."
+      : "Unable to start Stripe checkout. Please try again.";
+    throw Object.assign(new Error(`Stripe ${response.status}: ${data.error?.message}`), { publicMessage });
   }
 
   return data;

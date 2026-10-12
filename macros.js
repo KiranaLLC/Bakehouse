@@ -93,10 +93,10 @@ export const DELIVERY = Object.freeze({
   The checkout worker (see worker/ and README.md). The website talks to it
   for address checks and to start a Stripe payment.
 */
-const WORKER_URL = "https://REPLACE_WITH_YOUR_WORKER.workers.dev";
 
 // While WORKER_URL is still the placeholder, a page opened from localhost
 // talks to a worker started locally with `npx wrangler dev`.
+const WORKER_URL = "https://kirana-checkout.hellokiranabakehouse.workers.dev";
 const LOCAL_WORKER_URL = "http://localhost:8787";
 
 const isWorkerConfigured = !WORKER_URL.includes("REPLACE_WITH_YOUR_WORKER");

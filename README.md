@@ -1,23 +1,63 @@
 # Kirana Bakehouse website
 
-The public website (`index.html` and friends) plus online delivery ordering
-with Stripe (`order.html` → Stripe Checkout → `success.html`).
+The public website, including online delivery ordering. It's plain HTML,
+CSS and JavaScript with no server, so it can stay on GitHub Pages.
 
 ## How ordering works
 
-1. On `order.html` the customer picks their loaves, enters their name, phone
-   and address, and picks a delivery date.
-2. As soon as the address is complete, the page asks the server whether it is
-   inside the delivery area and shows the delivery fee and total.
-3. **Continue to Payment** sends the order to `server.js`, which re-checks
-   everything (prices, quantities, delivery date, delivery area and fee — the
-   browser is never trusted for these) and creates a Stripe Checkout session.
-4. The customer enters their email and card on Stripe, then lands on
-   `success.html`, which shows their order summary.
+1. On `order.html` the customer picks their loaves, enters their address and
+   picks a delivery date.
+2. The page checks the address is inside the delivery area (using the free
+   OpenStreetMap address lookup) and shows the delivery fee and total.
+3. **Continue to Payment** opens your Stripe Payment Link with the total
+   already filled in. The customer enters their name, delivery address, phone
+   and card on Stripe.
+4. After paying they land on `success.html`, which shows their order summary.
 
-Each paid order appears in the [Stripe Dashboard → Payments](https://dashboard.stripe.com/payments)
-with the delivery date, name, phone, address and delivery instructions under
-**Metadata**, and the address under **Shipping**.
+### Seeing what was ordered
+
+Each payment carries an **order reference** that describes the order, for example:
+
+```
+20261015-HW2-MA1-D450-T4450
+```
+
+| Part | Meaning |
+| --- | --- |
+| `20261015` | Delivery date (2026-10-15) |
+| `HW2`, `MA1` | Product code + quantity (2 House White, 1 Margherita). Codes are in `macros.js`. |
+| `D450` | Delivery fee in cents ($4.50) |
+| `T4450` | Expected total in cents ($44.50) |
+
+In the Stripe Dashboard, open the payment and look for the **client reference
+ID** (it's on the Checkout Session; if you don't see it on the payment page,
+it's always in the `checkout.session.completed` event under
+Developers → Events). The customer's name, address and phone are on the
+same payment.
+
+**Check that the amount paid matches the `T` total.** Stripe's "customers
+choose what to pay" box is editable, so a customer could change the amount
+before paying. Setting a minimum on the Payment Link (below) limits this.
+
+## One-time Stripe setup
+
+1. In the Stripe Dashboard go to **Payment Links → New**.
+2. Choose **Customers choose what to pay** (it may be under the product/price type).
+   Name it e.g. "Kirana Bakehouse delivery order", currency USD.
+   Set a **minimum** of at least your cheapest loaf (e.g. $12).
+3. Under options, turn on:
+   - **Collect customers' addresses → Shipping address**, limited to the US
+   - **Require customers to provide a phone number**
+   - Optional: add a custom text field "Delivery instructions" (not required)
+4. Under **After payment**, choose **Don't show confirmation page** and redirect
+   customers to `https://www.kiranabakehouse.com/success.html`.
+5. Create the link, copy its URL (`https://buy.stripe.com/...`) and paste it
+   into `paymentLinkUrl` in `macros.js`.
+6. Make a test payment with the test-mode link first (test card
+   `4242 4242 4242 4242`, any future date, any CVC), then switch to the live link.
+
+Also worth turning on in Stripe: customer email receipts for successful
+payments, and an email to you for each successful payment.
 
 ## What to edit
 
@@ -25,51 +65,16 @@ All in `macros.js`:
 
 | What | Where |
 | --- | --- |
-| Menu items, prices (in cents), descriptions, photos, max per order | `PRODUCTS` |
+| Menu items, prices (in cents), descriptions, photos, max per order, order codes | `PRODUCTS` |
 | Delivery days, how many days ahead customers must order, how far ahead they can book | `DELIVERY` |
+| Your Stripe Payment Link | `STRIPE` |
 | Kitchen address, delivery radius, fee per distance zone, free-delivery threshold | `DELIVERY_SERVICE` |
 
 Product photos for the order page are in `img/menu/` (resized to load quickly
-on phones — keep new ones around 800px and under ~200 KB).
+on phones — keep new ones around 800px wide and under ~200 KB).
 
-## Running it locally
+## Previewing locally
 
-Needs [Node.js](https://nodejs.org) 20 or newer.
-
-```bash
-npm install
-cp .env.example .env      # then put your Stripe *test* secret key in .env
-npm start                 # http://localhost:3000/order.html
-```
-
-Use Stripe's test card `4242 4242 4242 4242`, any future expiry date and any
-CVC to place a test order.
-
-## Going live
-
-GitHub Pages can only host plain files, so it can't run `server.js` (which
-holds the Stripe secret key). The simplest setup is to host the whole site on
-one Node host such as [Render](https://render.com) or [Railway](https://railway.app):
-
-1. Create a new **Web Service** from this repository.
-   Build command: `npm install`. Start command: `npm start`.
-2. Add the environment variables from `.env.example`:
-   `STRIPE_SECRET_KEY` (your live `sk_live_…` key) and
-   `SITE_URL=https://www.kiranabakehouse.com`.
-3. Point the `www.kiranabakehouse.com` domain at the new service (instead of
-   GitHub Pages) by following the host's custom-domain instructions.
-
-Pick a plan that doesn't "sleep" when idle, or the first customer after a quiet
-period will wait ~30–60 seconds for checkout to start.
-
-**Keeping the pages on GitHub Pages instead:** deploy the server as above, then
-set `origin` in `API` in `macros.js` to the server's address, set
-`SITE_URL=https://www.kiranabakehouse.com` and
-`ALLOWED_ORIGINS=https://www.kiranabakehouse.com` on the server.
-
-### Stripe settings worth turning on
-
-- In Stripe's **customer email** settings, turn on receipts for successful
-  payments so customers get a receipt (the success page tells them to expect one).
-- In your Stripe **notification/communication preferences**, turn on emails for
-  successful payments so you hear about every new order.
+The pages use JavaScript modules, so open them through a local web server
+rather than by double-clicking, e.g. `python3 -m http.server` and then
+http://localhost:8000/order.html.

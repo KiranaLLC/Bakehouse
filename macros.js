@@ -1,11 +1,12 @@
 /**
  * Application-wide configuration values.
  *
- * Keep values that describe the business or application in this file so the
- * storefront and checkout server use the same source of truth.
+ * Keep values that describe the business or application in this file so every
+ * page uses the same source of truth.
  */
 export const PRODUCTS = Object.freeze({
   french_onion_soup: {
+    code: "FOS",
     name: "French Onion Soup",
     description: "A deeply savory sourdough inspired by classic French onion soup.",
     price: 1600,
@@ -13,6 +14,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   cheddar_jalapeno: {
+    code: "CJ",
     name: "Cheddar & Jalapeño",
     description: "Sharp cheddar and jalapeño folded into naturally leavened sourdough.",
     price: 1600,
@@ -20,6 +22,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   cong_la: {
+    code: "CL",
     name: "Cong La",
     description: "A Kirana Bakehouse seasonal inclusion sourdough.",
     price: 1600,
@@ -27,6 +30,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   margherita: {
+    code: "MA",
     name: "Margherita",
     description: "A sourdough inspired by the classic Margherita.",
     price: 1600,
@@ -34,6 +38,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   birds_eye: {
+    code: "BE",
     name: "Bird's Eye",
     description: "A bright and spicy inclusion sourdough featuring bird's eye chili.",
     price: 1600,
@@ -41,6 +46,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   coconut_laddoo: {
+    code: "CO",
     name: "Coconut Laddoo",
     description: "A sweet-inspired seasonal sourdough featuring coconut.",
     price: 1600,
@@ -48,6 +54,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   birthday: {
+    code: "BD",
     name: "Birthday",
     description: "A celebratory seasonal sourdough created for special occasions.",
     price: 1600,
@@ -55,6 +62,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   everything_seasoning: {
+    code: "ES",
     name: "Everything Seasoning",
     description: "Our sourdough with a generous everything-seasoning crust.",
     price: 1300,
@@ -62,6 +70,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   house_white: {
+    code: "HW",
     name: "House White",
     description: "Our classic everyday sourdough — simple, naturally leavened and versatile.",
     price: 1200,
@@ -71,32 +80,21 @@ export const PRODUCTS = Object.freeze({
 });
 
 export const DELIVERY = Object.freeze({
-  // Dates are always calculated in the bakery's time zone so the server
-  // (which may run in UTC) and the customer's browser agree on "today".
+  // Dates are always calculated in the bakery's time zone, wherever the
+  // customer happens to be.
   timeZone: "America/Los_Angeles",
   firstAvailableOffsetDays: 3,
   bookingWindowDays: 21,
   // Sunday = 0 … Saturday = 6
   unavailableDays: Object.freeze([0, 1, 2, 6]),
   state: "CA",
-  locale: "en-US",
-  notesMaxLength: 300
+  locale: "en-US"
 });
 
-export const API = Object.freeze({
-  // Leave empty when the checkout server also serves the website. If the
-  // pages stay on GitHub Pages and the server runs elsewhere, set this to the
-  // server's address, e.g. "https://kirana-checkout.onrender.com".
-  origin: "",
-  createCheckoutSession: "/api/create-checkout-session",
-  checkDelivery: "/api/check-delivery",
-  orderSummary: "/api/order-summary"
-});
-
-export const HTTP_STATUS = Object.freeze({
-  badRequest: 400,
-  notFound: 404,
-  internalServerError: 500
+export const STRIPE = Object.freeze({
+  // Your Stripe Payment Link, set to "Customers choose what to pay".
+  // See README.md for how to create it.
+  paymentLinkUrl: "https://buy.stripe.com/REPLACE_WITH_YOUR_LINK"
 });
 
 export const MONEY = Object.freeze({
@@ -105,16 +103,11 @@ export const MONEY = Object.freeze({
   centsPerDollar: 100
 });
 
-export const SERVER = Object.freeze({
-  defaultPort: 3000,
-  staticDirectory: ".",
-  apiBasePath: "/api"
-});
-
 export const DELIVERY_SERVICE = Object.freeze({
   originAddress: "335 Trenton Way, Menlo Park, CA 94025",
   maxMiles: 4,
-  userAgent: "Kirana-Bakehouse-Delivery-Checker/1.0 (hellokiranabakehouse@gmail.com)",
+  // Sent to the address lookup service so they can contact us if needed.
+  contactEmail: "hellokiranabakehouse@gmail.com",
   countryCode: "us",
   geocoderUrl: "https://nominatim.openstreetmap.org/search",
   earthRadiusMiles: 3958.8,

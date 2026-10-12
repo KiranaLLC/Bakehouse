@@ -5,27 +5,26 @@ DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS } from "./macros.js";
+import { DELIVERY_SERVICE, PRODUCTS, STRIPE } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateSubtotal,
   describeDeliveryDays,
+  formatDeliveryDate,
   formatMoney,
   getDeliveryDates
 } from "./delivery-rules.js";
+import { checkDeliveryArea } from "./delivery-area.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
+const PLACED_ORDER_KEY = "kirana-placed-order";
 const ADDRESS_CHECK_DELAY_MS = 800;
 
 const form = document.getElementById("order-form");
 const fields = {
-  name: document.getElementById("customer-name"),
-  phone: document.getElementById("customer-phone"),
   line1: document.getElementById("address-line1"),
-  line2: document.getElementById("address-line2"),
   city: document.getElementById("address-city"),
   postalCode: document.getElementById("address-zip"),
-  notes: document.getElementById("delivery-notes"),
   deliveryDate: document.getElementById("delivery-date")
 };
 const ADDRESS_FIELDS = ["line1", "city", "postalCode"];
@@ -311,7 +310,6 @@ DELIVERY ADDRESS CHECK
 function getAddress() {
   return {
     line1: fields.line1.value.trim(),
-    line2: fields.line2.value.trim(),
     city: fields.city.value.trim(),
     postalCode: fields.postalCode.value.trim()
   };
@@ -368,18 +366,18 @@ async function checkAddress() {
 
     try {
 
-      const data =
-        await postJson(API.checkDelivery, { address });
+      const { distanceMiles, zone } =
+        await checkDeliveryArea(address);
 
-      if (data.deliverable) {
+      if (zone) {
         check.status = "valid";
-        check.zone = { feeCents: data.feeCents, freeOverCents: data.freeOverCents };
-        check.message = data.freeOverCents > 0
-          ? `We deliver to you! About ${data.distanceMiles} miles away — delivery is free on orders over ${formatMoney(data.freeOverCents)}.`
-          : `We deliver to you! About ${data.distanceMiles} miles away — delivery is free.`;
+        check.zone = zone;
+        check.message = zone.feeCents > 0
+          ? `We deliver to you! About ${distanceMiles} miles away — delivery is free on orders over ${formatMoney(zone.freeOverCents)}.`
+          : `We deliver to you! About ${distanceMiles} miles away — delivery is free.`;
       } else {
         check.status = "invalid";
-        check.message = `Sorry, this address is about ${data.distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`;
+        check.message = `Sorry, this address is about ${distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`;
       }
 
     } catch (error) {
@@ -463,7 +461,7 @@ refreshes the page.
 ==================================================
 */
 
-const SAVED_FIELDS = ["name", "phone", "line1", "line2", "city", "postalCode", "notes", "deliveryDate"];
+const SAVED_FIELDS = ["line1", "city", "postalCode", "deliveryDate"];
 
 function saveOrder() {
   try {
@@ -533,11 +531,6 @@ function hideError() {
   document.getElementById("checkout-error").style.display = "none";
 }
 
-function showNotice(message) {
-  const element = document.getElementById("checkout-notice");
-  element.textContent = message;
-  element.style.display = "block";
-}
 
 
 /*
@@ -555,8 +548,6 @@ function validateForm() {
   }
 
   const required = [
-    ["name", "Please enter your name."],
-    ["phone", "Please enter your phone number so we can reach you on delivery day."],
     ["line1", "Please enter your street address."],
     ["city", "Please enter your city."],
     ["postalCode", "Please enter a valid 5-digit ZIP code."]
@@ -567,13 +558,6 @@ function validateForm() {
       fields[name].setAttribute("aria-invalid", "true");
       return { message, field: fields[name] };
     }
-  }
-
-  const phoneDigits = fields.phone.value.replace(/\D/g, "");
-
-  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
-    fields.phone.setAttribute("aria-invalid", "true");
-    return { message: "Please enter a valid phone number, including area code.", field: fields.phone };
   }
 
   if (!fields.deliveryDate.value) {
@@ -612,7 +596,7 @@ async function checkout(event) {
     true;
 
   button.textContent =
-    "Preparing secure checkout...";
+    "Opening secure payment…";
 
   try {
 
@@ -631,25 +615,37 @@ async function checkout(event) {
 
     /*
     ------------------------------------------
-    SEND ORDER TO SERVER
+    GO TO STRIPE
+
+    The total is filled in on the Stripe
+    payment page, and the order code (date,
+    loaves, delivery fee and expected total)
+    is attached to the payment so you can see
+    what was ordered.
     ------------------------------------------
     */
 
-    const data =
-      await postJson(API.createCheckoutSession, {
-        items: getCartItems(),
-        deliveryDate: fields.deliveryDate.value,
-        customer: { name: fields.name.value, phone: fields.phone.value },
-        address: getAddress(),
-        notes: fields.notes.value
-      });
+    if (STRIPE.paymentLinkUrl.includes("REPLACE_WITH_YOUR_LINK")) {
+      throw new Error("Online payment isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order.");
+    }
 
-    /*
-      Redirect customer to Stripe.
-    */
+    const order =
+      buildOrder(check.zone);
+
+    try {
+      sessionStorage.setItem(PLACED_ORDER_KEY, JSON.stringify(order));
+    } catch {
+      // The success page just won't show a summary.
+    }
+
+    const paymentUrl =
+      new URL(STRIPE.paymentLinkUrl);
+
+    paymentUrl.searchParams.set("prefilled_amount", order.total);
+    paymentUrl.searchParams.set("client_reference_id", order.code);
 
     window.location.href =
-      data.url;
+      paymentUrl.toString();
 
   }
 
@@ -665,39 +661,67 @@ async function checkout(event) {
       error.field
     );
 
-    button.disabled =
-      false;
-
-    button.textContent =
-      "Continue to Payment";
+    resetCheckoutButton();
 
   }
 
 }
 
+function resetCheckoutButton() {
 
-async function postJson(path, body) {
+  const button =
+    document.getElementById("checkout-button");
 
-  let response;
+  button.disabled =
+    false;
 
-  try {
-    response = await fetch(`${API.origin}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-  } catch {
-    throw new Error("We couldn't reach our ordering system. Please check your connection and try again.");
-  }
+  button.textContent =
+    "Continue to Payment";
 
-  const data =
-    await response.json().catch(() => ({}));
+}
 
-  if (!response.ok) {
-    throw new Error(data.error || "Something went wrong. Please try again.");
-  }
 
-  return data;
+/*
+==================================================
+ORDER
+
+The order code is attached to the Stripe
+payment, e.g. 20261015-HW2-MA1-D450-T4450:
+delivery date, product codes with quantities,
+delivery fee and expected total (in cents).
+Stripe only allows letters, numbers, dashes
+and underscores here.
+==================================================
+*/
+
+function buildOrder(zone) {
+
+  const items =
+    getCartItems();
+
+  const subtotal =
+    calculateSubtotal(items);
+
+  const deliveryFee =
+    calculateDeliveryFee(zone, subtotal);
+
+  const total =
+    subtotal + deliveryFee;
+
+  const code = [
+    fields.deliveryDate.value.replaceAll("-", ""),
+    ...items.map(({ productId, quantity }) => `${PRODUCTS[productId].code}${quantity}`),
+    `D${deliveryFee}`,
+    `T${total}`
+  ].join("-");
+
+  return {
+    code,
+    deliveryDate: formatDeliveryDate(fields.deliveryDate.value),
+    items: items.map(({ productId, quantity }) => ({ name: PRODUCTS[productId].name, quantity, amount: PRODUCTS[productId].price * quantity })),
+    deliveryFee,
+    total
+  };
 
 }
 
@@ -712,16 +736,7 @@ renderProducts();
 
 renderDeliveryDates();
 
-const params =
-  new URLSearchParams(window.location.search);
-
-if (params.has("cancelled")) {
-  restoreOrder();
-  showNotice("Your payment was cancelled and you haven't been charged. Your order is saved below whenever you're ready.");
-  history.replaceState(null, "", window.location.pathname);
-} else {
-  restoreOrder();
-}
+restoreOrder();
 
 updateCart();
 
@@ -751,3 +766,9 @@ form.addEventListener(
   "submit",
   checkout
 );
+
+// If the customer comes back from Stripe with the Back button, the browser
+// may show this page exactly as it was left, with the button still disabled.
+window.addEventListener("pageshow", event => {
+  if (event.persisted) resetCheckoutButton();
+});

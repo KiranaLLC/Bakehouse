@@ -207,8 +207,7 @@
       opacity: .7;
     }
 
-    .field input,
-    .field textarea {
+    .field input {
       width: 100%;
       padding: 12px 14px;
       border-radius: 8px;
@@ -219,9 +218,6 @@
       color: #1c1c1c;
     }
 
-    .field textarea {
-      resize: vertical;
-    }
 
     .field input[aria-invalid="true"] {
       border-color: #ff9b80;
@@ -242,14 +238,6 @@
       color: #ffb4a1;
     }
 
-    .notice-message {
-      display: none;
-      background: var(--cream);
-      color: var(--deep-brown);
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
 
     .delivery-date-label {
       display: block;
@@ -312,6 +300,10 @@
       font-size: 1.4rem;
       margin-top: 30px;
       margin-bottom: 15px;
+    }
+
+    .stripe-note a {
+      color: inherit;
     }
 
     .stripe-note {
@@ -435,13 +427,6 @@
     </h2>
 
 
-    <div
-      id="checkout-notice"
-      class="notice-message"
-      role="status"
-    ></div>
-
-
     <!-- CART -->
 
     <div id="cart-items">
@@ -488,28 +473,14 @@
 
       <p class="delivery-note">
         We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
+        Enter your address to see your delivery fee.
       </p>
 
       <div class="field-grid">
 
-        <div class="field">
-          <label for="customer-name">Full name</label>
-          <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
-        </div>
-
-        <div class="field">
-          <label for="customer-phone">Phone</label>
-          <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
-        </div>
-
         <div class="field field-wide">
           <label for="address-line1">Street address</label>
           <input id="address-line1" name="line1" type="text" autocomplete="address-line1" maxlength="200" required />
-        </div>
-
-        <div class="field field-wide">
-          <label for="address-line2">Apt, suite, unit <span class="optional">(optional)</span></label>
-          <input id="address-line2" name="line2" type="text" autocomplete="address-line2" maxlength="100" />
         </div>
 
         <div class="field">
@@ -520,11 +491,6 @@
         <div class="field">
           <label for="address-zip">ZIP code</label>
           <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" required />
-        </div>
-
-        <div class="field field-wide">
-          <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
-          <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
         </div>
 
       </div>
@@ -591,8 +557,12 @@
       </button>
 
       <p class="stripe-note">
-        You'll enter your email and card details on the next page.
-        Secure payment powered by Stripe.
+        On the secure Stripe payment page you'll enter your name, delivery address,
+        phone and card details. Your total is filled in for you — please don't change it.
+      </p>
+
+      <p class="stripe-note">
+        Address lookup by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>.
       </p>
 
     </form>

@@ -1,6 +1,5 @@
 /**
- * Delivery and pricing rules shared by the order page and the checkout
- * server, so what the customer sees is exactly what they are charged.
+ * Delivery dates and pricing rules used by the order pages.
  */
 import { DELIVERY, DELIVERY_SERVICE, MONEY, PRODUCTS } from "./macros.js";
 
@@ -45,10 +44,6 @@ export function getDeliveryDates(now = new Date()) {
   }
 
   return dates;
-}
-
-export function isDeliveryDateAvailable(value, now = new Date()) {
-  return getDeliveryDates(now).some(date => date.value === value);
 }
 
 // e.g. "Wednesday, Thursday, and Friday"

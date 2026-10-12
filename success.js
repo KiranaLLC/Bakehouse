@@ -1,46 +1,37 @@
-import { API } from "./macros.js";
 import { formatMoney } from "./delivery-rules.js";
 
-const STORAGE_KEY = "kirana-delivery-order";
+const CART_KEY = "kirana-delivery-order";
+const PLACED_ORDER_KEY = "kirana-placed-order";
 const summary = document.getElementById("order-summary");
-const sessionId = new URLSearchParams(window.location.search).get("session_id");
+
+let order = null;
 
 // The order went through, so the saved cart on the order page is no longer needed.
 try {
-  sessionStorage.removeItem(STORAGE_KEY);
+  order = JSON.parse(sessionStorage.getItem(PLACED_ORDER_KEY));
+  sessionStorage.removeItem(CART_KEY);
+  sessionStorage.removeItem(PLACED_ORDER_KEY);
 } catch {
-  // Storage can be unavailable (e.g. private browsing). Nothing to do.
+  // Storage can be unavailable (e.g. private browsing). The text above still applies.
 }
 
-if (sessionId) loadOrderSummary();
-
-async function loadOrderSummary() {
-  try {
-    const response = await fetch(`${API.origin}${API.orderSummary}?session_id=${encodeURIComponent(sessionId)}`);
-    if (!response.ok) return;
-    renderOrderSummary(await response.json());
-  } catch {
-    // The confirmation text above still applies; the summary is a bonus.
-  }
-}
+if (order?.items?.length) renderOrderSummary(order);
 
 function renderOrderSummary(order) {
   const heading = document.createElement("h2");
   heading.textContent = "Order summary";
 
-  const rows = order.items.map(item => row(`${item.name} × ${item.quantity}`, formatMoney(item.amountTotal)));
-  const total = row("Total paid", formatMoney(order.amountTotal));
+  const rows = order.items.map(item => row(`${item.name} × ${item.quantity}`, formatMoney(item.amount)));
+  rows.push(row("Delivery", order.deliveryFee === 0 ? "Free" : formatMoney(order.deliveryFee)));
+  const total = row("Total", formatMoney(order.total));
   total.classList.add("summary-total");
 
   const delivery = document.createElement("p");
   delivery.className = "summary-delivery";
   delivery.append(
-    strong("Delivery: "), order.deliveryDate, document.createElement("br"),
-    strong("To: "), `${order.name}, ${order.address}`
+    strong("Delivery date: "), order.deliveryDate, document.createElement("br"),
+    strong("Order reference: "), order.code
   );
-  if (order.email) {
-    delivery.append(document.createElement("br"), strong("Email: "), order.email);
-  }
 
   summary.replaceChildren(heading, ...rows, total, delivery);
   summary.hidden = false;

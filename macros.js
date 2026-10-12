@@ -1,8 +1,8 @@
 /**
  * Application-wide configuration values.
  *
- * Keep values that describe the business or application in this file so every
- * page uses the same source of truth.
+ * Keep values that describe the business or application in this file so the
+ * storefront and checkout server use the same source of truth.
  */
 export const PRODUCTS = Object.freeze({
   french_onion_soup: {
@@ -71,15 +71,45 @@ export const PRODUCTS = Object.freeze({
 });
 
 export const DELIVERY = Object.freeze({
-  // Dates are always calculated in the bakery's time zone, wherever the
-  // customer happens to be.
+  // Dates are always calculated in the bakery's time zone so the server
+  // (which may run in UTC) and the customer's browser agree on "today".
   timeZone: "America/Los_Angeles",
   firstAvailableOffsetDays: 3,
   bookingWindowDays: 21,
   // Sunday = 0 … Saturday = 6
   unavailableDays: Object.freeze([0, 1, 2, 6]),
   state: "CA",
-  locale: "en-US"
+  locale: "en-US",
+  notesMaxLength: 300
+});
+
+/*
+  The checkout worker (see worker/ and README.md). The website talks to it
+  for address checks and to start a Stripe payment.
+*/
+const WORKER_URL = "https://REPLACE_WITH_YOUR_WORKER.workers.dev";
+const LOCAL_WORKER_URL = "http://localhost:8787";
+
+const isLocalSite = typeof location !== "undefined" && ["localhost", "127.0.0.1"].includes(location.hostname);
+
+export const API = Object.freeze({
+  origin: isLocalSite ? LOCAL_WORKER_URL : WORKER_URL,
+  isConfigured: isLocalSite || !WORKER_URL.includes("REPLACE_WITH_YOUR_WORKER"),
+  createCheckoutSession: "/api/create-checkout-session",
+  checkDelivery: "/api/check-delivery",
+  orderSummary: "/api/order-summary"
+});
+
+export const TIP = Object.freeze({
+  // Percentages offered on the order page (0 = "No tip").
+  presetPercents: Object.freeze([0, 10, 15, 20]),
+  maxCents: 20000
+});
+
+export const HTTP_STATUS = Object.freeze({
+  badRequest: 400,
+  notFound: 404,
+  internalServerError: 500
 });
 
 export const MONEY = Object.freeze({
@@ -88,22 +118,18 @@ export const MONEY = Object.freeze({
   centsPerDollar: 100
 });
 
-/*
-  Delivery zones by distance from the kitchen. Each zone has its own Stripe
-  Payment Link, identical apart from the delivery charge — see README.md.
-*/
 export const DELIVERY_SERVICE = Object.freeze({
   originAddress: "339 Trenton Way, Menlo Park, CA 94025",
   maxMiles: 4,
-  // Sent to the address lookup service so they can contact us if needed.
-  contactEmail: "hellokiranabakehouse@gmail.com",
+  // Sent with address lookups so OpenStreetMap can contact us if needed.
+  userAgent: "Kirana-Bakehouse-Delivery-Checker/1.0 (hellokiranabakehouse@gmail.com)",
   countryCode: "us",
   geocoderUrl: "https://nominatim.openstreetmap.org/search",
   earthRadiusMiles: 3958.8,
   zones: Object.freeze([
-    Object.freeze({ maxMiles: 1, feeCents: 0, paymentLinkUrl: "" }),
-    Object.freeze({ maxMiles: 2, feeCents: 300, paymentLinkUrl: "" }),
-    Object.freeze({ maxMiles: 3, feeCents: 450, paymentLinkUrl: "" }),
-    Object.freeze({ maxMiles: 4, feeCents: 600, paymentLinkUrl: "" })
+    Object.freeze({ maxMiles: 1, feeCents: 0, freeOverCents: 0 }),
+    Object.freeze({ maxMiles: 2, feeCents: 300, freeOverCents: 5000 }),
+    Object.freeze({ maxMiles: 3, feeCents: 450, freeOverCents: 5000 }),
+    Object.freeze({ maxMiles: 4, feeCents: 600, freeOverCents: 5000 })
   ])
 });

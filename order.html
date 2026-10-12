@@ -99,12 +99,41 @@
       color: var(--terracotta);
       font-size: 1.15rem;
       font-weight: 600;
+      margin-bottom: 18px;
     }
 
+    .quantity-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
+    .quantity-row button {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--deep-brown);
+      background: transparent;
+      color: var(--deep-brown);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
 
+    .quantity-row button:hover:not(:disabled) {
+      background: var(--deep-brown);
+      color: var(--cream);
+    }
 
+    .quantity-row button:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
 
+    .quantity {
+      min-width: 25px;
+      text-align: center;
+      font-weight: 600;
+    }
 
     .checkout-section {
       margin-top: 60px;
@@ -122,7 +151,21 @@
       margin-bottom: 20px;
     }
 
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(240,231,200,.2);
+    }
 
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-top: 20px;
+    }
 
     .delivery-form {
       margin-top: 30px;
@@ -135,8 +178,96 @@
       font-style: italic;
     }
 
+    .cart-line {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 14px;
+      opacity: .9;
+    }
 
+    .tip-section {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(240,231,200,.2);
+    }
 
+    .tip-label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .tip-label .optional {
+      font-weight: 400;
+      opacity: .7;
+    }
+
+    .tip-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tip-option {
+      padding: 9px 18px;
+      border-radius: 30px;
+      border: 1px solid rgba(240,231,200,.5);
+      background: transparent;
+      color: var(--cream);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .tip-option[aria-pressed="true"] {
+      background: var(--cream);
+      color: var(--deep-brown);
+      border-color: var(--cream);
+      font-weight: 600;
+    }
+
+    .tip-custom {
+      margin-top: 14px;
+    }
+
+    .tip-custom label {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .tip-input {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      border-radius: 8px;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .tip-input input {
+      width: 110px;
+      padding: 12px 0;
+      border: none;
+      font-size: 1rem;
+      font-family: inherit;
+      background: transparent;
+      color: inherit;
+    }
+
+    .tip-input input:focus {
+      outline: none;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 15px;
+    }
+
+    .field-wide {
+      grid-column: 1 / -1;
+    }
 
     .field label {
       display: block;
@@ -149,11 +280,8 @@
       opacity: .7;
     }
 
-    .field {
-      margin-bottom: 12px;
-    }
-
-    .field input {
+    .field input,
+    .field textarea {
       width: 100%;
       padding: 12px 14px;
       border-radius: 8px;
@@ -164,6 +292,9 @@
       color: #1c1c1c;
     }
 
+    .field textarea {
+      resize: vertical;
+    }
 
     .field input[aria-invalid="true"] {
       border-color: #ff9b80;
@@ -184,6 +315,14 @@
       color: #ffb4a1;
     }
 
+    .notice-message {
+      display: none;
+      background: var(--cream);
+      color: var(--deep-brown);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
 
     .delivery-date-label {
       display: block;
@@ -226,6 +365,10 @@
       cursor: not-allowed;
     }
 
+    .empty-cart {
+      color: var(--cream);
+      opacity: .8;
+    }
 
     .error-message {
       background: #fff;
@@ -242,10 +385,6 @@
       font-size: 1.4rem;
       margin-top: 30px;
       margin-bottom: 15px;
-    }
-
-    .stripe-note a {
-      color: inherit;
     }
 
     .stripe-note {
@@ -281,6 +420,82 @@
         font-size: 3rem;
       }
 
+      .tip-section {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(240,231,200,.2);
+    }
+
+    .tip-label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .tip-label .optional {
+      font-weight: 400;
+      opacity: .7;
+    }
+
+    .tip-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tip-option {
+      padding: 9px 18px;
+      border-radius: 30px;
+      border: 1px solid rgba(240,231,200,.5);
+      background: transparent;
+      color: var(--cream);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .tip-option[aria-pressed="true"] {
+      background: var(--cream);
+      color: var(--deep-brown);
+      border-color: var(--cream);
+      font-weight: 600;
+    }
+
+    .tip-custom {
+      margin-top: 14px;
+    }
+
+    .tip-custom label {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .tip-input {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 14px;
+      border-radius: 8px;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .tip-input input {
+      width: 110px;
+      padding: 12px 0;
+      border: none;
+      font-size: 1rem;
+      font-family: inherit;
+      background: transparent;
+      color: inherit;
+    }
+
+    .tip-input input:focus {
+      outline: none;
+    }
+
+    .field-grid {
+        grid-template-columns: 1fr;
+      }
 
     }
 
@@ -335,7 +550,7 @@
     </h1>
 
     <p class="shop-subtitle">
-      Fresh, made-to-order artisanal sourdough, delivered to your door
+      Fresh, made-to-order artisanal sourdough
     </p>
 
     <p class="shop-subtitle">
@@ -356,38 +571,137 @@
 
 
   <!-- =========================
-       ORDER
+       CHECKOUT
   ========================== -->
 
-  <section class="checkout-section" id="order">
+  <section class="checkout-section" id="checkout">
 
     <h2>
-      Order Delivery
+      Your Order
     </h2>
 
-    <p class="delivery-note">
-      Pick your loaves and pay on the next page. First, let's check we deliver to you.
-    </p>
+
+    <div
+      id="checkout-notice"
+      class="notice-message"
+      role="status"
+    ></div>
+
+
+    <!-- CART -->
+
+    <div id="cart-items">
+
+      <p class="empty-cart">
+        Your cart is empty.
+      </p>
+
+    </div>
+
+
+    <div class="tip-section">
+
+      <span class="tip-label">
+        Add a tip <span class="optional">(optional)</span>
+      </span>
+
+      <div
+        id="tip-options"
+        class="tip-options"
+        role="group"
+        aria-label="Tip"
+      ></div>
+
+      <div id="tip-custom" class="tip-custom" hidden>
+        <label for="tip-amount">Tip amount</label>
+        <span class="tip-input">
+          <span aria-hidden="true">$</span>
+          <input id="tip-amount" type="number" min="0" max="200" step="0.5" inputmode="decimal" placeholder="0.00" />
+        </span>
+      </div>
+
+    </div>
+
+
+    <div class="cart-line">
+      <span>Subtotal</span>
+      <span id="cart-subtotal">$0.00</span>
+    </div>
+
+    <div class="cart-line">
+      <span>Delivery</span>
+      <span id="cart-delivery-fee">Enter your address</span>
+    </div>
+
+    <div class="cart-line">
+      <span>Tip</span>
+      <span id="cart-tip">$0.00</span>
+    </div>
+
+    <div class="cart-total">
+
+      <span>
+        Total
+      </span>
+
+      <span id="cart-total">
+        $0.00
+      </span>
+
+    </div>
 
 
     <form id="order-form" class="delivery-form" novalidate>
 
       <!-- =========================
-           DELIVERY ADDRESS
+           DELIVERY DETAILS
       ========================== -->
 
       <h3 class="section-label">
-        Delivery Address
+        Delivery Details
       </h3>
 
       <p class="delivery-note">
         We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
-        <span id="delivery-fees"></span>
       </p>
 
-      <div class="field">
-        <label for="delivery-address">Your address</label>
-        <input id="delivery-address" name="address" type="text" autocomplete="street-address" placeholder="123 Main St, Menlo Park, CA 94025" maxlength="200" required />
+      <div class="field-grid">
+
+        <div class="field">
+          <label for="customer-name">Full name</label>
+          <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
+        </div>
+
+        <div class="field">
+          <label for="customer-phone">Phone</label>
+          <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
+        </div>
+
+        <div class="field field-wide">
+          <label for="address-line1">Street address</label>
+          <input id="address-line1" name="line1" type="text" autocomplete="address-line1" maxlength="200" required />
+        </div>
+
+        <div class="field field-wide">
+          <label for="address-line2">Apt, suite, unit <span class="optional">(optional)</span></label>
+          <input id="address-line2" name="line2" type="text" autocomplete="address-line2" maxlength="100" />
+        </div>
+
+        <div class="field">
+          <label for="address-city">City</label>
+          <input id="address-city" name="city" type="text" autocomplete="address-level2" maxlength="100" required />
+        </div>
+
+        <div class="field">
+          <label for="address-zip">ZIP code</label>
+          <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" required />
+        </div>
+
+        <div class="field field-wide">
+          <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
+          <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
+        </div>
+
       </div>
 
       <div
@@ -439,7 +753,7 @@
 
 
       <!-- =========================
-           ORDER BUTTON
+           CHECKOUT BUTTON
       ========================== -->
 
       <button
@@ -447,17 +761,12 @@
         class="checkout-button"
         type="submit"
       >
-        Choose Your Loaves &amp; Pay
+        Continue to Payment
       </button>
 
       <p class="stripe-note">
-        On the next page you'll pick your loaves and quantities, add a tip if you like,
-        and enter your name, delivery address, phone and card details.
+        You'll enter your email and card details on the next page.
         Secure payment powered by Stripe.
-      </p>
-
-      <p class="stripe-note">
-        Address lookup by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>.
       </p>
 
     </form>

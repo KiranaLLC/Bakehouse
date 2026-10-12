@@ -1,46 +1,66 @@
 /*
 ==================================================
 KIRANA BAKEHOUSE
-DELIVERY ORDERING
-==================================================
-
-The customer checks their address here, picks a
-delivery date, and is sent to the Stripe Payment
-Link for their delivery zone. Loaves, quantities,
-tip, contact details and payment are all handled
-on Stripe's page.
+DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { DELIVERY_SERVICE, PRODUCTS } from "./macros.js";
+import { API, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
 import {
+  calculateDeliveryFee,
+  calculateSubtotal,
   describeDeliveryDays,
-  describeDeliveryFee,
   formatMoney,
   getDeliveryDates
 } from "./delivery-rules.js";
-import { checkDeliveryArea } from "./delivery-area.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
-const ADDRESS_CHECK_DELAY_MS = 1200;
-const MIN_ADDRESS_LENGTH = 8;
+const ADDRESS_CHECK_DELAY_MS = 800;
 
 const form = document.getElementById("order-form");
-const addressField = document.getElementById("delivery-address");
-const dateField = document.getElementById("delivery-date");
-const button = document.getElementById("checkout-button");
+const fields = {
+  name: document.getElementById("customer-name"),
+  phone: document.getElementById("customer-phone"),
+  line1: document.getElementById("address-line1"),
+  line2: document.getElementById("address-line2"),
+  city: document.getElementById("address-city"),
+  postalCode: document.getElementById("address-zip"),
+  notes: document.getElementById("delivery-notes"),
+  deliveryDate: document.getElementById("delivery-date")
+};
+const ADDRESS_FIELDS = ["line1", "city", "postalCode"];
+
+
+/*
+==================================================
+STATE
+==================================================
+*/
+
+const cart = {};
+
+Object.keys(PRODUCTS).forEach(productId => {
+  cart[productId] = 0;
+});
 
 /*
   The result of the last delivery-area check:
-  { key, status: "checking" | "valid" | "invalid" | "error", zone, distanceMiles, message }
+  { key, status: "checking" | "valid" | "invalid" | "error", zone, message }
 */
 let addressCheck = null;
 let addressCheckTimer;
 
+/*
+  The tip: a percentage of the subtotal, or a
+  custom amount in cents when the customer picks
+  "Other".
+*/
+const tip = { percent: 0, customCents: null };
+
 
 /*
 ==================================================
-MENU
+RENDER PRODUCTS
 ==================================================
 */
 
@@ -51,44 +71,314 @@ function renderProducts() {
 
   grid.innerHTML = "";
 
-  Object.values(PRODUCTS).forEach(product => {
+  Object.entries(PRODUCTS).forEach(
+    ([id, product]) => {
 
-    const card =
-      document.createElement("article");
+      const card =
+        document.createElement("article");
 
-    card.className =
-      "product-card";
+      card.className =
+        "product-card";
 
-    card.innerHTML = `
+      card.innerHTML = `
 
-      <img
-        src="${product.image}"
-        alt="${product.name}"
-        class="product-image"
-        loading="lazy"
-      />
+        <img
+          src="${product.image}"
+          alt="${product.name}"
+          class="product-image"
+          loading="lazy"
+        />
 
-      <div class="product-info">
+        <div class="product-info">
 
-        <h2 class="product-name">
-          ${product.name}
-        </h2>
+          <h2 class="product-name">
+            ${product.name}
+          </h2>
 
-        <p class="product-description">
-          ${product.description}
-        </p>
+          <p class="product-description">
+            ${product.description}
+          </p>
 
-        <div class="product-price">
-          ${formatMoney(product.price)}
+          <div class="product-price">
+            ${formatMoney(product.price)}
+          </div>
+
+          <div class="quantity-row">
+
+            <button
+              type="button"
+              data-action="minus"
+              data-product="${id}"
+              aria-label="Remove one ${product.name}"
+            >
+              −
+            </button>
+
+            <span
+              id="quantity-${id}"
+              class="quantity"
+              aria-live="polite"
+            >
+              0
+            </span>
+
+            <button
+              type="button"
+              data-action="plus"
+              data-product="${id}"
+              aria-label="Add one ${product.name}"
+            >
+              +
+            </button>
+
+          </div>
+
         </div>
 
-      </div>
+      `;
+
+      grid.appendChild(card);
+
+    }
+  );
+
+  grid.addEventListener(
+    "click",
+    handleProductClick
+  );
+
+}
+
+
+/*
+==================================================
+PRODUCT BUTTONS
+==================================================
+*/
+
+function handleProductClick(event) {
+
+  const button =
+    event.target.closest("button");
+
+  if (!button) return;
+
+  const productId =
+    button.dataset.product;
+
+  const product =
+    PRODUCTS[productId];
+
+  if (!product) return;
+
+  if (button.dataset.action === "plus" && cart[productId] < product.maxQuantity) {
+    cart[productId]++;
+  }
+
+  if (button.dataset.action === "minus" && cart[productId] > 0) {
+    cart[productId]--;
+  }
+
+  hideError();
+  updateCart();
+  saveOrder();
+
+}
+
+
+/*
+==================================================
+UPDATE CART
+==================================================
+*/
+
+function getCartItems() {
+  return Object.entries(cart)
+    .filter(([, quantity]) => quantity > 0)
+    .map(([productId, quantity]) => ({ productId, quantity }));
+}
+
+function updateCart() {
+
+  const cartElement =
+    document.getElementById("cart-items");
+
+  const items =
+    getCartItems();
+
+  cartElement.innerHTML = "";
+
+  items.forEach(({ productId, quantity }) => {
+
+    const product =
+      PRODUCTS[productId];
+
+    const item =
+      document.createElement("div");
+
+    item.className =
+      "cart-item";
+
+    item.innerHTML = `
+
+      <span>
+        ${product.name} × ${quantity}
+      </span>
+
+      <span>
+        ${formatMoney(product.price * quantity)}
+      </span>
 
     `;
 
-    grid.appendChild(card);
+    cartElement.appendChild(item);
 
   });
+
+  if (items.length === 0) {
+
+    cartElement.innerHTML = `
+
+      <p class="empty-cart">
+        Your cart is empty.
+      </p>
+
+    `;
+
+  }
+
+  Object.entries(PRODUCTS).forEach(([productId, product]) => {
+    const quantityElement = document.getElementById(`quantity-${productId}`);
+    if (!quantityElement) return;
+
+    quantityElement.textContent = cart[productId];
+
+    const row = quantityElement.parentElement;
+    row.querySelector('[data-action="minus"]').disabled = cart[productId] === 0;
+    row.querySelector('[data-action="plus"]').disabled = cart[productId] >= product.maxQuantity;
+  });
+
+  updateTotals();
+
+}
+
+
+/*
+==================================================
+TOTALS
+==================================================
+
+The delivery fee depends on the address
+(distance zone) and the subtotal (free over
+a certain amount). The server recalculates
+both before creating the Stripe checkout.
+==================================================
+*/
+
+function updateTotals() {
+
+  const subtotal =
+    calculateSubtotal(getCartItems());
+
+  const feeElement =
+    document.getElementById("cart-delivery-fee");
+
+  let deliveryFee = 0;
+
+  if (addressCheck?.status === "valid") {
+
+    deliveryFee =
+      calculateDeliveryFee(addressCheck.zone, subtotal);
+
+    feeElement.textContent =
+      deliveryFee === 0 ? "Free" : formatMoney(deliveryFee);
+
+  } else {
+
+    feeElement.textContent =
+      addressCheck?.status === "checking" ? "Checking…" : "Enter your address";
+
+  }
+
+  const tipCents =
+    getTipCents(subtotal);
+
+  document.getElementById("cart-subtotal").textContent =
+    formatMoney(subtotal);
+
+  document.getElementById("cart-tip").textContent =
+    formatMoney(tipCents);
+
+  document.getElementById("cart-total").textContent =
+    formatMoney(subtotal + deliveryFee + tipCents);
+
+}
+
+
+/*
+==================================================
+TIP
+==================================================
+*/
+
+function getTipCents(subtotal) {
+  if (tip.customCents !== null) return tip.customCents;
+  return Math.round(subtotal * tip.percent / 100);
+}
+
+function renderTipOptions() {
+
+  const options =
+    document.getElementById("tip-options");
+
+  const labels = [
+    ...TIP.presetPercents.map(percent => [String(percent), percent === 0 ? "No tip" : `${percent}%`]),
+    ["custom", "Other"]
+  ];
+
+  labels.forEach(([value, label]) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "tip-option";
+    option.dataset.tip = value;
+    option.textContent = label;
+    options.appendChild(option);
+  });
+
+  options.addEventListener("click", event => {
+    const option = event.target.closest(".tip-option");
+    if (!option) return;
+    selectTip(option.dataset.tip);
+    if (option.dataset.tip === "custom") document.getElementById("tip-amount").focus();
+    saveOrder();
+  });
+
+  document.getElementById("tip-amount").addEventListener("input", event => {
+    const dollars = Number(event.target.value);
+    tip.customCents = Number.isFinite(dollars) && dollars > 0 ? Math.min(Math.round(dollars * 100), TIP.maxCents) : 0;
+    updateTotals();
+    saveOrder();
+  });
+
+}
+
+function selectTip(value) {
+
+  if (value === "custom") {
+    tip.customCents = tip.customCents ?? 0;
+  } else {
+    tip.percent = Number(value);
+    tip.customCents = null;
+  }
+
+  document.querySelectorAll(".tip-option").forEach(option => {
+    option.setAttribute("aria-pressed", String(option.dataset.tip === value));
+  });
+
+  document.getElementById("tip-custom").hidden =
+    value !== "custom";
+
+  updateTotals();
 
 }
 
@@ -100,11 +390,20 @@ DELIVERY ADDRESS CHECK
 */
 
 function getAddress() {
-  return addressField.value.trim().replace(/\s+/g, " ");
+  return {
+    line1: fields.line1.value.trim(),
+    line2: fields.line2.value.trim(),
+    city: fields.city.value.trim(),
+    postalCode: fields.postalCode.value.trim()
+  };
 }
 
-function isAddressComplete(address) {
-  return address.length >= MIN_ADDRESS_LENGTH && /\d/.test(address);
+function addressKey({ line1, city, postalCode }) {
+  return [line1, city, postalCode].join("|").toLowerCase();
+}
+
+function isAddressComplete({ line1, city, postalCode }) {
+  return Boolean(line1 && city && /^\d{5}(-\d{4})?$/.test(postalCode));
 }
 
 function scheduleAddressCheck() {
@@ -113,9 +412,10 @@ function scheduleAddressCheck() {
 
   const address = getAddress();
 
-  if (addressCheck && addressCheck.key !== address.toLowerCase()) {
+  if (addressCheck && addressCheck.key !== addressKey(address)) {
     addressCheck = null;
     showAddressStatus("", "");
+    updateTotals();
   }
 
   if (isAddressComplete(address)) {
@@ -126,7 +426,7 @@ function scheduleAddressCheck() {
 
 /*
   Resolves to the check result for the address
-  currently in the box. Re-uses the last result
+  currently in the form. Re-uses the last result
   if the address hasn't changed.
 */
 async function checkAddress() {
@@ -134,7 +434,7 @@ async function checkAddress() {
   clearTimeout(addressCheckTimer);
 
   const address = getAddress();
-  const key = address.toLowerCase();
+  const key = addressKey(address);
 
   if (addressCheck?.key === key && addressCheck.status !== "error") {
     return addressCheck.promise;
@@ -143,23 +443,24 @@ async function checkAddress() {
   const check = { key, status: "checking" };
   addressCheck = check;
   showAddressStatus("checking", "Checking your address…");
+  updateTotals();
 
   check.promise = (async () => {
 
     try {
 
-      const { distanceMiles, zone } =
-        await checkDeliveryArea(address);
+      const data =
+        await postJson(API.checkDelivery, { address });
 
-      check.distanceMiles = distanceMiles;
-
-      if (zone) {
+      if (data.deliverable) {
         check.status = "valid";
-        check.zone = zone;
-        check.message = `We deliver to you! About ${distanceMiles} miles away. ${describeDeliveryFee(zone)}`;
+        check.zone = { feeCents: data.feeCents, freeOverCents: data.freeOverCents };
+        check.message = data.freeOverCents > 0
+          ? `We deliver to you! About ${data.distanceMiles} miles away — delivery is free on orders over ${formatMoney(data.freeOverCents)}.`
+          : `We deliver to you! About ${data.distanceMiles} miles away — delivery is free.`;
       } else {
         check.status = "invalid";
-        check.message = `Sorry, this address is about ${distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`;
+        check.message = `Sorry, this address is about ${data.distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`;
       }
 
     } catch (error) {
@@ -172,6 +473,7 @@ async function checkAddress() {
     // Ignore the result if the address was edited while we were checking.
     if (addressCheck === check) {
       showAddressStatus(check.status, check.message);
+      updateTotals();
     }
 
     return check;
@@ -198,11 +500,14 @@ function showAddressStatus(status, message) {
 
 /*
 ==================================================
-DELIVERY DATES AND FEES
+DELIVERY DATES
 ==================================================
 */
 
-function renderDeliveryInfo() {
+function renderDeliveryDates() {
+
+  const select =
+    fields.deliveryDate;
 
   getDeliveryDates().forEach(({ value, label }) => {
 
@@ -215,7 +520,7 @@ function renderDeliveryInfo() {
     option.textContent =
       label;
 
-    dateField.appendChild(option);
+    select.appendChild(option);
 
   });
 
@@ -226,31 +531,25 @@ function renderDeliveryInfo() {
   document.getElementById("delivery-radius").textContent =
     DELIVERY_SERVICE.maxMiles;
 
-  // e.g. "Free under 1 mile, $3.00 up to 2 miles, …"
-  const fees = DELIVERY_SERVICE.zones.map(({ maxMiles, feeCents }, index) => {
-    const fee = feeCents === 0 ? "Free" : formatMoney(feeCents);
-    const miles = `${maxMiles} mile${maxMiles === 1 ? "" : "s"}`;
-    return index === 0 ? `${fee} under ${miles}` : `${fee} up to ${miles}`;
-  });
-
-  document.getElementById("delivery-fees").textContent =
-    `Delivery: ${fees.join(", ")}.`;
-
 }
 
 
 /*
 ==================================================
-REMEMBER THE ADDRESS AND DATE
+SAVE ORDER IN PROGRESS
 
-So they are still filled in if the customer
-comes back from Stripe or refreshes the page.
+Keeps the cart and form filled in if the
+customer goes back from Stripe Checkout or
+refreshes the page.
 ==================================================
 */
 
+const SAVED_FIELDS = ["name", "phone", "line1", "line2", "city", "postalCode", "notes", "deliveryDate"];
+
 function saveOrder() {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ address: addressField.value, deliveryDate: dateField.value }));
+    const values = Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip }));
   } catch {
     // Storage can be unavailable (e.g. private browsing). Nothing to do.
   }
@@ -268,14 +567,27 @@ function restoreOrder() {
 
   if (!saved) return;
 
-  if (typeof saved.address === "string") {
-    addressField.value = saved.address;
+  Object.entries(saved.cart || {}).forEach(([productId, quantity]) => {
+    if (Object.hasOwn(cart, productId) && Number.isInteger(quantity)) {
+      cart[productId] = Math.min(Math.max(quantity, 0), PRODUCTS[productId].maxQuantity);
+    }
+  });
+
+  if (Number.isInteger(saved.tip?.customCents) && saved.tip.customCents >= 0) {
+    tip.customCents = Math.min(saved.tip.customCents, TIP.maxCents);
+    document.getElementById("tip-amount").value = (tip.customCents / 100).toFixed(2);
+    selectTip("custom");
+  } else if (TIP.presetPercents.includes(saved.tip?.percent)) {
+    selectTip(String(saved.tip.percent));
   }
 
-  // Only restore a delivery date that is still available.
-  if ([...dateField.options].some(option => option.value === saved.deliveryDate)) {
-    dateField.value = saved.deliveryDate;
-  }
+  SAVED_FIELDS.forEach(name => {
+    const value = saved.values?.[name];
+    if (typeof value !== "string") return;
+    // Only restore a delivery date that is still available.
+    if (name === "deliveryDate" && ![...fields.deliveryDate.options].some(option => option.value === value)) return;
+    fields[name].value = value;
+  });
 
 }
 
@@ -300,6 +612,8 @@ function showError(message, focusElement) {
   if (focusElement) {
     focusElement.focus();
     focusElement.scrollIntoView({ behavior: "smooth", block: "center" });
+  } else {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
 }
@@ -308,10 +622,61 @@ function hideError() {
   document.getElementById("checkout-error").style.display = "none";
 }
 
+function showNotice(message) {
+  const element = document.getElementById("checkout-notice");
+  element.textContent = message;
+  element.style.display = "block";
+}
+
 
 /*
 ==================================================
-GO TO STRIPE
+VALIDATION
+==================================================
+*/
+
+function validateForm() {
+
+  Object.values(fields).forEach(field => field.removeAttribute("aria-invalid"));
+
+  if (getCartItems().length === 0) {
+    return { message: "Your cart is empty. Add some sourdough above to get started.", field: document.getElementById("product-grid") };
+  }
+
+  const required = [
+    ["name", "Please enter your name."],
+    ["phone", "Please enter your phone number so we can reach you on delivery day."],
+    ["line1", "Please enter your street address."],
+    ["city", "Please enter your city."],
+    ["postalCode", "Please enter a valid 5-digit ZIP code."]
+  ];
+
+  for (const [name, message] of required) {
+    if (!fields[name].value.trim() || !fields[name].checkValidity()) {
+      fields[name].setAttribute("aria-invalid", "true");
+      return { message, field: fields[name] };
+    }
+  }
+
+  const phoneDigits = fields.phone.value.replace(/\D/g, "");
+
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    fields.phone.setAttribute("aria-invalid", "true");
+    return { message: "Please enter a valid phone number, including area code.", field: fields.phone };
+  }
+
+  if (!fields.deliveryDate.value) {
+    return { message: "Please select a delivery date.", field: fields.deliveryDate };
+  }
+
+  return null;
+
+}
+
+
+/*
+==================================================
+CHECKOUT
 ==================================================
 */
 
@@ -321,59 +686,65 @@ async function checkout(event) {
 
   hideError();
 
-  if (!isAddressComplete(getAddress())) {
-    showError("Please enter your full delivery address, including the street number.", addressField);
+  const invalid =
+    validateForm();
+
+  if (invalid) {
+    showError(invalid.message, invalid.field);
     return;
   }
 
-  if (!dateField.value) {
-    showError("Please select a delivery date.", dateField);
+  if (!API.isConfigured) {
+    showError("Online ordering isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order.");
     return;
   }
+
+  const button =
+    document.getElementById("checkout-button");
 
   button.disabled =
     true;
 
   button.textContent =
-    "Checking your address…";
+    "Preparing secure checkout...";
 
   try {
+
+    /*
+    ------------------------------------------
+    CONFIRM WE DELIVER TO THIS ADDRESS
+    ------------------------------------------
+    */
 
     const check =
       await checkAddress();
 
     if (check.status !== "valid") {
-      throw Object.assign(new Error(check.message), { field: addressField });
-    }
-
-    if (!check.zone.paymentLinkUrl) {
-      throw new Error("Online ordering isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order.");
+      throw Object.assign(new Error(check.message), { field: fields.line1 });
     }
 
     /*
-      The zone, distance and delivery date are
-      attached to the Stripe payment so the order
-      can be checked against the address the
-      customer gives Stripe. Stripe only allows
-      letters, numbers, dashes and underscores.
+    ------------------------------------------
+    SEND ORDER TO SERVER
+    ------------------------------------------
     */
 
-    const reference = [
-      `ZONE${DELIVERY_SERVICE.zones.indexOf(check.zone) + 1}`,
-      `${String(check.distanceMiles).replace(".", "")}MI`,
-      dateField.value.replaceAll("-", "")
-    ].join("-");
+    const data =
+      await postJson(API.createCheckoutSession, {
+        items: getCartItems(),
+        deliveryDate: fields.deliveryDate.value,
+        customer: { name: fields.name.value, phone: fields.phone.value },
+        address: getAddress(),
+        notes: fields.notes.value,
+        tipCents: getTipCents(calculateSubtotal(getCartItems()))
+      });
 
-    const paymentUrl =
-      new URL(check.zone.paymentLinkUrl);
-
-    paymentUrl.searchParams.set("client_reference_id", reference);
-
-    button.textContent =
-      "Opening secure ordering…";
+    /*
+      Redirect customer to Stripe.
+    */
 
     window.location.href =
-      paymentUrl.toString();
+      data.url;
 
   }
 
@@ -389,19 +760,39 @@ async function checkout(event) {
       error.field
     );
 
-    resetCheckoutButton();
+    button.disabled =
+      false;
+
+    button.textContent =
+      "Continue to Payment";
 
   }
 
 }
 
-function resetCheckoutButton() {
 
-  button.disabled =
-    false;
+async function postJson(path, body) {
 
-  button.textContent =
-    "Choose Your Loaves & Pay";
+  let response;
+
+  try {
+    response = await fetch(`${API.origin}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  } catch {
+    throw new Error("We couldn't reach our ordering system. Please check your connection and try again.");
+  }
+
+  const data =
+    await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || "Something went wrong. Please try again.");
+  }
+
+  return data;
 
 }
 
@@ -414,25 +805,43 @@ INITIALIZE
 
 renderProducts();
 
-renderDeliveryInfo();
+renderDeliveryDates();
 
-restoreOrder();
+renderTipOptions();
+
+selectTip("0");
+
+const params =
+  new URLSearchParams(window.location.search);
+
+if (params.has("cancelled")) {
+  restoreOrder();
+  showNotice("Your payment was cancelled and you haven't been charged. Your order is saved below whenever you're ready.");
+  history.replaceState(null, "", window.location.pathname);
+} else {
+  restoreOrder();
+}
+
+updateCart();
 
 if (isAddressComplete(getAddress())) {
   checkAddress();
 }
 
-addressField.addEventListener("input", () => {
-  hideError();
-  saveOrder();
-  scheduleAddressCheck();
+ADDRESS_FIELDS.forEach(name => {
+  fields[name].addEventListener("input", scheduleAddressCheck);
+  fields[name].addEventListener("change", () => isAddressComplete(getAddress()) && checkAddress());
 });
 
-addressField.addEventListener("change", () => {
-  if (isAddressComplete(getAddress())) checkAddress();
+Object.values(fields).forEach(field => {
+  field.addEventListener("input", () => {
+    field.removeAttribute("aria-invalid");
+    hideError();
+    saveOrder();
+  });
 });
 
-dateField.addEventListener("change", () => {
+fields.deliveryDate.addEventListener("change", () => {
   hideError();
   saveOrder();
 });
@@ -441,9 +850,3 @@ form.addEventListener(
   "submit",
   checkout
 );
-
-// If the customer comes back from Stripe with the Back button, the browser
-// may show this page exactly as it was left, with the button still disabled.
-window.addEventListener("pageshow", event => {
-  if (event.persisted) resetCheckoutButton();
-});

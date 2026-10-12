@@ -1,0 +1,14 @@
+{
+  "name": "kirana-checkout-worker",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker for Kirana Bakehouse online ordering",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

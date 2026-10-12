@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Order Confirmed | Kirana Bakehouse</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=1800"
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Luxurious+Script&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap"
+    rel="stylesheet"
+  >
+
+  <style>
+
+    .success-page {
+
+      min-height: 80vh;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      padding: 60px 20px;
+
+      text-align: center;
+
+    }
+
+
+    .success-box {
+
+      max-width: 700px;
+
+      width: 100%;
+
+    }
+
+
+    .success-icon {
+
+      width: 75px;
+
+      height: 75px;
+
+      margin: 0 auto 25px;
+
+      border-radius: 50%;
+
+      background: var(--terracotta);
+
+      color: white;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      font-size: 2.2rem;
+
+      font-weight: 600;
+
+    }
+
+
+    .success-title {
+
+      font-family:
+        'Luxurious Script',
+        cursive;
+
+      font-size: 6rem;
+
+      color:
+        var(--terracotta);
+
+      line-height: 1;
+
+      margin-bottom: 25px;
+
+      font-weight: 400;
+
+    }
+
+
+    .success-box p {
+
+      font-family:
+        'Montserrat',
+        sans-serif;
+
+      color:
+        var(--deep-brown);
+
+      font-size: 1.1rem;
+
+      line-height: 1.7;
+
+      margin-bottom: 18px;
+
+    }
+
+
+    .success-note {
+
+      margin-top: 30px;
+
+      padding: 20px;
+
+      background: rgba(77, 26, 0, 0.08);
+
+      border-radius: 12px;
+
+      font-size: 0.95rem !important;
+
+    }
+
+
+    .back-button {
+
+      display: inline-block;
+
+      margin-top: 25px;
+
+      padding: 14px 30px;
+
+      background:
+        var(--terracotta);
+
+      color: white;
+
+      border-radius: 30px;
+
+      text-decoration: none;
+
+      font-weight: 600;
+
+      transition: all 0.3s ease;
+
+    }
+
+
+    .back-button:hover {
+
+      background:
+        var(--deep-brown);
+
+      color:
+        var(--cream);
+
+      transform: scale(1.03);
+
+    }
+
+
+    @media (max-width: 600px) {
+
+      .success-title {
+
+        font-size: 4.5rem;
+
+      }
+
+      .success-box p {
+
+        font-size: 1rem;
+
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+<header class="site-header">
+
+  <div class="header-inner">
+
+    <div class="logo">
+
+      <img
+        src="./img/kirana_cream_logo.svg"
+        alt="Kirana Bakehouse"
+        class="logo-image"
+      />
+
+    </div>
+
+  </div>
+
+</header>
+
+
+<main class="success-page">
+
+  <div class="success-box">
+
+    <div class="success-icon">
+      ✓
+    </div>
+
+
+    <h1 class="success-title">
+      Thank You!
+    </h1>
+
+
+    <p>
+      Your Kirana Bakehouse order has been
+      successfully placed.
+    </p>
+
+
+    <p>
+      Your payment has been processed securely
+      through Stripe.
+    </p>
+
+
+    <p>
+      You'll receive your order confirmation
+      and receipt by email.
+    </p>
+
+
+    <p class="success-note">
+      Your sourdough will be freshly prepared
+      for your selected delivery date.
+      We look forward to baking for you!
+    </p>
+
+
+    <a
+      href="index.html"
+      class="back-button"
+    >
+      Back to Kirana Bakehouse
+    </a>
+
+  </div>
+
+</main>
+
+</body>
+
+</html>

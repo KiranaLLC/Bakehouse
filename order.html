@@ -1,104 +1,438 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Place Order - Kirana Bakehouse</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Order Delivery | Kirana Bakehouse</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css?v=1800"
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Luxurious+Script&display=swap"
+    rel="stylesheet"
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Host+Grotesk&display=swap"
+    rel="stylesheet"
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap"
+    rel="stylesheet"
+  />
+
   <style>
-    /* Page-specific styles for clean form embedding */
-    body {
-      margin: 0;
-      padding: 0;
-      background: var(--deep-brown); /* matches your site theme */
-      color: var(--cream);
-      font-family: "Inter", sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+
+    .shop-page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 60px 20px 100px;
     }
 
-    header.site-header {
-      background: var(--deep-brown);
-      padding: 20px 0;
-      border-bottom: none;
-    }
-
-    .form-container {
-      flex: 1;
-      width: 100%;
-      max-width: 1000px; /* adjust if you want wider/narrower */
-      margin: 20px auto;
-      padding: 0 10px;
-    }
-
-    .form-container iframe {
-      width: 100% !important;
-      min-height: 1200px; /* generous starting height - Google Forms are tall */
-      height: 100vh !important; /* try to fill available space */
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-      background: white; /* white bg for form contrast */
-    }
-
-    /* Hide scrollbars but allow scrolling inside iframe if needed */
-    .form-container iframe {
-      overflow: hidden;
-      scrollbar-width: none; /* Firefox */
-    }
-
-    .form-container iframe::-webkit-scrollbar {
-      display: none; /* Chrome/Safari */
-    }
-    @media (max-width:900px) {
-     .form-container {
-    margin: 10px auto;
-    padding: 0 8px;
-  }
-  .form-container iframe {
-    min-height: 1600px;           /* taller min-height on phones to reduce inner scroll */
-  }
-    }
-
-    /* Back link at bottom if you want */
-    .back-link {
+    .shop-header {
       text-align: center;
-      padding: 20px;
-      font-size: 1rem;
+      margin-bottom: 50px;
+    }
+
+    .shop-title {
+      font-family: 'Luxurious Script', cursive;
+      font-size: 6rem;
+      color: var(--terracotta);
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    .shop-subtitle {
+      color: var(--deep-brown);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.1rem;
+      margin-top: 15px;
+    }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+    }
+
+    .product-card {
+      background: #f7f0d9;
+      border: 1px solid rgba(77, 26, 0, 0.2);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .product-image {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+    }
+
+    .product-info {
+      padding: 22px;
+    }
+
+    .product-name {
+      font-family: 'Host Grotesk', sans-serif;
+      color: var(--deep-brown);
+      font-size: 1.35rem;
+      margin-bottom: 8px;
+    }
+
+    .product-description {
+      color: var(--muted);
+      font-size: .95rem;
+      margin-bottom: 12px;
+    }
+
+    .product-price {
+      color: var(--terracotta);
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    .quantity-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .quantity-row button {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--deep-brown);
+      background: transparent;
+      color: var(--deep-brown);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .quantity-row button:hover {
+      background: var(--deep-brown);
       color: var(--cream);
     }
 
-    .back-link a {
-      color: var(--gold-accent);
-      text-decoration: underline;
+    .quantity {
+      min-width: 25px;
+      text-align: center;
+      font-weight: 600;
     }
+
+    .checkout-section {
+      margin-top: 60px;
+      background: var(--deep-brown);
+      color: var(--cream);
+      border-radius: 18px;
+      padding: 35px;
+    }
+
+    .checkout-section h2 {
+      font-family: 'Luxurious Script', cursive;
+      color: var(--terracotta);
+      font-size: 4rem;
+      font-weight: 400;
+      margin-bottom: 20px;
+    }
+
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(240,231,200,.2);
+    }
+
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-top: 20px;
+    }
+
+    .delivery-form {
+      margin-top: 30px;
+    }
+
+    .delivery-note {
+      font-size: .95rem;
+      opacity: .85;
+      margin-bottom: 25px;
+      font-style: italic;
+    }
+
+    .delivery-date-label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--cream);
+      font-weight: 500;
+    }
+
+    .delivery-date-select {
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      border: none;
+      margin-bottom: 25px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .checkout-button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 16px;
+      border: none;
+      border-radius: 30px;
+      background: var(--terracotta);
+      color: white;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .checkout-button:hover {
+      opacity: .9;
+    }
+
+    .checkout-button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .empty-cart {
+      color: var(--cream);
+      opacity: .8;
+    }
+
+    .error-message {
+      background: #fff;
+      color: #8f1d00;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .section-label {
+      font-family: 'Host Grotesk', sans-serif;
+      color: var(--terracotta);
+      font-size: 1.4rem;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+
+    .stripe-note {
+      text-align: center;
+      font-size: .85rem;
+      opacity: .75;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 800px) {
+
+      .shop-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .shop-title {
+        font-size: 4.5rem;
+      }
+
+      .checkout-section {
+        padding: 25px 20px;
+      }
+
+    }
+
   </style>
 </head>
+
+
 <body>
 
-  <!-- Reuse your header for consistency -->
-  <header class="site-header">
-    <div class="header-inner">
-      <div class="logo">
-        <img src="./img/kirana_cream_logo.svg" alt="Kirana logo in cream colour" class="logo-image" />
-      </div>
-      <nav class="desktop-nav">
-        <a href="./index.html" class="subscribe-btn">Back to Home</a>
-      </nav>
+<header class="site-header">
+
+  <div class="header-inner">
+
+    <div class="logo">
+
+      <img
+        src="./img/kirana_cream_logo.svg"
+        alt="Kirana Bakehouse"
+        class="logo-image"
+      />
+
     </div>
-  </header>
 
-  <!-- Main form area -->
-  <div class="form-container">
-    <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSccVjYuVW8f0QEdZaVnK3pnZ8B0L52HPRBtY62tUwmBAxUIuw/viewform?embedded=true"
-            frameborder="0" marginheight="0" marginwidth="0">
-      Loading…
-    </iframe>
+
+    <nav class="desktop-nav">
+
+      <a
+        href="index.html"
+        class="ig-link"
+      >
+        Back to Kirana
+      </a>
+
+    </nav>
+
   </div>
 
-  <div class="back-link">
-    <a href="./index.html">← Back to Kirana Bakehouse</a>
-  </div>
+</header>
+
+
+<main class="shop-page">
+
+
+  <!-- =========================
+       HEADER
+  ========================== -->
+
+  <section class="shop-header">
+
+    <h1 class="shop-title">
+      Order Delivery
+    </h1>
+
+    <p class="shop-subtitle">
+      Fresh, made-to-order artisanal sourdough
+    </p>
+
+    <p class="shop-subtitle">
+      Local delivery Tuesday through Saturday
+    </p>
+
+  </section>
+
+
+  <!-- =========================
+       PRODUCTS
+  ========================== -->
+
+  <section
+    id="product-grid"
+    class="shop-grid"
+  ></section>
+
+
+  <!-- =========================
+       CHECKOUT
+  ========================== -->
+
+  <section class="checkout-section">
+
+    <h2>
+      Your Order
+    </h2>
+
+
+    <div
+      id="checkout-error"
+      class="error-message"
+    ></div>
+
+
+    <!-- CART -->
+
+    <div id="cart-items">
+
+      <p class="empty-cart">
+        Your cart is empty.
+      </p>
+
+    </div>
+
+
+    <div class="cart-total">
+
+      <span>
+        Total
+      </span>
+
+      <span id="cart-total">
+        $0.00
+      </span>
+
+    </div>
+
+
+    <!-- =========================
+         DELIVERY DATE
+    ========================== -->
+
+    <div class="delivery-form">
+
+      <h3 class="section-label">
+        Delivery Date
+      </h3>
+
+      <p class="delivery-note">
+        We deliver Wenesday through Friday.
+        Delivery is not available Saturday through Tuesday.
+        Your address and contact information will be collected securely on Stripe Checkout.
+      </p>
+
+
+      <label
+        class="delivery-date-label"
+        for="delivery-date"
+      >
+        Select your delivery date
+      </label>
+
+      <select
+        id="delivery-date"
+        class="delivery-date-select"
+        required
+      >
+
+        <option value="">
+          Select a delivery date
+        </option>
+
+      </select>
+
+
+      <!-- =========================
+           CHECKOUT BUTTON
+      ========================== -->
+
+      <button
+        id="checkout-button"
+        class="checkout-button"
+        disabled
+      >
+        Proceed to Secure Checkout
+      </button>
+
+      <p class="stripe-note">
+        Secure payment powered by Stripe.
+        Your payment and customer details are handled securely by Stripe.
+      </p>
+
+    </div>
+
+  </section>
+
+</main>
+
+
+<script type="module" src="./order.js"></script>
 
 </body>
+
 </html>

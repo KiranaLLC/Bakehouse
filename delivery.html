@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check Delivery Area | Kirana Bakehouse</title>
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    .delivery-checker { max-width: 680px; margin: 5rem auto; padding: 0 1.25rem; text-align: center; }
+    .delivery-checker h1 { color: var(--deep-brown); font-size: clamp(2.25rem, 8vw, 4rem); }
+    .delivery-checker p { margin: 1rem auto; max-width: 550px; }
+    .delivery-checker form { display: grid; gap: .8rem; margin: 2rem 0 1rem; text-align: left; }
+    .delivery-checker label { font-weight: 700; }
+    .delivery-checker input { width: 100%; padding: .9rem 1rem; border: 1px solid var(--deep-brown); border-radius: .4rem; font: inherit; }
+    .delivery-checker button { justify-self: start; padding: .8rem 1.2rem; border: 0; border-radius: .4rem; background: var(--terracotta); color: var(--cream); font: inherit; font-weight: 700; cursor: pointer; }
+    .delivery-checker button:disabled { cursor: wait; opacity: .7; }
+    .delivery-result { display: none; margin-top: 1.5rem; padding: 1.25rem; border-radius: .5rem; text-align: left; }
+    .delivery-result.valid { display: block; background: #e5f3e5; color: #164016; }
+    .delivery-result.invalid, .delivery-result.error { display: block; background: #fbe8e5; color: #6b1e14; }
+    .delivery-result h2 { margin-bottom: .4rem; font-size: 1.3rem; }
+  </style>
+</head>
+<body>
+  <header class="site-header"><div class="header-inner"><a class="logo" href="index.html"><img src="./img/kirana_cream_logo.svg" alt="Kirana Bakehouse" class="logo-image"></a><nav class="desktop-nav"><a href="order.html" class="ig-link">Order Delivery</a></nav></div></header>
+  <main class="delivery-checker">
+    <h1>Do we deliver to you?</h1>
+    <p>Enter your address to check whether it is within four miles of our Menlo Park kitchen and see the estimated delivery fee.</p>
+    <form id="delivery-check-form">
+      <label for="delivery-address">Delivery address</label>
+      <input id="delivery-address" name="address" type="text" autocomplete="street-address" placeholder="123 Main St, Menlo Park, CA" required>
+      <button type="submit">Check delivery area</button>
+    </form>
+    <section id="delivery-result" class="delivery-result" aria-live="polite"></section>
+    <p><small>We use your address only to check the delivery area. <a href="privacy.html">Privacy Policy</a></small></p>
+  </main>
+  <script type="module" src="./delivery.js"></script>
+</body>
+</html>

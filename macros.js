@@ -4,12 +4,16 @@
  * Keep values that describe the business or application in this file so the
  * storefront and checkout server use the same source of truth.
  */
+// Every loaf starts with these; each product lists only what it adds.
+export const BASE_INGREDIENTS = Object.freeze(["Organic Unbleached All Purpose Flour", "Water", "Sea Salt"]);
+
 export const PRODUCTS = Object.freeze({
   birds_eye: {
     name: "Bird's Eye",
     description: "A bright and spicy inclusion sourdough featuring bird's eye chili.",
     price: 1600,
     image: "./img/menu/birds-eye.jpg",
+    ingredients: ["Bird's Eye Chili", "Garlic", "Cilantro"],
     maxQuantity: 6
   },
   birthday: {
@@ -17,6 +21,7 @@ export const PRODUCTS = Object.freeze({
     description: "A celebratory seasonal sourdough created for special occasions.",
     price: 1600,
     image: "./img/menu/birthday.jpg",
+    ingredients: ["Rainbow Sprinkles", "Vanilla", "Sugar"],
     maxQuantity: 6
   },
   cheddar_jalapeno: {
@@ -24,6 +29,7 @@ export const PRODUCTS = Object.freeze({
     description: "Sharp cheddar and jalapeño folded into naturally leavened sourdough.",
     price: 1600,
     image: "./img/menu/cheddar-jalapeno.jpg",
+    ingredients: ["Sharp Cheddar Cheese", "Jalapeños"],
     maxQuantity: 6
   },
   coconut_laddoo: {
@@ -31,6 +37,7 @@ export const PRODUCTS = Object.freeze({
     description: "A sweet-inspired seasonal sourdough featuring coconut.",
     price: 1600,
     image: "./img/menu/coconut-laddoo.jpg",
+    ingredients: ["Coconut", "Sugar", "Cardamom"],
     maxQuantity: 6
   },
   cong_la: {
@@ -38,6 +45,7 @@ export const PRODUCTS = Object.freeze({
     description: "A Kirana Bakehouse seasonal inclusion sourdough.",
     price: 1600,
     image: "./img/menu/cong-la.jpg",
+    ingredients: ["Scallions", "Chili Oil"],
     maxQuantity: 6
   },
   elote: {
@@ -45,6 +53,7 @@ export const PRODUCTS = Object.freeze({
     description: "Inspired by Mexican street corn — sweet corn, cheese, chili and lime folded into our sourdough.",
     price: 1600,
     image: "./img/menu/elote.jpg",
+    ingredients: ["Sweet Corn", "Cotija Cheese", "Chili Powder", "Lime"],
     maxQuantity: 6
   },
   everything_seasoning: {
@@ -52,6 +61,7 @@ export const PRODUCTS = Object.freeze({
     description: "Our sourdough with a generous everything-seasoning crust.",
     price: 1300,
     image: "./img/menu/everything-seasoning.jpg",
+    ingredients: ["Sesame Seeds", "Poppy Seeds", "Dried Garlic", "Dried Onion", "Flaky Salt"],
     maxQuantity: 6
   },
   french_onion_soup: {
@@ -59,6 +69,7 @@ export const PRODUCTS = Object.freeze({
     description: "A deeply savory sourdough inspired by classic French onion soup.",
     price: 1600,
     image: "./img/menu/french-onion-soup.jpg",
+    ingredients: ["Caramelized Onions", "Gruyère Cheese", "Thyme"],
     maxQuantity: 6
   },
   house_white: {
@@ -66,6 +77,7 @@ export const PRODUCTS = Object.freeze({
     description: "Our classic everyday sourdough — simple, naturally leavened and versatile.",
     price: 1200,
     image: "./img/menu/house-white.jpg",
+    ingredients: [],
     maxQuantity: 6
   },
   im_like_a_bird: {
@@ -73,6 +85,7 @@ export const PRODUCTS = Object.freeze({
     description: "A seeded sourdough packed with a medley of nuts and seeds.",
     price: 1600,
     image: "./img/menu/ilab.jpg",
+    ingredients: ["Sunflower Seeds", "Pumpkin Seeds", "Sesame Seeds", "Flax Seeds"],
     maxQuantity: 6
   },
   margherita: {
@@ -80,6 +93,7 @@ export const PRODUCTS = Object.freeze({
     description: "A sourdough inspired by the classic Margherita.",
     price: 1600,
     image: "./img/menu/margherita.jpg",
+    ingredients: ["Tomato", "Mozzarella Cheese", "Basil"],
     maxQuantity: 6
   },
   pumpkin_spice: {
@@ -87,6 +101,7 @@ export const PRODUCTS = Object.freeze({
     description: "A seasonal sourdough with pumpkin and warm autumn spices.",
     price: 1600,
     image: "./img/menu/pumpkin-spice.jpg",
+    ingredients: ["Pumpkin", "Cinnamon", "Nutmeg", "Ginger", "Cloves", "Sugar"],
     maxQuantity: 6
   }
 });

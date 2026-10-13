@@ -5,7 +5,7 @@ DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
+import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateSubtotal,
@@ -101,6 +101,24 @@ function renderProducts() {
             ${product.description}
           </p>
 
+          <button
+            type="button"
+            class="ingredients-toggle"
+            data-action="ingredients"
+            data-product="${id}"
+            aria-expanded="false"
+            aria-controls="ingredients-${id}"
+          >
+            Ingredients
+          </button>
+
+          <p
+            id="ingredients-${id}"
+            class="ingredients"
+          >
+            ${[...BASE_INGREDIENTS, ...(product.ingredients || [])].join(", ")}
+          </p>
+
           <div class="product-price">
             ${formatMoney(product.price)}
           </div>
@@ -172,6 +190,13 @@ function handleProductClick(event) {
     PRODUCTS[productId];
 
   if (!product) return;
+
+  if (button.dataset.action === "ingredients") {
+    const open = button.getAttribute("aria-expanded") !== "true";
+    button.setAttribute("aria-expanded", String(open));
+    document.getElementById(`ingredients-${productId}`).classList.toggle("open", open);
+    return;
+  }
 
   if (button.dataset.action === "plus" && cart[productId] < product.maxQuantity) {
     cart[productId]++;

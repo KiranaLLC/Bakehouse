@@ -143,6 +143,46 @@
       margin-bottom: 12px;
     }
 
+    .ingredients-toggle {
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--deep-brown);
+      font: inherit;
+      font-size: .9rem;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+
+    .ingredients-toggle::after {
+      content: " ▾";
+      font-size: .8em;
+    }
+
+    .ingredients-toggle[aria-expanded="true"]::after {
+      content: " ▴";
+    }
+
+    .ingredients {
+      display: none;
+      color: var(--muted);
+      font-size: .88rem;
+      line-height: 1.5;
+      margin: -6px 0 12px;
+    }
+
+    .ingredients.open {
+      display: block;
+    }
+
+    /* On a computer, hovering over a card shows the ingredients too. */
+    @media (hover: hover) {
+      .product-card:hover .ingredients {
+        display: block;
+      }
+    }
+
     .product-price {
       color: var(--terracotta);
       font-size: 1.15rem;

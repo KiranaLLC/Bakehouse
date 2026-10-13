@@ -42,7 +42,7 @@ export const PRODUCTS = Object.freeze({
   },
   cong_la: {
     name: "Cong La",
-    description: "Spicy scallion pancakes, turned into a loaf.",
+    description: "Scallion pancakes with chili oil, turned into a loaf.",
     price: 1600,
     image: "./img/menu/cong-la.jpg",
     ingredients: ["Scallions", "Garlic", "Chili Oil"],

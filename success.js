@@ -68,6 +68,10 @@ function renderOrderSummary(order) {
   heading.textContent = "Order summary";
 
   const rows = order.items.map(item => row(`${item.name} × ${item.quantity}`, formatMoney(item.amountTotal)));
+  if (order.amountDiscount > 0) {
+    rows.push(row(`Discount${order.discountCode ? ` (${order.discountCode})` : ""}`, `−${formatMoney(order.amountDiscount)}`));
+  }
+
   const total = row("Total paid", formatMoney(order.amountTotal));
   total.classList.add("summary-total");
 

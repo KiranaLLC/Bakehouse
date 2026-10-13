@@ -143,6 +143,7 @@ export const API = Object.freeze({
   isConfigured: isWorkerConfigured || isLocalSite,
   createCheckoutSession: "/api/create-checkout-session",
   checkDelivery: "/api/check-delivery",
+  checkDiscount: "/api/check-discount",
   orderSummary: "/api/order-summary"
 });
 

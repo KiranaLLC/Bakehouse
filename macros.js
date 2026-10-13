@@ -75,7 +75,7 @@ export const DELIVERY = Object.freeze({
   // (which may run in UTC) and the customer's browser agree on "today".
   timeZone: "America/Los_Angeles",
   firstAvailableOffsetDays: 3,
-  bookingWindowDays: 21,
+  bookingWindowDays: 15,
   // Sunday = 0 … Saturday = 6
   unavailableDays: Object.freeze([0, 1, 2, 6]),
   // Dates we're closed (holidays, trips). Inclusive, YYYY-MM-DD.

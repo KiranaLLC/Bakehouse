@@ -1,0 +1,16 @@
+# Cloudflare Worker that handles address checks and Stripe payments for
+# kiranabakehouse.com. Deploy with: npx wrangler deploy  (see README.md)
+
+name = "kirana-checkout"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+# Where customers are sent back to after paying or cancelling.
+SITE_URL = "https://www.kiranabakehouse.com"
+# Websites allowed to call this worker, comma-separated.
+ALLOWED_ORIGINS = "https://www.kiranabakehouse.com,https://kiranabakehouse.com,http://localhost:8000"
+
+# STRIPE_SECRET_KEY is a secret, not a var. Set it with:
+#   npx wrangler secret put STRIPE_SECRET_KEY
+# For local testing, put it in worker/.dev.vars instead (never committed).

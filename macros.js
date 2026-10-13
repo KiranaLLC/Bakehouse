@@ -53,7 +53,7 @@ export const PRODUCTS = Object.freeze({
     description: "Your favourite brownie, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/double-chocolate.jpg",
-    ingredients: ["Cocoa Powder", "Dark Chocolate Chunks"],
+    ingredients: ["Milk Chocolate Chips", "Unsweetened Cocoa Powder"],
     maxQuantity: 6
   },
   elote: {

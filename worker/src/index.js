@@ -8,6 +8,7 @@ Runs on Cloudflare Workers. The website calls it to:
   POST /api/check-delivery          is this address in the delivery area?
   POST /api/create-checkout-session start a Stripe payment for an order
   GET  /api/order-summary           details of a paid order, for the thank-you page
+  GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
 IMPORTANT:
 Prices, the delivery fee and the delivery area
@@ -56,6 +57,8 @@ export default {
         result = await createCheckoutSession(await readJson(request), env);
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
         result = await getOrderSummary(url.searchParams.get("session_id"), env);
+      } else if (request.method === "GET" && url.pathname === "/api/status") {
+        result = await getStatus(env);
       } else {
         return json({ error: "Not found." }, 404, corsHeaders);
       }
@@ -278,6 +281,46 @@ async function getOrderSummary(sessionId, env) {
     items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_total })),
     amountTotal: session.amount_total
   };
+
+}
+
+/*
+==================================================
+STATUS CHECK
+
+Open https://<your-worker>/api/status in a
+browser to see whether the Stripe key works.
+Never reveals the key itself.
+==================================================
+*/
+
+async function getStatus(env) {
+
+  const key = env.STRIPE_SECRET_KEY || "";
+  const status = {
+    stripeKeySet: Boolean(key),
+    stripeKeyLooksLike: key ? `${key.slice(0, 8)}… (${key.length} characters)` : "not set",
+    siteUrl: env.SITE_URL || "not set",
+    allowedOrigins: env.ALLOWED_ORIGINS || "not set"
+  };
+
+  if (!key) {
+    status.problem = "STRIPE_SECRET_KEY is not set. Run: npx wrangler secret put STRIPE_SECRET_KEY";
+    return status;
+  }
+
+  if (!/^sk_(test|live)_/.test(key)) {
+    status.problem = "The key doesn't look like a Stripe secret key. It should start with sk_test_ or sk_live_ (Stripe Dashboard → Developers → API keys → Secret key).";
+  }
+
+  try {
+    const account = await stripe(env, "GET", "/account", {});
+    status.stripe = `OK — connected to Stripe account ${account.id}${account.business_profile?.name ? ` (${account.business_profile.name})` : ""} in ${key.startsWith("sk_test_") ? "TEST" : "LIVE"} mode`;
+  } catch (error) {
+    status.stripe = `Stripe rejected the key: ${error.message}`;
+  }
+
+  return status;
 
 }
 

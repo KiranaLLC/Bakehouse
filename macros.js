@@ -18,7 +18,7 @@ export const PRODUCTS = Object.freeze({
   },
   birthday: {
     name: "Birthday",
-    description: "Birthday cake, baked into a sourdough.",
+    description: "Birthday cake inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/birthday.jpg",
     ingredients: ["Rainbow Sprinkles"],
@@ -26,7 +26,7 @@ export const PRODUCTS = Object.freeze({
   },
   cheddar_jalapeno: {
     name: "Cheddar & Jalapeño",
-    description: "Everyone's favourite jalapeño poppers, in sourdough form.",
+    description: "A classic sourdough flavour with melty cheese and a kick of jalapeño.",
     price: 1600,
     image: "./img/menu/cheddar-jalapeno.jpg",
     ingredients: ["Sharp Cheddar Cheese", "Pickled Jalapeños"],
@@ -42,7 +42,7 @@ export const PRODUCTS = Object.freeze({
   },
   cong_la: {
     name: "Cong La",
-    description: "Scallion pancakes with chili oil, turned into a loaf.",
+    description: "Scallion pancakes with chili oil inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/cong-la.jpg",
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
@@ -50,7 +50,7 @@ export const PRODUCTS = Object.freeze({
   },
   elote: {
     name: "Elote",
-    description: "Mexican street corn, folded into sourdough.",
+    description: "Mexican street corn inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/elote.jpg",
     ingredients: ["Roasted Corn", "Cotija Cheese", "Chili Powder"],
@@ -58,7 +58,7 @@ export const PRODUCTS = Object.freeze({
   },
   everything_seasoning: {
     name: "Everything Seasoning",
-    description: "The everything bagel, sourdough-style.",
+    description: "The everything bagel inspired sourdough bread.",
     price: 1300,
     image: "./img/menu/everything-seasoning.jpg",
     ingredients: ["Sesame Seeds", "Black Sesame Seeds", "Poppy Seeds", "Dehydrated Garlic", "Dehydrated Onion", "Salt"],
@@ -66,7 +66,7 @@ export const PRODUCTS = Object.freeze({
   },
   french_onion_soup: {
     name: "French Onion Soup",
-    description: "The cozy French classic, baked into a loaf.",
+    description: "The cozy French classic soup inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/french-onion-soup.jpg",
     ingredients: ["Caramelized Onions", "Gruyère Cheese"],
@@ -74,7 +74,7 @@ export const PRODUCTS = Object.freeze({
   },
   house_white: {
     name: "House White",
-    description: "Our classic sourdough: simple, tangy and made for every day.",
+    description: "Our classic sourdough: simple and made for every day.",
     price: 1200,
     image: "./img/menu/house-white.jpg",
     ingredients: [],

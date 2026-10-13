@@ -54,7 +54,7 @@ export default {
       if (request.method === "POST" && url.pathname === API.checkDelivery) {
         result = await checkDelivery(await readJson(request));
       } else if (request.method === "POST" && url.pathname === API.createCheckoutSession) {
-        result = await createCheckoutSession(await readJson(request), env);
+        result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
         result = await getOrderSummary(url.searchParams.get("session_id"), env);
       } else if (request.method === "GET" && url.pathname === "/api/status") {
@@ -98,12 +98,23 @@ async function readJson(request) {
   }
 }
 
+function getAllowedOrigins(env) {
+  return (env.ALLOWED_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
+}
+
+// Customers are sent back to the website they ordered from (so testing from
+// localhost returns to localhost), as long as it's one of ours.
+function getSiteUrl(request, env) {
+  const origin = request.headers.get("Origin");
+  const siteUrl = origin && getAllowedOrigins(env).includes(origin) ? origin : env.SITE_URL || "";
+  return siteUrl.replace(/\/$/, "");
+}
+
 // The website is on a different domain to the worker, so browsers need
 // these headers before they will let the page read the response.
 function getCorsHeaders(request, env) {
   const origin = request.headers.get("Origin");
-  const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
-  if (!origin || !allowed.includes(origin)) return {};
+  if (!origin || !getAllowedOrigins(env).includes(origin)) return {};
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -143,7 +154,7 @@ CREATE STRIPE CHECKOUT SESSION
 ==================================================
 */
 
-async function createCheckoutSession(body, env) {
+async function createCheckoutSession(body, env, siteUrl) {
 
   const items = parseItems(body.items);
   const deliveryDate = parseDeliveryDate(body.deliveryDate);
@@ -207,8 +218,6 @@ async function createCheckoutSession(body, env) {
     delivery_notes: notes,
     tip_cents: String(tipCents)
   };
-
-  const siteUrl = (env.SITE_URL || "").replace(/\/$/, "");
 
   /*
   ==========================================

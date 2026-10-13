@@ -18,7 +18,7 @@ export const PRODUCTS = Object.freeze({
   },
   birthday: {
     name: "Birthday",
-    description: "Birthday cake inspired sourdough bread.",
+    description: "Rainbow sprinkles folded into a sourdough bread.",
     price: 1600,
     image: "./img/menu/birthday.jpg",
     ingredients: ["Rainbow Sprinkles"],
@@ -50,7 +50,7 @@ export const PRODUCTS = Object.freeze({
   },
   elote: {
     name: "Elote",
-    description: "Mexican street corn inspired sourdough bread.",
+    description: "Bringing Mexican street corn flavours to sourdough bread.",
     price: 1600,
     image: "./img/menu/elote.jpg",
     ingredients: ["Roasted Corn", "Cotija Cheese", "Chili Powder"],
@@ -90,7 +90,7 @@ export const PRODUCTS = Object.freeze({
   },
   margherita: {
     name: "Margherita",
-    description: "Margherita pizza, reimagined as a sourdough.",
+    description: "Margherita pizza(not the drink!), reimagined as a sourdough.",
     price: 1600,
     image: "./img/menu/margherita.jpg",
     ingredients: ["Tomato", "Mozzarella Cheese", "Italian Seasoning", "Basil"],

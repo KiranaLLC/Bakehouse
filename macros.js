@@ -10,7 +10,7 @@ export const BASE_INGREDIENTS = Object.freeze(["Organic Unbleached All Purpose F
 export const PRODUCTS = Object.freeze({
   birds_eye: {
     name: "Bird's Eye",
-    description: "Fiery bird's eye chili and garlic, mellowed by pockets of melted mozzarella. A loaf with real heat, made for toasting.",
+    description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
     price: 1600,
     image: "./img/menu/birds-eye.jpg",
     ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
@@ -18,7 +18,7 @@ export const PRODUCTS = Object.freeze({
   },
   birthday: {
     name: "Birthday",
-    description: "Our tangy, open-crumbed sourdough studded with rainbow sprinkles. A little celebration in every slice.",
+    description: "Birthday cake, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/birthday.jpg",
     ingredients: ["Rainbow Sprinkles"],
@@ -26,7 +26,7 @@ export const PRODUCTS = Object.freeze({
   },
   cheddar_jalapeno: {
     name: "Cheddar & Jalapeño",
-    description: "Sharp cheddar and pickled jalapeños folded through the dough, with cheese that crisps on the crust. Tangy, cheesy and just spicy enough.",
+    description: "Everyone's favourite jalapeño poppers, in sourdough form.",
     price: 1600,
     image: "./img/menu/cheddar-jalapeno.jpg",
     ingredients: ["Sharp Cheddar Cheese", "Pickled Jalapeños"],
@@ -34,7 +34,7 @@ export const PRODUCTS = Object.freeze({
   },
   coconut_laddoo: {
     name: "Coconut Laddoo",
-    description: "Inspired by the classic Indian sweet: dried coconut, brown sugar and jaggery, warmed with cardamom. Gently sweet and fragrant, and wonderful toasted with butter.",
+    description: "The classic Indian sweet, reimagined as a sourdough.",
     price: 1600,
     image: "./img/menu/coconut-laddoo.jpg",
     ingredients: ["Dried Coconut", "Brown Sugar", "Jaggery", "Cardamom"],
@@ -42,7 +42,7 @@ export const PRODUCTS = Object.freeze({
   },
   cong_la: {
     name: "Cong La",
-    description: "A savory scallion loaf with garlic and a ribbon of chili oil. Aromatic, a little spicy, and best eaten warm.",
+    description: "Spicy scallion pancakes, turned into a loaf.",
     price: 1600,
     image: "./img/menu/cong-la.jpg",
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
@@ -50,7 +50,7 @@ export const PRODUCTS = Object.freeze({
   },
   elote: {
     name: "Elote",
-    description: "Mexican street corn in a loaf: sweet roasted corn, salty cotija and a kick of chili powder.",
+    description: "Mexican street corn, folded into sourdough.",
     price: 1600,
     image: "./img/menu/elote.jpg",
     ingredients: ["Roasted Corn", "Cotija Cheese", "Chili Powder"],
@@ -58,7 +58,7 @@ export const PRODUCTS = Object.freeze({
   },
   everything_seasoning: {
     name: "Everything Seasoning",
-    description: "Our sourdough with a generous everything crust of black and white sesame, poppy seeds, garlic and onion. Made for sandwiches and cream cheese.",
+    description: "The everything bagel, sourdough-style.",
     price: 1300,
     image: "./img/menu/everything-seasoning.jpg",
     ingredients: ["Sesame Seeds", "Black Sesame Seeds", "Poppy Seeds", "Dehydrated Garlic", "Dehydrated Onion", "Salt"],
@@ -66,7 +66,7 @@ export const PRODUCTS = Object.freeze({
   },
   french_onion_soup: {
     name: "French Onion Soup",
-    description: "Deeply caramelized onions and nutty Gruyère, for a savory loaf that tastes like the classic soup.",
+    description: "The cozy French classic, baked into a loaf.",
     price: 1600,
     image: "./img/menu/french-onion-soup.jpg",
     ingredients: ["Caramelized Onions", "Gruyère Cheese"],
@@ -74,7 +74,7 @@ export const PRODUCTS = Object.freeze({
   },
   house_white: {
     name: "House White",
-    description: "Our everyday sourdough: just flour, water and salt, naturally leavened for a crackly crust, a chewy open crumb and a gentle tang.",
+    description: "Our classic sourdough: simple, tangy and made for every day.",
     price: 1200,
     image: "./img/menu/house-white.jpg",
     ingredients: [],
@@ -82,7 +82,7 @@ export const PRODUCTS = Object.freeze({
   },
   im_like_a_bird: {
     name: "I'm Like a Bird (ILAB)",
-    description: "A seed lover's loaf, packed with black and white sesame, pumpkin, chia and hemp seeds. Nutty, toasty and full of crunch.",
+    description: "A seed-packed sourdough the birds would envy.",
     price: 1600,
     image: "./img/menu/ilab.jpg",
     ingredients: ["Black Sesame Seeds", "White Sesame Seeds", "Pumpkin Seeds", "Chia Seeds", "Hemp Seeds"],
@@ -90,7 +90,7 @@ export const PRODUCTS = Object.freeze({
   },
   margherita: {
     name: "Margherita",
-    description: "Tomato, mozzarella, basil and Italian herbs: the classic pizza, baked into a loaf. Perfect for grilled cheese.",
+    description: "Margherita pizza, reimagined as a sourdough.",
     price: 1600,
     image: "./img/menu/margherita.jpg",
     ingredients: ["Tomato", "Mozzarella Cheese", "Italian Seasoning", "Basil"],
@@ -98,7 +98,7 @@ export const PRODUCTS = Object.freeze({
   },
   pumpkin_spice: {
     name: "Pumpkin Spice",
-    description: "Pumpkin purée gives this autumn loaf its golden crumb, warmed with cinnamon, ginger, nutmeg, cloves, cardamom and a hint of lemon peel.",
+    description: "Autumn's favourite flavour, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/pumpkin-spice.jpg",
     ingredients: ["Pumpkin Purée", "Cinnamon", "Ginger", "Lemon Peel", "Nutmeg", "Cloves", "Cardamom"],

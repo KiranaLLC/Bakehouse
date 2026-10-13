@@ -78,6 +78,12 @@ export const DELIVERY = Object.freeze({
   bookingWindowDays: 21,
   // Sunday = 0 … Saturday = 6
   unavailableDays: Object.freeze([0, 1, 2, 6]),
+  // Dates we're closed (holidays, trips). Inclusive, YYYY-MM-DD.
+  closedDates: Object.freeze([
+    Object.freeze({ from: "2026-10-22", to: "2026-10-29" })
+  ]),
+  // Deliveries are made within this window on the chosen day.
+  windowLabel: "between 2 pm and 4 pm",
   state: "CA",
   locale: "en-US",
   notesMaxLength: 300

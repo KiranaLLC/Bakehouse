@@ -41,6 +41,7 @@ export function getDeliveryDates(now = new Date()) {
     if (DELIVERY.unavailableDays.includes(date.getUTCDay())) continue;
 
     const value = date.toISOString().slice(0, 10);
+    if (DELIVERY.closedDates.some(({ from, to }) => value >= from && value <= to)) continue;
     dates.push({ value, label: formatDeliveryDate(value) });
   }
 
@@ -49,6 +50,11 @@ export function getDeliveryDates(now = new Date()) {
 
 export function isDeliveryDateAvailable(value, now = new Date()) {
   return getDeliveryDates(now).some(date => date.value === value);
+}
+
+// e.g. "Thursday, October 15, between 2 pm and 4 pm"
+export function formatDeliverySlot(value) {
+  return `${formatDeliveryDate(value)}, ${DELIVERY.windowLabel}`;
 }
 
 // e.g. "Wednesday, Thursday, and Friday"

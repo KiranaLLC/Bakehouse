@@ -5,7 +5,7 @@ DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { API, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
+import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateSubtotal,
@@ -526,6 +526,10 @@ function renderDeliveryDates() {
 
   document.querySelectorAll(".delivery-days").forEach(element => {
     element.textContent = describeDeliveryDays();
+  });
+
+  document.querySelectorAll(".delivery-window").forEach(element => {
+    element.textContent = DELIVERY.windowLabel;
   });
 
   document.getElementById("delivery-radius").textContent =

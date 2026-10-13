@@ -80,7 +80,7 @@ All in `macros.js`:
 | What | Where |
 | --- | --- |
 | Menu items, prices (in cents), descriptions, photos, max per order | `PRODUCTS` |
-| Delivery days, how many days ahead customers must order, how far ahead they can book | `DELIVERY` |
+| Delivery days, closed dates (holidays), delivery window, how many days ahead customers must order, how far ahead they can book | `DELIVERY` |
 | Tip percentages offered, maximum tip | `TIP` |
 | Kitchen address, delivery radius, fee per distance zone, free-delivery threshold | `DELIVERY_SERVICE` |
 | The worker's address | `WORKER_URL` |

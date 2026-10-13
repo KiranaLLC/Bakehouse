@@ -24,6 +24,7 @@ import {
   describeDeliveryDays,
   findDeliveryZone,
   formatDeliveryDate,
+  formatDeliverySlot,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
 
@@ -206,11 +207,12 @@ async function createCheckoutSession(body, env, siteUrl) {
   */
 
   const deliveryDateLabel = formatDeliveryDate(deliveryDate);
+  const deliverySlotLabel = formatDeliverySlot(deliveryDate);
   const addressLine = formatAddress(address);
 
   const metadata = {
     delivery_date: deliveryDate,
-    delivery_date_label: deliveryDateLabel,
+    delivery_date_label: deliverySlotLabel,
     customer_name: customer.name,
     customer_phone: customer.phone,
     delivery_address: addressLine,
@@ -253,7 +255,7 @@ async function createCheckoutSession(body, env, siteUrl) {
     metadata,
     custom_text: {
       submit: {
-        message: `Delivering to ${addressLine} on ${deliveryDateLabel}. Your sourdough will be baked fresh for your delivery date.`
+        message: `Delivering to ${addressLine} on ${deliverySlotLabel}. Your sourdough will be baked fresh that morning.`
       }
     },
     success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,

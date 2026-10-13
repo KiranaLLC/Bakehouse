@@ -1,4 +1,4 @@
-import { API } from "./macros.js";
+import { API, DELIVERY } from "./macros.js";
 import { formatMoney } from "./delivery-rules.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
@@ -11,6 +11,10 @@ try {
 } catch {
   // Storage can be unavailable (e.g. private browsing). Nothing to do.
 }
+
+document.querySelectorAll(".delivery-window").forEach(element => {
+  element.textContent = DELIVERY.windowLabel;
+});
 
 if (sessionId) loadOrderSummary();
 

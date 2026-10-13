@@ -15,6 +15,8 @@ import {
 } from "./delivery-rules.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
+const LAST_ORDER_KEY = "kirana-last-order";
+const REMEMBER_DAYS = 90;
 const ADDRESS_CHECK_DELAY_MS = 800;
 
 const form = document.getElementById("order-form");
@@ -569,29 +571,150 @@ function restoreOrder() {
     return;
   }
 
-  if (!saved) return;
+  if (saved) applySavedOrder(saved, { cart: true, tip: true, details: true });
 
-  Object.entries(saved.cart || {}).forEach(([productId, quantity]) => {
-    if (Object.hasOwn(cart, productId) && Number.isInteger(quantity)) {
-      cart[productId] = Math.min(Math.max(quantity, 0), PRODUCTS[productId].maxQuantity);
-    }
-  });
+}
 
-  if (Number.isInteger(saved.tip?.customCents) && saved.tip.customCents >= 0) {
-    tip.customCents = Math.min(saved.tip.customCents, TIP.maxCents);
-    document.getElementById("tip-amount").value = (tip.customCents / 100).toFixed(2);
-    selectTip("custom");
-  } else if (TIP.presetPercents.includes(saved.tip?.percent)) {
-    selectTip(String(saved.tip.percent));
+/*
+  Fills the page from a saved order:
+  { cart: { productId: quantity }, tip, values: { name, phone, … } }
+*/
+function applySavedOrder(saved, parts) {
+
+  if (parts.cart) {
+    Object.entries(saved.cart || {}).forEach(([productId, quantity]) => {
+      if (Object.hasOwn(cart, productId) && Number.isInteger(quantity)) {
+        cart[productId] = Math.min(Math.max(quantity, 0), PRODUCTS[productId].maxQuantity);
+      }
+    });
   }
 
-  SAVED_FIELDS.forEach(name => {
-    const value = saved.values?.[name];
-    if (typeof value !== "string") return;
-    // Only restore a delivery date that is still available.
-    if (name === "deliveryDate" && ![...fields.deliveryDate.options].some(option => option.value === value)) return;
-    fields[name].value = value;
+  if (parts.tip) {
+    if (Number.isInteger(saved.tip?.customCents) && saved.tip.customCents >= 0) {
+      tip.customCents = Math.min(saved.tip.customCents, TIP.maxCents);
+      document.getElementById("tip-amount").value = (tip.customCents / 100).toFixed(2);
+      selectTip("custom");
+    } else if (TIP.presetPercents.includes(saved.tip?.percent)) {
+      selectTip(String(saved.tip.percent));
+    }
+  }
+
+  if (parts.details) {
+    SAVED_FIELDS.forEach(name => {
+      const value = saved.values?.[name];
+      if (typeof value !== "string") return;
+      // Only restore a delivery date that is still available.
+      if (name === "deliveryDate" && ![...fields.deliveryDate.options].some(option => option.value === value)) return;
+      fields[name].value = value;
+    });
+  }
+
+}
+
+
+/*
+==================================================
+RETURNING CUSTOMERS
+
+The thank-you page saves each completed order in
+the browser for REMEMBER_DAYS days. On the next
+visit the details are filled in and the last
+order can be put in the cart with one click.
+==================================================
+*/
+
+function loadLastOrder() {
+
+  let last;
+
+  try {
+    last = JSON.parse(localStorage.getItem(LAST_ORDER_KEY));
+  } catch {
+    return null;
+  }
+
+  const ageDays = (Date.now() - Number(last?.savedAt)) / (24 * 60 * 60 * 1000);
+
+  if (!last || !(ageDays >= 0 && ageDays <= REMEMBER_DAYS)) {
+    forgetLastOrder();
+    return null;
+  }
+
+  return last;
+
+}
+
+function forgetLastOrder() {
+  try {
+    localStorage.removeItem(LAST_ORDER_KEY);
+  } catch {
+    // Ignore.
+  }
+}
+
+function describeOrder(savedCart) {
+  return Object.entries(savedCart || {})
+    .filter(([productId, quantity]) => Object.hasOwn(PRODUCTS, productId) && quantity > 0)
+    .map(([productId, quantity]) => `${quantity} × ${PRODUCTS[productId].name}`)
+    .join(", ");
+}
+
+function showWelcomeBack(last) {
+
+  const section = document.getElementById("welcome-back");
+  const firstName = (last.values?.name || "").trim().split(" ")[0];
+  const summary = describeOrder(last.cart);
+
+  // Details are filled in straight away; the loaves wait for a click.
+  applySavedOrder(last, { details: true });
+
+  document.getElementById("welcome-back-text").textContent =
+    `Welcome back${firstName ? `, ${firstName}` : ""}! Your delivery details are filled in below.` +
+    (summary ? ` Last time you ordered ${summary}.` : "");
+
+  document.getElementById("reorder-button").hidden = !summary;
+
+  document.getElementById("reorder-button").addEventListener("click", () => {
+    applySavedOrder(last, { cart: true, tip: true });
+    updateCart();
+    saveOrder();
+    section.hidden = true;
+    document.getElementById("checkout").scrollIntoView({ behavior: "smooth" });
   });
+
+  document.getElementById("forget-button").addEventListener("click", () => {
+    forgetLastOrder();
+    SAVED_FIELDS.forEach(name => { fields[name].value = ""; });
+    addressCheck = null;
+    showAddressStatus("", "");
+    updateTotals();
+    saveOrder();
+    section.hidden = true;
+  });
+
+  section.hidden = false;
+
+}
+
+/*
+  A reorder link looks like
+  order.html?reorder=house_white:2,margherita:1
+  and fills the cart with those loaves.
+*/
+function applyReorderLink(value) {
+
+  const savedCart = {};
+
+  value.split(",").forEach(part => {
+    const [productId, quantity] = part.split(":");
+    if (Object.hasOwn(PRODUCTS, productId)) savedCart[productId] = Number(quantity) || 1;
+  });
+
+  if (Object.keys(savedCart).length === 0) return false;
+
+  applySavedOrder({ cart: savedCart }, { cart: true });
+  showNotice(`Your previous order (${describeOrder(cart)}) is in the cart. Change anything you like, then continue below.`);
+  return true;
 
 }
 
@@ -818,12 +941,23 @@ selectTip("0");
 const params =
   new URLSearchParams(window.location.search);
 
+const lastOrder =
+  loadLastOrder();
+
 if (params.has("cancelled")) {
   restoreOrder();
   showNotice("Your payment was cancelled and you haven't been charged. Your order is saved below whenever you're ready.");
-  history.replaceState(null, "", window.location.pathname);
-} else {
+} else if (params.has("reorder")) {
+  if (lastOrder) applySavedOrder(lastOrder, { details: true });
+  applyReorderLink(params.get("reorder"));
+} else if (sessionStorage.getItem(STORAGE_KEY)) {
   restoreOrder();
+} else if (lastOrder) {
+  showWelcomeBack(lastOrder);
+}
+
+if (params.has("cancelled") || params.has("reorder")) {
+  history.replaceState(null, "", window.location.pathname);
 }
 
 updateCart();

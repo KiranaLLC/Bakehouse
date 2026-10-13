@@ -58,6 +58,54 @@
       margin-top: 15px;
     }
 
+    .welcome-back {
+      max-width: 760px;
+      margin: -20px auto 40px;
+      padding: 20px 24px;
+      background: #f7f0d9;
+      border: 1px solid rgba(77, 26, 0, 0.2);
+      border-radius: 14px;
+      color: var(--deep-brown);
+      text-align: center;
+    }
+
+    .welcome-back p {
+      margin-bottom: 14px;
+    }
+
+    .welcome-back-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 10px 22px;
+    }
+
+    .welcome-back-button {
+      padding: 11px 24px;
+      border: none;
+      border-radius: 30px;
+      background: var(--terracotta);
+      color: white;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .welcome-back-button:hover {
+      opacity: .9;
+    }
+
+    .welcome-back-link {
+      border: none;
+      background: none;
+      color: var(--deep-brown);
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+      opacity: .8;
+    }
+
     .shop-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -557,6 +605,20 @@
       Local delivery <span class="delivery-days">Wednesday, Thursday, and Friday</span>
     </p>
 
+  </section>
+
+
+  <!-- =========================
+       WELCOME BACK
+       (shown to returning customers)
+  ========================== -->
+
+  <section id="welcome-back" class="welcome-back" hidden>
+    <p id="welcome-back-text"></p>
+    <div class="welcome-back-actions">
+      <button type="button" id="reorder-button" class="welcome-back-button">Reorder my last order</button>
+      <button type="button" id="forget-button" class="welcome-back-link">Forget my details</button>
+    </div>
   </section>
 
 

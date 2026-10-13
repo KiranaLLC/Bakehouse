@@ -2,14 +2,49 @@ import { API, DELIVERY } from "./macros.js";
 import { formatMoney } from "./delivery-rules.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
+const LAST_ORDER_KEY = "kirana-last-order";
 const summary = document.getElementById("order-summary");
 const sessionId = new URLSearchParams(window.location.search).get("session_id");
 
-// The order went through, so the saved cart on the order page is no longer needed.
+/*
+  The order went through. Remember it in this browser so the order page can
+  welcome the customer back next time, and offer a link to reorder it.
+*/
 try {
+  const order = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
   sessionStorage.removeItem(STORAGE_KEY);
+
+  if (sessionId && order) {
+    const { deliveryDate, ...values } = order.values || {};
+    localStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ savedAt: Date.now(), cart: order.cart, tip: order.tip, values }));
+    showReorderLink(order.cart);
+  }
 } catch {
   // Storage can be unavailable (e.g. private browsing). Nothing to do.
+}
+
+function showReorderLink(cart) {
+  const items = Object.entries(cart || {}).filter(([, quantity]) => quantity > 0).map(([productId, quantity]) => `${productId}:${quantity}`);
+  if (items.length === 0) return;
+
+  // Built by hand so the link stays readable (":" and "," are safe in a query string).
+  const url = new URL(`order.html?reorder=${items.join(",")}`, window.location.href);
+
+  const link = document.getElementById("reorder-link");
+  link.href = url.toString();
+  link.textContent = url.toString();
+
+  const copyButton = document.getElementById("copy-reorder-link");
+  copyButton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      copyButton.textContent = "Copied!";
+    } catch {
+      copyButton.textContent = "Press and hold the link to copy it";
+    }
+  });
+
+  document.getElementById("reorder").hidden = false;
 }
 
 document.querySelectorAll(".delivery-window").forEach(element => {

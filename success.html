@@ -135,6 +135,49 @@
     }
 
 
+    .reorder {
+
+      margin-top: 30px;
+
+      font-size: 0.95rem !important;
+
+      line-height: 1.8;
+
+    }
+
+
+    .reorder a {
+
+      color: var(--terracotta);
+
+      word-break: break-all;
+
+    }
+
+
+    .copy-button {
+
+      margin-left: 8px;
+
+      padding: 4px 12px;
+
+      border: 1px solid var(--deep-brown);
+
+      border-radius: 20px;
+
+      background: transparent;
+
+      color: var(--deep-brown);
+
+      font: inherit;
+
+      font-size: 0.85rem;
+
+      cursor: pointer;
+
+    }
+
+
     .back-button {
 
       display: inline-block;
@@ -327,6 +370,14 @@
       morning of your delivery date and delivered
       <span class="delivery-window">between 2 pm and 4 pm</span>.
       We look forward to baking for you!
+    </p>
+
+
+    <p id="reorder" class="reorder" hidden>
+      <strong>Ordering again?</strong>
+      Save this link to reorder the same loaves in one tap:<br>
+      <a id="reorder-link" href="order.html"></a>
+      <button type="button" id="copy-reorder-link" class="copy-button">Copy link</button>
     </p>
 
 

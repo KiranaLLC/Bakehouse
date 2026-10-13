@@ -57,13 +57,13 @@ export function formatDeliverySlot(value) {
   return `${formatDeliveryDate(value)}, ${DELIVERY.windowLabel}`;
 }
 
-// e.g. "Wednesday, Thursday, and Friday"
+// e.g. "Wednesdays, Thursdays, Fridays"
 export function describeDeliveryDays() {
   const sunday = Date.UTC(2024, 0, 7);
-  const days = [1, 2, 3, 4, 5, 6, 0]
+  return [1, 2, 3, 4, 5, 6, 0]
     .filter(day => !DELIVERY.unavailableDays.includes(day))
-    .map(day => new Date(sunday + day * MS_PER_DAY).toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", weekday: "long" }));
-  return new Intl.ListFormat(DELIVERY.locale, { type: "conjunction" }).format(days);
+    .map(day => `${new Date(sunday + day * MS_PER_DAY).toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", weekday: "long" })}s`)
+    .join(", ");
 }
 
 /*

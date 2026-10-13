@@ -80,6 +80,12 @@ export function findDeliveryZone(distanceMiles) {
   return DELIVERY_SERVICE.zones.find(({ maxMiles }) => distanceMiles <= maxMiles) || null;
 }
 
+// Discounts apply to the loaves and delivery, never to the tip.
+export function calculateDiscount(percent, subtotalCents, deliveryFeeCents) {
+  if (!percent) return 0;
+  return Math.round((subtotalCents + deliveryFeeCents) * percent / 100);
+}
+
 export function calculateDeliveryFee(zone, subtotalCents) {
   if (!zone || zone.feeCents === 0) return 0;
   return subtotalCents >= zone.freeOverCents ? 0 : zone.feeCents;

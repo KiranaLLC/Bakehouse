@@ -267,6 +267,54 @@
       opacity: .9;
     }
 
+    .discount-entry[hidden],
+    .cart-line[hidden] {
+      display: none;
+    }
+
+    .discount-section {
+      margin-top: 18px;
+    }
+
+    .discount-entry {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .discount-entry input {
+      flex: 1 1 180px;
+      max-width: 260px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      text-transform: uppercase;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .discount-status {
+      min-height: 1.4em;
+      margin-top: 8px;
+      font-size: .95rem;
+    }
+
+    .discount-status.error {
+      color: #ffb4a1;
+    }
+
+    .discount-status button {
+      margin-left: 8px;
+      border: none;
+      background: none;
+      color: inherit;
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
     .tip-section {
       margin-top: 22px;
       padding-top: 18px;
@@ -719,6 +767,22 @@
     </div>
 
 
+    <div class="discount-section">
+
+      <label class="tip-label" for="discount-code">
+        Discount code <span class="optional">(optional)</span>
+      </label>
+
+      <div id="discount-entry" class="discount-entry">
+        <input id="discount-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" />
+        <button type="button" id="discount-apply" class="tip-option">Apply</button>
+      </div>
+
+      <p id="discount-status" class="discount-status" aria-live="polite"></p>
+
+    </div>
+
+
     <div class="cart-line">
       <span>Subtotal</span>
       <span id="cart-subtotal">$0.00</span>
@@ -732,6 +796,11 @@
     <div class="cart-line">
       <span>Tip</span>
       <span id="cart-tip">$0.00</span>
+    </div>
+
+    <div class="cart-line" id="cart-discount-line" hidden>
+      <span id="cart-discount-label">Discount</span>
+      <span id="cart-discount">−$0.00</span>
     </div>
 
     <div class="cart-total">

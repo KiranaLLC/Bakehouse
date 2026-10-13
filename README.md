@@ -66,6 +66,22 @@ key and `npx wrangler deploy`.
 Also worth turning on in Stripe: customer email receipts for successful
 payments, and an email to you for each successful payment.
 
+### Discount codes
+
+Codes are kept as a Cloudflare secret, so they don't appear in this public
+repository. From the `worker` folder:
+
+```bash
+npx wrangler secret put DISCOUNT_CODES
+```
+
+and enter the codes as `CODE=percent`, separated by commas, for example
+`BREADUCATION=20` or `BREADUCATION=20,FRIENDS=10`. Codes aren't
+case-sensitive. To add, change or remove a code, run the same command again
+with the full new list (it replaces the old one). Discounts apply to the loaves
+and delivery, not the tip. Each discounted order appears in Stripe with a
+single-use coupon named after the code.
+
 ### Updating the worker later
 
 If `worker/`, `macros.js` or `delivery-rules.js` change (for example new

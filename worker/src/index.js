@@ -6,6 +6,7 @@ KIRANA BAKEHOUSE CHECKOUT WORKER
 Runs on Cloudflare Workers. The website calls it to:
 
   POST /api/check-delivery          is this address in the delivery area?
+  POST /api/check-discount          is this discount code valid?
   POST /api/create-checkout-session start a Stripe payment for an order
   GET  /api/order-summary           details of a paid order, for the thank-you page
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
@@ -20,6 +21,7 @@ browser. The Stripe secret key lives here too.
 import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "../../macros.js";
 import {
   calculateDeliveryFee,
+  calculateDiscount,
   calculateSubtotal,
   describeDeliveryDays,
   findDeliveryZone,
@@ -54,6 +56,8 @@ export default {
 
       if (request.method === "POST" && url.pathname === API.checkDelivery) {
         result = await checkDelivery(await readJson(request));
+      } else if (request.method === "POST" && url.pathname === API.checkDiscount) {
+        result = findDiscount((await readJson(request)).code, env);
       } else if (request.method === "POST" && url.pathname === API.createCheckoutSession) {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
@@ -163,6 +167,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const address = parseAddress(body.address);
   const notes = cleanText(body.notes, DELIVERY.notesMaxLength);
   const tipCents = parseTip(body.tipCents);
+  const discount = body.discountCode ? findDiscount(body.discountCode, env) : null;
 
   const { distanceMiles, zone } = await checkDeliveryArea(address);
 
@@ -172,6 +177,7 @@ async function createCheckoutSession(body, env, siteUrl) {
 
   const subtotal = calculateSubtotal(items);
   const deliveryFee = calculateDeliveryFee(zone, subtotal);
+  const discountCents = discount ? calculateDiscount(discount.percent, subtotal, deliveryFee) : 0;
 
   /*
   ==========================================
@@ -218,8 +224,34 @@ async function createCheckoutSession(body, env, siteUrl) {
     delivery_address: addressLine,
     delivery_distance_miles: String(distanceMiles),
     delivery_notes: notes,
-    tip_cents: String(tipCents)
+    tip_cents: String(tipCents),
+    discount_code: discount?.code || "",
+    discount_cents: String(discountCents)
   };
+
+  /*
+  ==========================================
+  DISCOUNT
+
+  Stripe Checkout applies discounts through
+  coupons, so each discounted order gets its
+  own single-use coupon for the exact amount
+  (loaves and delivery only, not the tip).
+  ==========================================
+  */
+
+  let discounts;
+
+  if (discountCents > 0) {
+    const coupon = await stripe(env, "POST", "/coupons", {
+      amount_off: discountCents,
+      currency: "usd",
+      duration: "once",
+      max_redemptions: 1,
+      name: `${discount.code} (${discount.percent}% off)`.slice(0, 40)
+    });
+    discounts = [{ coupon: coupon.id }];
+  }
 
   /*
   ==========================================
@@ -235,6 +267,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const session = await stripe(env, "POST", "/checkout/sessions", {
     mode: "payment",
     line_items: lineItems,
+    discounts,
     customer_creation: "always",
     payment_intent_data: {
       description: `Kirana Bakehouse delivery — ${deliveryDateLabel}`,
@@ -289,7 +322,9 @@ async function getOrderSummary(sessionId, env) {
     name: session.metadata.customer_name,
     deliveryDate: session.metadata.delivery_date_label,
     address: session.metadata.delivery_address,
-    items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_total })),
+    items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_subtotal ?? item.amount_total })),
+    discountCode: session.metadata.discount_code || "",
+    amountDiscount: session.total_details?.amount_discount || 0,
     amountTotal: session.amount_total
   };
 
@@ -478,6 +513,29 @@ function parseAddress(address) {
   }
 
   return { line1, line2, city, postalCode };
+
+}
+
+/*
+  Discount codes are a Cloudflare secret so they
+  stay out of the public repository:
+    npx wrangler secret put DISCOUNT_CODES
+  with a value like  BREADUCATION=20,FRIENDS=10
+  (code = percent off). Codes aren't case-sensitive.
+*/
+function findDiscount(code, env) {
+
+  const wanted = cleanText(code, 40).toUpperCase();
+
+  for (const entry of (env.DISCOUNT_CODES || "").split(",")) {
+    const [name, percent] = entry.split("=").map(part => part.trim());
+    const value = Number(percent);
+    if (name && name.toUpperCase() === wanted && Number.isInteger(value) && value > 0 && value <= 100) {
+      return { code: name.toUpperCase(), percent: value };
+    }
+  }
+
+  throw new OrderValidationError("That discount code isn't valid.");
 
 }
 

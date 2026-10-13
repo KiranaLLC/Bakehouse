@@ -8,6 +8,7 @@ DELIVERY ORDERING SYSTEM
 import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
 import {
   calculateDeliveryFee,
+  calculateDiscount,
   calculateSubtotal,
   describeDeliveryDays,
   formatMoney,
@@ -58,6 +59,9 @@ let addressCheckTimer;
   "Other".
 */
 const tip = { percent: 0, customCents: null };
+
+// The applied discount code, e.g. { code: "BREADUCATION", percent: 20 }.
+let discount = null;
 
 
 /*
@@ -336,9 +340,90 @@ function updateTotals() {
   document.getElementById("cart-tip").textContent =
     formatMoney(tipCents);
 
-  document.getElementById("cart-total").textContent =
-    formatMoney(subtotal + deliveryFee + tipCents);
+  const discountCents =
+    discount ? calculateDiscount(discount.percent, subtotal, deliveryFee) : 0;
 
+  document.getElementById("cart-discount-line").hidden =
+    !discount;
+
+  if (discount) {
+    document.getElementById("cart-discount-label").textContent = `Discount (${discount.code}, ${discount.percent}% off)`;
+    document.getElementById("cart-discount").textContent = `−${formatMoney(discountCents)}`;
+  }
+
+  document.getElementById("cart-total").textContent =
+    formatMoney(subtotal + deliveryFee + tipCents - discountCents);
+
+}
+
+
+/*
+==================================================
+DISCOUNT CODE
+
+The worker checks the code (codes are kept
+private there) and applies it again at checkout.
+Discounts cover the loaves and delivery, not
+the tip.
+==================================================
+*/
+
+async function applyDiscountCode() {
+
+  const input = document.getElementById("discount-code");
+  const button = document.getElementById("discount-apply");
+  const code = input.value.trim();
+
+  if (!code) return;
+
+  if (!API.isConfigured) {
+    showDiscountStatus("error", "Discount codes aren't available yet.");
+    return;
+  }
+
+  button.disabled = true;
+  showDiscountStatus("", "Checking…");
+
+  try {
+    discount = await postJson(API.checkDiscount, { code });
+    input.value = "";
+    showAppliedDiscount();
+    updateTotals();
+    saveOrder();
+  } catch (error) {
+    showDiscountStatus("error", error.message);
+  } finally {
+    button.disabled = false;
+  }
+
+}
+
+function showAppliedDiscount() {
+
+  showDiscountStatus("applied", `✓ ${discount.code} applied: ${discount.percent}% off your loaves and delivery.`);
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = "Remove";
+  remove.addEventListener("click", removeDiscount);
+  document.getElementById("discount-status").appendChild(remove);
+
+  document.getElementById("discount-entry").hidden = true;
+
+}
+
+function removeDiscount() {
+  discount = null;
+  document.getElementById("discount-entry").hidden = false;
+  showDiscountStatus("", "");
+  updateTotals();
+  saveOrder();
+}
+
+function showDiscountStatus(status, message) {
+  const element = document.getElementById("discount-status");
+  element.className = `discount-status ${status}`;
+  element.textContent = message;
 }
 
 
@@ -580,7 +665,7 @@ const SAVED_FIELDS = ["name", "phone", "line1", "line2", "city", "postalCode", "
 function saveOrder() {
   try {
     const values = Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]));
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount }));
   } catch {
     // Storage can be unavailable (e.g. private browsing). Nothing to do.
   }
@@ -596,7 +681,15 @@ function restoreOrder() {
     return;
   }
 
-  if (saved) applySavedOrder(saved, { cart: true, tip: true, details: true });
+  if (!saved) return;
+
+  applySavedOrder(saved, { cart: true, tip: true, details: true });
+
+  // The worker re-checks the code at checkout, so a stale one is caught there.
+  if (typeof saved.discount?.code === "string" && Number.isInteger(saved.discount.percent)) {
+    discount = { code: saved.discount.code, percent: saved.discount.percent };
+    showAppliedDiscount();
+  }
 
 }
 
@@ -888,7 +981,8 @@ async function checkout(event) {
         customer: { name: fields.name.value, phone: fields.phone.value },
         address: getAddress(),
         notes: fields.notes.value,
-        tipCents: getTipCents(calculateSubtotal(getCartItems()))
+        tipCents: getTipCents(calculateSubtotal(getCartItems())),
+        discountCode: discount?.code
       });
 
     /*
@@ -1013,3 +1107,12 @@ form.addEventListener(
   "submit",
   checkout
 );
+
+document.getElementById("discount-apply").addEventListener("click", applyDiscountCode);
+
+document.getElementById("discount-code").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyDiscountCode();
+  }
+});

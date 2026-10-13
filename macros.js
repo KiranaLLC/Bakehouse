@@ -48,6 +48,14 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
     maxQuantity: 6
   },
+  double_chocolate: {
+    name: "Double Chocolate",
+    description: "Your favourite brownie, baked into a sourdough.",
+    price: 1600,
+    image: "./img/menu/double-chocolate.jpg",
+    ingredients: ["Cocoa Powder", "Dark Chocolate Chunks"],
+    maxQuantity: 6
+  },
   elote: {
     name: "Elote",
     description: "Bringing Mexican street corn flavours to sourdough bread.",

@@ -12,7 +12,7 @@
 
   <link
     rel="stylesheet"
-    href="./styles.css?v=1800"
+    href="./styles.css?v=1801"
   />
 
   <link
@@ -425,6 +425,16 @@
       color: var(--deep-brown);
     }
 
+    .load-error {
+      max-width: 760px;
+      margin: 0 auto 30px;
+      padding: 16px 20px;
+      background: #fbe8e5;
+      color: #6b1e14;
+      border-radius: 12px;
+      text-align: center;
+    }
+
     .pills {
       display: flex;
       flex-wrap: wrap;
@@ -809,7 +819,7 @@
   <section class="shop-header">
 
     <h1 class="shop-title">
-      Order Bread
+      Order Online
     </h1>
 
     <p class="shop-subtitle">
@@ -835,6 +845,24 @@
       <button type="button" id="forget-button" class="welcome-back-link">Forget my details</button>
     </div>
   </section>
+
+
+  <!-- Shown only if the page's scripts fail to load, so the problem is visible. -->
+  <div id="load-error" class="load-error" hidden></div>
+  <script>
+    window.addEventListener("error", function (event) {
+      var box = document.getElementById("load-error");
+      box.hidden = false;
+      box.textContent = "This page didn't load properly: " + (event.message || "unknown error") + (event.filename ? " (" + event.filename.split("/").pop() + ")" : "") + ". Try a hard refresh (Cmd+Shift+R), or email us at hellokiranabakehouse@gmail.com to order.";
+    });
+    setTimeout(function () {
+      var box = document.getElementById("load-error");
+      if (box.hidden && !document.querySelector(".product-card")) {
+        box.hidden = false;
+        box.textContent = "The menu didn't load. Try a hard refresh (Cmd+Shift+R), or email us at hellokiranabakehouse@gmail.com to order.";
+      }
+    }, 4000);
+  </script>
 
 
   <!-- =========================

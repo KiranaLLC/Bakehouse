@@ -10,12 +10,13 @@ because the Stripe secret key can't live in public web pages.
 
 1. On `order.html` the customer picks their loaves and a tip, then chooses
    **Delivery** or **Pickup**.
-   - Delivery: they enter their name, phone and address and pick a delivery
-     date. As soon as the address is complete, the page asks the worker
-     whether it is inside the delivery area and shows the fee and total.
-   - Pickup: they choose one of the scheduled pickup days (each shows its
-     address, pickup window and how many loaves are left), a pickup time,
-     and their name and phone.
+   - Delivery: they enter their address first; as soon as it's complete the
+     page asks the worker whether it is inside the delivery area and shows
+     the fee. Then they pick a delivery date, and enter their name, phone
+     and any delivery instructions.
+   - Pickup: they pick a pickup date (each shows the place, the pickup
+     window and how many loaves are left), then a pickup time, then their
+     name and phone.
 2. **Continue to Payment** sends the order to the worker, which re-checks
    everything (prices, quantities, dates, delivery area and fee, loaves
    left, tip and discount; the browser is never trusted for these) and
@@ -76,10 +77,14 @@ payments, and an email to you for each successful payment.
 
 ### Pickup days (one-time setup)
 
-Each pickup day has its own address, date, pickup window, total number of
-loaves and order cutoff, and you schedule them on the private admin page
-`admin.html`. Pickup days and orders are stored in a small Cloudflare
-database (D1, free). From the `worker` folder:
+Regular pickups come from the **weekly schedule** in `macros.js`
+(`PICKUP.schedule`): currently Saturdays 2–3 pm at Verve Coffee Roasters,
+University Ave, with 20 loaves. Every matching Saturday for the next four
+weeks appears on the order page automatically. The private admin page
+`admin.html` lets you change a single date (fewer loaves, a different
+address), skip one (set its loaves to 0), or add a one-off pickup somewhere
+else. Changed dates and all orders are stored in a small Cloudflare database
+(D1, free). From the `worker` folder:
 
 1. Create the database and copy its id into `wrangler.toml`:
    ```bash
@@ -110,12 +115,18 @@ database (D1, free). From the `worker` folder:
    show `pickupDatabase: OK`, `adminPasswordSet: true` and
    `stripeWebhookSecretSet: true`.
 
-**Scheduling a pickup day:** open `https://www.kiranabakehouse.com/admin.html`,
+**Changing the weekly schedule** (day, time, place, loaves): edit
+`PICKUP.schedule` in `macros.js`, push to `main`, and run `npx wrangler
+deploy` from the `worker` folder. Dates you've already edited on the admin
+page keep their own settings.
+
+**A one-off pickup day:** open `https://www.kiranabakehouse.com/admin.html`,
 log in, click **+ New pickup day** and fill in the location name, address,
 pickup date, pickup window, slot length, total loaves and the order cutoff
 (Pacific time; the page suggests 11:59 pm the evening before). It appears on
 the order page under **Pickup** as soon as it's saved, showing "N loaves
-left" until it sells out or the cutoff passes.
+left" until it sells out or the cutoff passes. **Reset to schedule** on an
+edited weekly date puts it back to the schedule's settings.
 
 **On baking day:** open the pickup day's **Orders** on the admin page for the list
 by pickup time (name, phone, loaves) and the bake list totals; **Copy bake
@@ -156,7 +167,7 @@ All in `macros.js`:
 | Tip percentages offered, maximum tip | `TIP` |
 | Kitchen address, delivery radius, fee per distance zone, free-delivery threshold | `DELIVERY_SERVICE` |
 | The worker's address | `WORKER_URL` |
-| Pickup hold time, default slot length | `PICKUP` |
+| Weekly pickup schedule (day, time, place, loaves, order cutoff), hold time | `PICKUP` |
 
 Product photos for the order page are in `img/menu/` (resized to load quickly
 on phones — keep new ones around 800px wide and under ~200 KB).

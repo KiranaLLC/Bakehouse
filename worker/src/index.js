@@ -112,7 +112,7 @@ export default {
         result = await adminDeletePickupDay(Number(url.searchParams.get("id")), env);
       } else if (method === "GET" && path === API.adminOrders) {
         requireAdmin(request, env);
-        result = await adminListOrders(Number(url.searchParams.get("day")), env);
+        result = await adminListOrders(parseDayId(url.searchParams.get("day")), env);
       } else {
         return json({ error: "Not found." }, 404, corsHeaders);
       }
@@ -137,6 +137,11 @@ export default {
   }
 
 };
+
+// A pickup day id is a number (database row) or "<ruleKey>:<date>" (weekly schedule).
+function parseDayId(value) {
+  return /^\d+$/.test(value || "") ? Number(value) : value;
+}
 
 /*
 ==================================================

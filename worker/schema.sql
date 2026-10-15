@@ -13,8 +13,12 @@ CREATE TABLE IF NOT EXISTS pickup_days (
   total_loaves INTEGER NOT NULL,
   closes_at TEXT NOT NULL,              -- ISO UTC timestamp: order cutoff
   notes TEXT NOT NULL DEFAULT '',
+  rule_key TEXT,                        -- set when this day came from the weekly schedule
   created_at TEXT NOT NULL
 );
+
+-- One row per scheduled date, so admin changes to a weekly pickup stick.
+CREATE UNIQUE INDEX IF NOT EXISTS pickup_days_rule_date ON pickup_days (rule_key, pickup_date);
 
 CREATE TABLE IF NOT EXISTS pickup_orders (
   id TEXT PRIMARY KEY,                  -- reservation id

@@ -71,11 +71,11 @@ shop = createShop({
       const value = values[name];
       if (typeof value !== "string") return;
       // Dates and slots are only restored if they're still on offer.
-      if (name === "deliveryDate" && ![...fields.deliveryDate.options].some(option => option.value === value)) return;
+      if (name === "deliveryDate") { selectDeliveryDate(value); return; }
       if (name === "slot") { fields.slot.dataset.wanted = value; return; }
       fields[name].value = value;
     });
-    if (Number.isInteger(values.pickupDayId)) savedPickupDayId = values.pickupDayId;
+    if (values.pickupDayId !== undefined && values.pickupDayId !== null) savedPickupDayId = values.pickupDayId;
     if (values.mode === "delivery" || values.mode === "pickup") selectMode(values.mode);
   },
   onChange: updateLoafWarning
@@ -100,6 +100,7 @@ function selectMode(newMode) {
   document.getElementById("delivery-details").hidden = mode !== "delivery";
   document.getElementById("pickup-details").hidden = mode !== "pickup";
   document.getElementById("cart-fee-line").hidden = mode !== "delivery";
+  document.getElementById("delivery-notes-field").hidden = mode !== "delivery";
   document.getElementById("hold-note").hidden = mode !== "pickup";
 
   if (mode === "pickup" && pickupDays.length === 0) loadPickupDays();
@@ -264,11 +265,21 @@ DELIVERY DATES
 
 function renderDeliveryDates() {
 
+  const pills = document.getElementById("delivery-dates");
+
   getDeliveryDates().forEach(({ value, label }) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    fields.deliveryDate.appendChild(option);
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "pill";
+    pill.dataset.value = value;
+    pill.textContent = label;
+    pill.setAttribute("aria-pressed", "false");
+    pill.addEventListener("click", () => {
+      selectDeliveryDate(value);
+      shop.hideError();
+      shop.saveOrder();
+    });
+    pills.appendChild(pill);
   });
 
   document.querySelectorAll(".delivery-days").forEach(element => {
@@ -281,6 +292,13 @@ function renderDeliveryDates() {
 
   document.getElementById("delivery-radius").textContent = DELIVERY_SERVICE.maxMiles;
 
+}
+
+function selectDeliveryDate(value) {
+  const pills = [...document.querySelectorAll("#delivery-dates .pill")];
+  if (!pills.some(pill => pill.dataset.value === value)) value = "";
+  fields.deliveryDate.value = value;
+  pills.forEach(pill => pill.setAttribute("aria-pressed", String(pill.dataset.value === value)));
 }
 
 
@@ -348,6 +366,7 @@ function showPickupDays(days) {
     const status = document.createElement("span");
     status.className = "pickup-day-status";
     status.textContent = day.status === "sold_out" ? "Sold out" : day.status === "closed" ? "Ordering closed" : day.remaining === 1 ? "1 loaf left" : `${day.remaining} loaves left`;
+    status.title = `Order by ${day.closesAtLabel}`;
     card.appendChild(status);
 
     card.addEventListener("click", () => {
@@ -371,24 +390,29 @@ function showPickupDays(days) {
 
 function renderSlots(day) {
 
-  const select = fields.slot;
-  const wanted = select.value || select.dataset.wanted || "";
+  const pills = document.getElementById("pickup-slots");
+  const wanted = fields.slot.value || fields.slot.dataset.wanted || "";
 
-  select.innerHTML = '<option value="">Select a pickup time</option>';
+  pills.innerHTML = "";
+  fields.slot.value = day.slots.some(slot => slot.value === wanted && slot.available) ? wanted : "";
+  delete fields.slot.dataset.wanted;
 
   day.slots.forEach(slot => {
-    const option = document.createElement("option");
-    option.value = slot.value;
-    option.textContent = slot.available ? slot.label : `${slot.label} (full)`;
-    option.disabled = !slot.available;
-    select.appendChild(option);
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "pill";
+    pill.textContent = slot.label;
+    pill.disabled = !slot.available;
+    pill.title = slot.available ? "" : "This time is full";
+    pill.setAttribute("aria-pressed", String(slot.value === fields.slot.value));
+    pill.addEventListener("click", () => {
+      fields.slot.value = slot.value;
+      pills.querySelectorAll(".pill").forEach(other => other.setAttribute("aria-pressed", String(other === pill)));
+      shop.hideError();
+      shop.saveOrder();
+    });
+    pills.appendChild(pill);
   });
-
-  if (day.slots.some(slot => slot.value === wanted && slot.available)) {
-    select.value = wanted;
-  }
-
-  delete select.dataset.wanted;
 
 }
 
@@ -475,10 +499,7 @@ function validateForm() {
     return { message: "Please choose delivery or pickup.", field: document.querySelector(".mode-option") };
   }
 
-  const required = [
-    ["name", "Please enter your name."],
-    ["phone", `Please enter your phone number so we can reach you on ${mode} day.`]
-  ];
+  const required = [];
 
   if (mode === "delivery") {
     required.push(
@@ -487,6 +508,11 @@ function validateForm() {
       ["postalCode", "Please enter a valid 5-digit ZIP code."]
     );
   }
+
+  required.push(
+    ["name", "Please enter your name."],
+    ["phone", `Please enter your phone number so we can reach you on ${mode} day.`]
+  );
 
   for (const [name, message] of required) {
     if (!fields[name].value.trim() || !fields[name].checkValidity()) {
@@ -503,7 +529,7 @@ function validateForm() {
   }
 
   if (mode === "delivery" && !fields.deliveryDate.value) {
-    return { message: "Please select a delivery date.", field: fields.deliveryDate };
+    return { message: "Please choose a delivery date.", field: document.getElementById("delivery-dates") };
   }
 
   if (mode === "pickup") {
@@ -514,7 +540,7 @@ function validateForm() {
       return { message: `Only ${selectedPickupDay.remaining} loaves are left for this pickup — please reduce your order.`, field: document.getElementById("product-grid") };
     }
     if (!fields.slot.value) {
-      return { message: "Please select a pickup time.", field: fields.slot };
+      return { message: "Please choose a pickup time.", field: document.getElementById("pickup-slots") };
     }
   }
 
@@ -667,13 +693,6 @@ ADDRESS_FIELDS.forEach(name => {
 Object.values(fields).forEach(field => {
   field.addEventListener("input", () => {
     field.removeAttribute("aria-invalid");
-    shop.hideError();
-    shop.saveOrder();
-  });
-});
-
-[fields.deliveryDate, fields.slot].forEach(field => {
-  field.addEventListener("change", () => {
     shop.hideError();
     shop.saveOrder();
   });

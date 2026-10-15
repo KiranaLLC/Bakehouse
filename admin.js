@@ -157,8 +157,8 @@ function renderDropList(container, list, emptyText) {
     card.className = "admin-card";
 
     const isPast = drop.pickupDate < new Date().toISOString().slice(0, 10);
-    const statusLabel = isPast ? "past" : drop.status.replace("_", "-");
-    const statusText = { open: "Taking orders", "sold-out": "Sold out", closed: "Closed", past: "Done" }[statusLabel];
+    const statusLabel = isPast ? "past" : drop.skipped ? "closed" : drop.status.replace("_", "-");
+    const statusText = isPast ? "Done" : drop.skipped ? "Skipped" : { open: "Taking orders", "sold-out": "Sold out", closed: "Closed" }[statusLabel];
 
     card.innerHTML = `
       <h3></h3>
@@ -174,7 +174,7 @@ function renderDropList(container, list, emptyText) {
       <div class="admin-actions">
         <button type="button" class="admin-button" data-action="orders">Orders</button>
         <button type="button" class="admin-button" data-action="edit">Edit</button>
-        <button type="button" class="admin-button danger" data-action="delete" ${drop.ordersPaid > 0 ? "disabled title=\"Pickup days with paid orders can't be deleted\"" : ""}>Delete</button>
+        <button type="button" class="admin-button danger" data-action="delete" ${drop.scheduled ? "hidden" : ""} ${drop.ordersPaid > 0 ? "disabled title=\"Pickup days with paid orders can't be deleted\"" : ""}>${drop.ruleKey ? "Reset to schedule" : "Delete"}</button>
       </div>
     `;
 
@@ -183,7 +183,7 @@ function renderDropList(container, list, emptyText) {
     name.insertAdjacentHTML("beforeend", `<span class="badge ${statusLabel}">${statusText}</span>`);
     when.textContent = `${drop.pickupDateLabel}, ${drop.windowLabel} · ${drop.slotMinutes}-minute slots${drop.maxOrdersPerSlot ? `, max ${drop.maxOrdersPerSlot} ${drop.maxOrdersPerSlot === 1 ? "order" : "orders"} per slot` : ""}`;
     address.textContent = drop.address;
-    timing.textContent = `Ordering closes ${drop.closesAtLabel}`;
+    timing.textContent = `Ordering closes ${drop.closesAtLabel}${drop.ruleKey ? " · from the weekly schedule" : " · one-off pickup"}`;
 
     card.querySelector('[data-action="orders"]').addEventListener("click", () => showOrders(drop));
     card.querySelector('[data-action="edit"]').addEventListener("click", () => editDrop(drop));
@@ -240,7 +240,7 @@ function newDrop() {
 
 function editDrop(drop) {
 
-  formFields.id.value = drop.id;
+  formFields.id.value = String(drop.id);
   formFields.name.value = drop.name;
   formFields.address.value = drop.address;
   formFields.pickupDate.value = drop.pickupDate;
@@ -272,7 +272,7 @@ async function saveDrop(event) {
   event.preventDefault();
 
   const body = {
-    id: formFields.id.value ? Number(formFields.id.value) : undefined,
+    id: formFields.id.value ? (/^\d+$/.test(formFields.id.value) ? Number(formFields.id.value) : formFields.id.value) : undefined,
     name: formFields.name.value,
     address: formFields.address.value,
     pickupDate: formFields.pickupDate.value,
@@ -303,7 +303,7 @@ async function saveDrop(event) {
 
 async function deleteDrop(drop) {
 
-  if (!confirm(`Delete the ${drop.pickupDateLabel} pickup at ${drop.name}?`)) return;
+  if (!confirm(drop.ruleKey ? `Reset the ${drop.pickupDateLabel} pickup to the weekly schedule?` : `Delete the ${drop.pickupDateLabel} pickup at ${drop.name}?`)) return;
 
   try {
     await request("DELETE", `${API.adminPickupDays}?id=${drop.id}`);

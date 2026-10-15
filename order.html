@@ -425,6 +425,36 @@
       color: var(--deep-brown);
     }
 
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .pill {
+      padding: 10px 18px;
+      border-radius: 30px;
+      border: 1px solid rgba(240,231,200,.5);
+      background: transparent;
+      color: var(--cream);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .pill[aria-pressed="true"] {
+      background: var(--cream);
+      color: var(--deep-brown);
+      border-color: var(--cream);
+      font-weight: 600;
+    }
+
+    .pill:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
     .pickup-days {
       display: grid;
       gap: 12px;
@@ -945,44 +975,18 @@
 
 
       <!-- =========================
-           YOUR DETAILS
-      ========================== -->
-
-      <div id="contact-details" hidden>
-
-        <h3 class="section-label">
-          Your Details
-        </h3>
-
-        <div class="field-grid">
-
-          <div class="field">
-            <label for="customer-name">Full name</label>
-            <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
-          </div>
-
-          <div class="field">
-            <label for="customer-phone">Phone</label>
-            <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <!-- =========================
-           DELIVERY DETAILS
+           DELIVERY
       ========================== -->
 
       <div id="delivery-details" hidden>
 
         <h3 class="section-label">
-          Delivery Address
+          1. Where should we deliver?
         </h3>
 
         <p class="delivery-note">
           We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
+          Enter your address to see your delivery fee.
         </p>
 
         <div class="field-grid">
@@ -1007,11 +1011,6 @@
             <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" />
           </div>
 
-          <div class="field field-wide">
-            <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
-            <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
-          </div>
-
         </div>
 
         <div
@@ -1021,7 +1020,7 @@
         ></div>
 
         <h3 class="section-label">
-          Delivery Date
+          2. Choose a delivery date
         </h3>
 
         <p class="delivery-note">
@@ -1030,36 +1029,24 @@
           Your order will be baked fresh that morning.
         </p>
 
-        <label
-          class="delivery-date-label"
-          for="delivery-date"
-        >
-          Select your delivery date
-        </label>
-
-        <select
-          id="delivery-date"
-          name="deliveryDate"
-          class="delivery-date-select"
-        >
-          <option value="">Select a delivery date</option>
-        </select>
+        <div id="delivery-dates" class="pills" role="group" aria-label="Delivery date"></div>
+        <input type="hidden" id="delivery-date" name="deliveryDate" />
 
       </div>
 
 
       <!-- =========================
-           PICKUP DETAILS
+           PICKUP
       ========================== -->
 
       <div id="pickup-details" hidden>
 
         <h3 class="section-label">
-          Pickup Day
+          1. Choose a pickup date
         </h3>
 
         <p class="delivery-note" id="pickup-note">
-          Choose a pickup day. Your order will be baked fresh that morning.
+          Your order will be baked fresh that morning.
         </p>
 
         <div id="pickup-days" class="pickup-days"></div>
@@ -1072,20 +1059,44 @@
 
         <div id="pickup-slot-field" hidden>
 
-          <label
-            class="delivery-date-label"
-            for="pickup-slot"
-          >
-            Select your pickup time
-          </label>
+          <h3 class="section-label">
+            2. Choose a pickup time
+          </h3>
 
-          <select
-            id="pickup-slot"
-            name="slot"
-            class="delivery-date-select"
-          >
-            <option value="">Select a pickup time</option>
-          </select>
+          <div id="pickup-slots" class="pills" role="group" aria-label="Pickup time"></div>
+          <input type="hidden" id="pickup-slot" name="slot" />
+
+        </div>
+
+      </div>
+
+
+      <!-- =========================
+           YOUR DETAILS
+      ========================== -->
+
+      <div id="contact-details" hidden>
+
+        <h3 class="section-label">
+          3. Your details
+        </h3>
+
+        <div class="field-grid">
+
+          <div class="field">
+            <label for="customer-name">Full name</label>
+            <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
+          </div>
+
+          <div class="field">
+            <label for="customer-phone">Phone</label>
+            <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
+          </div>
+
+          <div class="field field-wide" id="delivery-notes-field">
+            <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
+            <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
+          </div>
 
         </div>
 
@@ -1124,7 +1135,7 @@
 </main>
 
 
-<script type="module" src="./order.js"></script>
+<script type="module" src="./order.js?v=2"></script>
 
 </body>
 

@@ -772,3 +772,24 @@ img {
   color: #8B4513;
 }
 
+
+/* Header: logo left, order button exactly centred, Instagram right (desktop) */
+@media (min-width: 901px) {
+  .header-inner {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .order-buttons {
+    justify-self: center;
+    max-width: none;
+  }
+
+  .mobile-order-btn {
+    margin-left: 0;
+  }
+
+  .desktop-nav {
+    justify-self: end;
+  }
+}

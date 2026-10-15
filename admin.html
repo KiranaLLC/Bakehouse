@@ -270,8 +270,9 @@
 
     <h1>Pickup days</h1>
     <p class="admin-intro">
-      Each pickup day has its own address, pickup window, total number of loaves and order cutoff.
-      It appears on the <a href="order.html?mode=pickup">order page</a> as soon as it's saved.
+      The weekly schedule (in <code>macros.js</code>) fills in the regular pickups automatically.
+      Edit a date to change its loaves or details, set its loaves to 0 to skip it, or add a one-off pickup somewhere else.
+      Everything appears on the <a href="order.html?mode=pickup">order page</a> straight away.
       <button type="button" id="logout" class="admin-button" style="margin-left:10px">Log out</button>
     </p>
 
@@ -304,8 +305,8 @@
         </div>
 
         <div>
-          <label for="drop-loaves">Total loaves <span class="hint">all flavours combined</span></label>
-          <input id="drop-loaves" type="number" min="1" max="500" required />
+          <label for="drop-loaves">Total loaves <span class="hint">all flavours combined · 0 skips this pickup</span></label>
+          <input id="drop-loaves" type="number" min="0" max="500" required />
         </div>
 
         <div>

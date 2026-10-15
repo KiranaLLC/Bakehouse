@@ -169,7 +169,33 @@ export const PICKUP = Object.freeze({
   // How long loaves are held for a customer while they pay on Stripe.
   holdMinutes: 30,
   defaultSlotMinutes: 15,
-  maxLoavesPerDay: 500
+  maxLoavesPerDay: 500,
+  // How far ahead the weekly schedule is offered.
+  bookingWindowDays: 28,
+  /*
+    The standing weekly schedule. Each entry becomes a pickup day on every
+    matching weekday automatically; the admin page can change or skip a
+    single date (e.g. fewer loaves, a holiday) or add a one-off pickup.
+      weekday: Sunday = 0 … Saturday = 6
+      cutoffDaysBefore / cutoffTime: when ordering closes, e.g. 1 and "23:59"
+        = 11:59 pm the evening before pickup
+  */
+  schedule: Object.freeze([
+    Object.freeze({
+      key: "verve",
+      weekday: 6,
+      name: "Verve Coffee Roasters",
+      address: "Verve Coffee Roasters, 162 University Ave, Palo Alto, CA 94301",
+      windowStart: "14:00",
+      windowEnd: "15:00",
+      slotMinutes: 15,
+      maxOrdersPerSlot: null,
+      totalLoaves: 20,
+      cutoffDaysBefore: 1,
+      cutoffTime: "23:59",
+      notes: ""
+    })
+  ])
 });
 
 export const TIP = Object.freeze({

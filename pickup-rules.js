@@ -107,3 +107,53 @@ export function getPickupDayStatus(day, now = new Date()) {
 export function describePickupWindow(day) {
   return `${formatTime(day.windowStart)} – ${formatTime(day.windowEnd)}`;
 }
+
+/*
+==================================================
+WEEKLY SCHEDULE
+
+Turns PICKUP.schedule into concrete pickup days
+for the next PICKUP.bookingWindowDays days.
+Each has a ruleKey + pickupDate; the worker
+replaces any the admin page has changed.
+==================================================
+*/
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export function getScheduledPickupDays(now = new Date()) {
+
+  const { date: todayLocal } = utcToLocal(now.toISOString());
+  const today = Date.UTC(...todayLocal.split("-").map((part, index) => Number(part) - (index === 1 ? 1 : 0)));
+  const days = [];
+
+  for (let offset = 0; offset <= PICKUP.bookingWindowDays; offset++) {
+    const date = new Date(today + offset * MS_PER_DAY);
+    const pickupDate = date.toISOString().slice(0, 10);
+
+    for (const rule of PICKUP.schedule) {
+      if (date.getUTCDay() !== rule.weekday) continue;
+
+      const cutoffDate = new Date(date.getTime() - rule.cutoffDaysBefore * MS_PER_DAY).toISOString().slice(0, 10);
+      const closesAt = localToUtc(cutoffDate, rule.cutoffTime);
+      if (new Date(closesAt).getTime() <= now.getTime()) continue;
+
+      days.push({
+        ruleKey: rule.key,
+        name: rule.name,
+        address: rule.address,
+        notes: rule.notes || "",
+        pickupDate,
+        windowStart: rule.windowStart,
+        windowEnd: rule.windowEnd,
+        slotMinutes: rule.slotMinutes || PICKUP.defaultSlotMinutes,
+        maxOrdersPerSlot: rule.maxOrdersPerSlot || null,
+        totalLoaves: rule.totalLoaves,
+        closesAt
+      });
+    }
+  }
+
+  return days;
+
+}

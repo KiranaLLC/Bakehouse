@@ -4,9 +4,15 @@ PICKUP DAYS
 
 A pickup day is one scheduled pickup: a date, an
 address, a pickup window, a total number of
-loaves and an order cutoff. Pickup days and
-their orders live in the D1 database (see
-schema.sql).
+loaves and an order cutoff. Most come from the
+weekly schedule in macros.js (PICKUP.schedule);
+the admin page can change a single date or add
+a one-off pickup. Changed dates and all orders
+live in the D1 database (see schema.sql).
+
+A scheduled date that nobody has changed or
+ordered from yet has no database row; it gets
+one ("materialized") on the first order or edit.
 
 While a customer pays on Stripe their loaves and
 time slot are held (a "pending" order). The hold
@@ -24,6 +30,7 @@ import {
   formatTime,
   getPickupDayStatus,
   getPickupSlots,
+  getScheduledPickupDays,
   localToUtc,
   utcToLocal
 } from "../../pickup-rules.js";
@@ -48,6 +55,7 @@ PICKUP DAYS
 function rowToDay(row) {
   return {
     id: row.id,
+    ruleKey: row.rule_key || null,
     name: row.name,
     address: row.address,
     notes: row.notes || "",
@@ -66,8 +74,67 @@ async function getDay(env, id) {
   return row ? rowToDay(row) : null;
 }
 
+/*
+  Scheduled days that have no database row yet are
+  identified as "<ruleKey>:<date>", e.g. "verve:2026-10-24".
+*/
+const VIRTUAL_ID = /^([a-z0-9_-]+):(\d{4}-\d{2}-\d{2})$/;
+
+function virtualId(day) {
+  return `${day.ruleKey}:${day.pickupDate}`;
+}
+
+// Every pickup day the admin page could show: database rows plus
+// scheduled dates that have no row yet.
+async function getAllDays(env, now) {
+
+  const { results } = await db(env).prepare("SELECT * FROM pickup_days").all();
+  const rows = results.map(rowToDay);
+  const known = new Set(rows.filter(day => day.ruleKey).map(virtualId));
+
+  const scheduled = getScheduledPickupDays(now)
+    .filter(day => !known.has(virtualId(day)))
+    .map(day => ({ ...day, id: virtualId(day) }));
+
+  return [...rows, ...scheduled].sort((a, b) => a.pickupDate.localeCompare(b.pickupDate) || a.windowStart.localeCompare(b.windowStart));
+
+}
+
+// Finds a day by database id or by "<ruleKey>:<date>".
+async function resolveDay(env, pickupDayId, now) {
+
+  if (Number.isInteger(pickupDayId)) return getDay(env, pickupDayId);
+
+  if (typeof pickupDayId !== "string" || !VIRTUAL_ID.test(pickupDayId)) return null;
+
+  const [, ruleKey, pickupDate] = pickupDayId.match(VIRTUAL_ID);
+  const row = await db(env).prepare("SELECT * FROM pickup_days WHERE rule_key = ? AND pickup_date = ?").bind(ruleKey, pickupDate).first();
+  if (row) return rowToDay(row);
+
+  const scheduled = getScheduledPickupDays(now).find(day => day.ruleKey === ruleKey && day.pickupDate === pickupDate);
+  return scheduled ? { ...scheduled, id: virtualId(scheduled) } : null;
+
+}
+
+// Gives a scheduled day its database row (keeping it if one appeared meanwhile).
+async function materialize(env, day) {
+
+  if (Number.isInteger(day.id)) return day;
+
+  await db(env)
+    .prepare("INSERT OR IGNORE INTO pickup_days (name, address, notes, pickup_date, window_start, window_end, slot_minutes, max_orders_per_slot, total_loaves, closes_at, rule_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(day.name, day.address, day.notes, day.pickupDate, day.windowStart, day.windowEnd, day.slotMinutes, day.maxOrdersPerSlot, day.totalLoaves, day.closesAt, day.ruleKey, new Date().toISOString())
+    .run();
+
+  const row = await db(env).prepare("SELECT * FROM pickup_days WHERE rule_key = ? AND pickup_date = ?").bind(day.ruleKey, day.pickupDate).first();
+  return rowToDay(row);
+
+}
+
 // Loaves and slots taken by paid orders and by holds that haven't expired.
 async function getAvailability(env, dayId, now) {
+
+  if (!Number.isInteger(dayId)) return { loavesTaken: 0, slotCounts: {} };
 
   const { results } = await db(env)
     .prepare("SELECT slot, loaves FROM pickup_orders WHERE pickup_day_id = ? AND (status = 'paid' OR (status = 'pending' AND expires_at > ?))")
@@ -116,19 +183,14 @@ function describeDay(day, availability, now) {
 
 }
 
-// The pickup days customers can see: anything whose order cutoff hasn't passed.
+// The pickup days customers can see: anything still taking orders (and not skipped).
 export async function listPickupDays(env) {
 
   const now = new Date();
-  const { results } = await db(env)
-    .prepare("SELECT * FROM pickup_days WHERE closes_at > ? ORDER BY pickup_date, window_start")
-    .bind(now.toISOString())
-    .all();
-
   const days = [];
 
-  for (const row of results) {
-    const day = rowToDay(row);
+  for (const day of await getAllDays(env, now)) {
+    if (day.totalLoaves === 0 || getPickupDayStatus(day, now) === "closed") continue;
     days.push(describeDay(day, await getAvailability(env, day.id, now), now));
   }
 
@@ -151,9 +213,9 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
   const slot = cleanText(body.slot, 5);
   const now = new Date();
 
-  const day = Number.isInteger(body.pickupDayId) ? await getDay(env, body.pickupDayId) : null;
+  let day = await resolveDay(env, body.pickupDayId, now);
 
-  if (!day) {
+  if (!day || day.totalLoaves === 0) {
     throw new OrderValidationError("That pickup day is no longer available. Please refresh the page.");
   }
 
@@ -190,6 +252,8 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
   HOLD THE LOAVES
   ==========================================
   */
+
+  day = await materialize(env, day);
 
   const reservationId = crypto.randomUUID();
   const holdSeconds = PICKUP.holdMinutes * 60;
@@ -341,6 +405,9 @@ ADMIN
 function adminDay(day, availability, stats, now) {
   return {
     ...describeDay(day, availability, now),
+    ruleKey: day.ruleKey,
+    scheduled: !Number.isInteger(day.id),
+    skipped: day.totalLoaves === 0,
     maxOrdersPerSlot: day.maxOrdersPerSlot,
     closesAtLocal: localInputValue(day.closesAt),
     loavesSold: stats.loavesSold || 0,
@@ -358,15 +425,15 @@ function localInputValue(iso) {
 export async function adminListPickupDays(env) {
 
   const now = new Date();
-  const { results } = await db(env).prepare("SELECT * FROM pickup_days ORDER BY pickup_date DESC, window_start DESC").all();
   const days = [];
 
-  for (const row of results) {
-    const day = rowToDay(row);
-    const stats = await db(env)
-      .prepare("SELECT COALESCE(SUM(loaves), 0) AS loavesSold, COUNT(*) AS ordersPaid FROM pickup_orders WHERE pickup_day_id = ? AND status = 'paid'")
-      .bind(day.id)
-      .first();
+  for (const day of await getAllDays(env, now)) {
+    const stats = Number.isInteger(day.id)
+      ? await db(env)
+        .prepare("SELECT COALESCE(SUM(loaves), 0) AS loavesSold, COUNT(*) AS ordersPaid FROM pickup_orders WHERE pickup_day_id = ? AND status = 'paid'")
+        .bind(day.id)
+        .first()
+      : {};
     days.push(adminDay(day, await getAvailability(env, day.id, now), stats, now));
   }
 
@@ -395,7 +462,7 @@ export async function adminSavePickupDay(body, env) {
   if (!timePattern.test(windowStart) || !timePattern.test(windowEnd) || windowStart >= windowEnd) throw new OrderValidationError("The pickup window must start before it ends.");
   if (!Number.isInteger(slotMinutes) || slotMinutes < 5 || slotMinutes > 240) throw new OrderValidationError("Slot length must be between 5 and 240 minutes.");
   if (maxOrdersPerSlot !== null && (!Number.isInteger(maxOrdersPerSlot) || maxOrdersPerSlot < 1)) throw new OrderValidationError("Max orders per slot must be a whole number.");
-  if (!Number.isInteger(totalLoaves) || totalLoaves < 1 || totalLoaves > PICKUP.maxLoavesPerDay) throw new OrderValidationError(`Total loaves must be between 1 and ${PICKUP.maxLoavesPerDay}.`);
+  if (!Number.isInteger(totalLoaves) || totalLoaves < 0 || totalLoaves > PICKUP.maxLoavesPerDay) throw new OrderValidationError(`Total loaves must be between 0 (skip this pickup) and ${PICKUP.maxLoavesPerDay}.`);
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(closesAtLocal)) throw new OrderValidationError("Please set when ordering closes.");
 
   const closesAt = localToUtc(closesAtLocal.slice(0, 10), closesAtLocal.slice(11));
@@ -403,17 +470,18 @@ export async function adminSavePickupDay(body, env) {
 
   if (closesAt > pickupEnds) throw new OrderValidationError("Ordering must close before the pickup window ends.");
 
-  const id = Number.isInteger(body.id) ? body.id : null;
+  // Editing a scheduled date gives it a database row first.
+  let existing = await resolveDay(env, body.id, new Date());
+  if (body.id !== undefined && body.id !== null && !existing) throw new OrderValidationError("That pickup day no longer exists.");
+  if (existing && !Number.isInteger(existing.id)) existing = await materialize(env, existing);
 
-  if (id !== null) {
-    if (!await getDay(env, id)) throw new OrderValidationError("That pickup day no longer exists.");
-
+  if (existing) {
     await db(env)
       .prepare("UPDATE pickup_days SET name = ?, address = ?, notes = ?, pickup_date = ?, window_start = ?, window_end = ?, slot_minutes = ?, max_orders_per_slot = ?, total_loaves = ?, closes_at = ? WHERE id = ?")
-      .bind(name, address, notes, pickupDate, windowStart, windowEnd, slotMinutes, maxOrdersPerSlot, totalLoaves, closesAt, id)
+      .bind(name, address, notes, pickupDate, windowStart, windowEnd, slotMinutes, maxOrdersPerSlot, totalLoaves, closesAt, existing.id)
       .run();
 
-    return { id };
+    return { id: existing.id };
   }
 
   const result = await db(env)
@@ -446,10 +514,13 @@ export async function adminDeletePickupDay(id, env) {
 
 export async function adminListOrders(dayId, env) {
 
-  const day = Number.isInteger(dayId) ? await getDay(env, dayId) : null;
+  const now = new Date();
+  const day = await resolveDay(env, dayId, now);
   if (!day) throw new OrderValidationError("That pickup day doesn't exist.");
 
-  const now = new Date();
+  if (!Number.isInteger(day.id)) {
+    return { day: describeDay(day, { loavesTaken: 0, slotCounts: {} }, now), orders: [], loafTotals: {} };
+  }
 
   const { results } = await db(env)
     .prepare("SELECT * FROM pickup_orders WHERE pickup_day_id = ? AND (status = 'paid' OR (status = 'pending' AND expires_at > ?)) ORDER BY slot, paid_at, created_at")

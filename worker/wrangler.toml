@@ -14,3 +14,16 @@ ALLOWED_ORIGINS = "https://www.kiranabakehouse.com,https://kiranabakehouse.com,h
 # STRIPE_SECRET_KEY is a secret, not a var. Set it with:
 #   npx wrangler secret put STRIPE_SECRET_KEY
 # For local testing, put it in worker/.dev.vars instead (never committed).
+
+# ADMIN_PASSWORD (for admin.html) and STRIPE_WEBHOOK_SECRET are secrets too:
+#   npx wrangler secret put ADMIN_PASSWORD
+#   npx wrangler secret put STRIPE_WEBHOOK_SECRET
+
+# Database for pickup drops and orders. Create it once with
+#   npx wrangler d1 create kirana-orders
+# and paste the database_id it prints below, then load the tables with
+#   npx wrangler d1 execute kirana-orders --remote --file=schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "kirana-orders"
+database_id = "REPLACE_WITH_YOUR_DATABASE_ID"

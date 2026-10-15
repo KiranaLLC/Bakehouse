@@ -5,20 +5,27 @@ KIRANA BAKEHOUSE CHECKOUT WORKER
 
 Runs on Cloudflare Workers. The website calls it to:
 
-  POST /api/check-delivery          is this address in the delivery area?
-  POST /api/check-discount          is this discount code valid?
-  POST /api/create-checkout-session start a Stripe payment for an order
-  GET  /api/order-summary           details of a paid order, for the thank-you page
-  GET  /api/status                  is the worker set up correctly? (open it in a browser)
+  POST /api/check-delivery                  is this address in the delivery area?
+  POST /api/check-discount                  is this discount code valid?
+  POST /api/create-checkout-session         start a Stripe payment for a delivery order
+  GET  /api/pickup/drops                    upcoming pickup drops and what's left
+  POST /api/pickup/create-checkout-session  start a Stripe payment for a pickup order
+  GET  /api/order-summary                   details of a paid order, for the thank-you page
+  POST /api/stripe/webhook                  Stripe tells us when a payment completes
+  GET  /api/status                          is the worker set up correctly? (open it in a browser)
+
+  Admin (admin.html, password-protected):
+  POST /api/admin/login, GET/POST/DELETE /api/admin/drops, GET /api/admin/orders
 
 IMPORTANT:
-Prices, the delivery fee and the delivery area
-are all worked out HERE, never trusted from the
-browser. The Stripe secret key lives here too.
+Prices, the delivery fee, the delivery area and
+loaf availability are all worked out HERE, never
+trusted from the browser. The Stripe secret key
+lives here too.
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "../../macros.js";
+import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS } from "../../macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
@@ -29,12 +36,31 @@ import {
   formatDeliverySlot,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
+import { createDiscountCoupon, stripe } from "./stripe.js";
+import {
+  AddressNotFoundError,
+  AdminAuthError,
+  OrderValidationError,
+  cleanText,
+  findDiscount,
+  parseCustomer,
+  parseItems,
+  parseTip,
+  requireAdmin
+} from "./validate.js";
+import {
+  adminDeleteDrop,
+  adminListDrops,
+  adminListOrders,
+  adminSaveDrop,
+  createPickupCheckoutSession,
+  handleStripeWebhook,
+  listDrops,
+  markPickupOrderPaid,
+  pickupSummary
+} from "./pickup.js";
 
-const STRIPE_API = "https://api.stripe.com/v1";
 const GEOCODE_CACHE_LIMIT = 500;
-
-class AddressNotFoundError extends Error {}
-class OrderValidationError extends Error {}
 
 let originCoordinates;
 const geocodeCache = new Map();
@@ -45,8 +71,10 @@ export default {
 
     const url = new URL(request.url);
     const corsHeaders = getCorsHeaders(request, env);
+    const { method } = request;
+    const path = url.pathname;
 
-    if (request.method === "OPTIONS") {
+    if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
@@ -54,16 +82,37 @@ export default {
 
       let result;
 
-      if (request.method === "POST" && url.pathname === API.checkDelivery) {
+      if (method === "POST" && path === API.checkDelivery) {
         result = await checkDelivery(await readJson(request));
-      } else if (request.method === "POST" && url.pathname === API.checkDiscount) {
+      } else if (method === "POST" && path === API.checkDiscount) {
         result = findDiscount((await readJson(request)).code, env);
-      } else if (request.method === "POST" && url.pathname === API.createCheckoutSession) {
+      } else if (method === "POST" && path === API.createCheckoutSession) {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
-      } else if (request.method === "GET" && url.pathname === API.orderSummary) {
+      } else if (method === "GET" && path === API.pickupDrops) {
+        result = await listDrops(env);
+      } else if (method === "POST" && path === API.createPickupCheckoutSession) {
+        result = await createPickupCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
+      } else if (method === "GET" && path === API.orderSummary) {
         result = await getOrderSummary(url.searchParams.get("session_id"), env);
-      } else if (request.method === "GET" && url.pathname === "/api/status") {
+      } else if (method === "POST" && path === "/api/stripe/webhook") {
+        result = await handleStripeWebhook(request, env);
+      } else if (method === "GET" && path === "/api/status") {
         result = await getStatus(env);
+      } else if (method === "POST" && path === API.adminLogin) {
+        requireAdmin(request, env);
+        result = { ok: true };
+      } else if (method === "GET" && path === API.adminDrops) {
+        requireAdmin(request, env);
+        result = await adminListDrops(env);
+      } else if (method === "POST" && path === API.adminDrops) {
+        requireAdmin(request, env);
+        result = await adminSaveDrop(await readJson(request), env);
+      } else if (method === "DELETE" && path === API.adminDrops) {
+        requireAdmin(request, env);
+        result = await adminDeleteDrop(Number(url.searchParams.get("id")), env);
+      } else if (method === "GET" && path === API.adminOrders) {
+        requireAdmin(request, env);
+        result = await adminListOrders(Number(url.searchParams.get("drop")), env);
       } else {
         return json({ error: "Not found." }, 404, corsHeaders);
       }
@@ -74,6 +123,10 @@ export default {
 
       if (error instanceof OrderValidationError || error instanceof AddressNotFoundError) {
         return json({ error: error.message }, 400, corsHeaders);
+      }
+
+      if (error instanceof AdminAuthError) {
+        return json({ error: error.message }, 401, corsHeaders);
       }
 
       console.error(error);
@@ -122,8 +175,8 @@ function getCorsHeaders(request, env) {
   if (!origin || !getAllowedOrigins(env).includes(origin)) return {};
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin"
   };
@@ -155,7 +208,7 @@ async function checkDelivery(body) {
 
 /*
 ==================================================
-CREATE STRIPE CHECKOUT SESSION
+CREATE STRIPE CHECKOUT SESSION FOR A DELIVERY
 ==================================================
 */
 
@@ -217,6 +270,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const addressLine = formatAddress(address);
 
   const metadata = {
+    order_type: "delivery",
     delivery_date: deliveryDate,
     delivery_date_label: deliverySlotLabel,
     customer_name: customer.name,
@@ -228,30 +282,6 @@ async function createCheckoutSession(body, env, siteUrl) {
     discount_code: discount?.code || "",
     discount_cents: String(discountCents)
   };
-
-  /*
-  ==========================================
-  DISCOUNT
-
-  Stripe Checkout applies discounts through
-  coupons, so each discounted order gets its
-  own single-use coupon for the exact amount
-  (loaves and delivery only, not the tip).
-  ==========================================
-  */
-
-  let discounts;
-
-  if (discountCents > 0) {
-    const coupon = await stripe(env, "POST", "/coupons", {
-      amount_off: discountCents,
-      currency: "usd",
-      duration: "once",
-      max_redemptions: 1,
-      name: `${discount.code} (${discount.percent}% off)`.slice(0, 40)
-    });
-    discounts = [{ coupon: coupon.id }];
-  }
 
   /*
   ==========================================
@@ -267,7 +297,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const session = await stripe(env, "POST", "/checkout/sessions", {
     mode: "payment",
     line_items: lineItems,
-    discounts,
+    discounts: discountCents > 0 ? await createDiscountCoupon(env, discount, discountCents) : undefined,
     customer_creation: "always",
     payment_intent_data: {
       description: `Kirana Bakehouse delivery — ${deliveryDateLabel}`,
@@ -317,15 +347,23 @@ async function getOrderSummary(sessionId, env) {
     throw new OrderValidationError("We couldn't find a completed payment for this order.");
   }
 
+  const metadata = session.metadata || {};
+  const isPickup = metadata.order_type === "pickup";
+
+  // Safety net in case the webhook hasn't arrived (or isn't set up).
+  if (isPickup) await markPickupOrderPaid(env, session);
+
   return {
+    type: isPickup ? "pickup" : "delivery",
     email: session.customer_details?.email || "",
-    name: session.metadata.customer_name,
-    deliveryDate: session.metadata.delivery_date_label,
-    address: session.metadata.delivery_address,
+    name: metadata.customer_name,
+    deliveryDate: metadata.delivery_date_label,
+    address: metadata.delivery_address,
     items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_subtotal ?? item.amount_total })),
-    discountCode: session.metadata.discount_code || "",
+    discountCode: metadata.discount_code || "",
     amountDiscount: session.total_details?.amount_discount || 0,
-    amountTotal: session.amount_total
+    amountTotal: session.amount_total,
+    ...(isPickup ? pickupSummary(session) : {})
   };
 
 }
@@ -335,8 +373,8 @@ async function getOrderSummary(sessionId, env) {
 STATUS CHECK
 
 Open https://<your-worker>/api/status in a
-browser to see whether the Stripe key works.
-Never reveals the key itself.
+browser to see whether everything is set up.
+Never reveals the secrets themselves.
 ==================================================
 */
 
@@ -347,8 +385,18 @@ async function getStatus(env) {
     stripeKeySet: Boolean(key),
     stripeKeyLooksLike: key ? `${key.slice(0, 8)}… (${key.length} characters)` : "not set",
     siteUrl: env.SITE_URL || "not set",
-    allowedOrigins: env.ALLOWED_ORIGINS || "not set"
+    allowedOrigins: env.ALLOWED_ORIGINS || "not set",
+    discountCodesSet: Boolean(env.DISCOUNT_CODES),
+    adminPasswordSet: Boolean(env.ADMIN_PASSWORD),
+    stripeWebhookSecretSet: Boolean(env.STRIPE_WEBHOOK_SECRET)
   };
+
+  try {
+    const count = env.DB ? await env.DB.prepare("SELECT COUNT(*) AS count FROM drops").first("count") : null;
+    status.pickupDatabase = env.DB ? `OK — ${count} drop${count === 1 ? "" : "s"}` : "not set up (see README: npx wrangler d1 create kirana-orders)";
+  } catch (error) {
+    status.pickupDatabase = `Database error: ${error.message} (did you run the schema.sql step?)`;
+  }
 
   if (!key) {
     status.problem = "STRIPE_SECRET_KEY is not set. Run: npx wrangler secret put STRIPE_SECRET_KEY";
@@ -372,100 +420,9 @@ async function getStatus(env) {
 
 /*
 ==================================================
-STRIPE API
-
-Stripe's API takes form-encoded requests, with
-nested values written as line_items[0][quantity].
+DELIVERY VALIDATION
 ==================================================
 */
-
-async function stripe(env, method, path, params) {
-
-  if (!env.STRIPE_SECRET_KEY) {
-    throw Object.assign(new Error("STRIPE_SECRET_KEY is not set"), { publicMessage: "Online payment isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order." });
-  }
-
-  const body = encodeForm(params);
-  const url = method === "GET" ? `${STRIPE_API}${path}?${body}` : `${STRIPE_API}${path}`;
-
-  const response = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-      ...(method === "GET" ? {} : { "Content-Type": "application/x-www-form-urlencoded" })
-    },
-    body: method === "GET" ? undefined : body
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    const publicMessage = response.status === 401
-      ? "Online payment isn't set up correctly (Stripe rejected the key). Please email us at hellokiranabakehouse@gmail.com to place your order."
-      : "Unable to start Stripe checkout. Please try again.";
-    throw Object.assign(new Error(`Stripe ${response.status}: ${data.error?.message}`), { publicMessage });
-  }
-
-  return data;
-
-}
-
-function encodeForm(value, prefix = "", params = new URLSearchParams()) {
-
-  if (value === undefined || value === null) return params;
-
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => encodeForm(item, `${prefix}[${index}]`, params));
-  } else if (typeof value === "object") {
-    Object.entries(value).forEach(([key, item]) => encodeForm(item, prefix ? `${prefix}[${key}]` : key, params));
-  } else {
-    params.append(prefix, String(value));
-  }
-
-  return params;
-
-}
-
-/*
-==================================================
-VALIDATION
-==================================================
-*/
-
-function parseItems(items) {
-
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new OrderValidationError("Your cart is empty.");
-  }
-
-  // Combine repeated products so the per-product limit can't be bypassed.
-  const quantities = new Map();
-
-  for (const item of items) {
-    const productId = item?.productId;
-    const product = Object.hasOwn(PRODUCTS, productId) ? PRODUCTS[productId] : null;
-    const quantity = Number(item?.quantity);
-
-    if (!product) {
-      throw new OrderValidationError("Invalid product.");
-    }
-
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      throw new OrderValidationError("Invalid quantity.");
-    }
-
-    const total = (quantities.get(productId) || 0) + quantity;
-
-    if (total > product.maxQuantity) {
-      throw new OrderValidationError(`${product.name} has a maximum quantity of ${product.maxQuantity}.`);
-    }
-
-    quantities.set(productId, total);
-  }
-
-  return [...quantities].map(([productId, quantity]) => ({ productId, quantity }));
-
-}
 
 function parseDeliveryDate(deliveryDate) {
 
@@ -478,22 +435,6 @@ function parseDeliveryDate(deliveryDate) {
   }
 
   return deliveryDate;
-
-}
-
-function parseCustomer(customer) {
-
-  const name = cleanText(customer?.name, 100);
-  const phone = cleanText(customer?.phone, 30);
-
-  if (!name) throw new OrderValidationError("Please enter your name.");
-
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length < 10 || digits.length > 15) {
-    throw new OrderValidationError("Please enter a valid phone number so we can reach you on delivery day.");
-  }
-
-  return { name, phone };
 
 }
 
@@ -514,45 +455,6 @@ function parseAddress(address) {
 
   return { line1, line2, city, postalCode };
 
-}
-
-/*
-  Discount codes are a Cloudflare secret so they
-  stay out of the public repository:
-    npx wrangler secret put DISCOUNT_CODES
-  with a value like  BREADUCATION=20,FRIENDS=10
-  (code = percent off). Codes aren't case-sensitive.
-*/
-function findDiscount(code, env) {
-
-  const wanted = cleanText(code, 40).toUpperCase();
-
-  for (const entry of (env.DISCOUNT_CODES || "").split(",")) {
-    const [name, percent] = entry.split("=").map(part => part.trim());
-    const value = Number(percent);
-    if (name && name.toUpperCase() === wanted && Number.isInteger(value) && value > 0 && value <= 100) {
-      return { code: name.toUpperCase(), percent: value };
-    }
-  }
-
-  throw new OrderValidationError("That discount code isn't valid.");
-
-}
-
-function parseTip(tipCents) {
-
-  if (tipCents === undefined || tipCents === null || tipCents === 0) return 0;
-
-  if (!Number.isInteger(tipCents) || tipCents < 0 || tipCents > TIP.maxCents) {
-    throw new OrderValidationError("Please enter a valid tip amount.");
-  }
-
-  return tipCents;
-
-}
-
-function cleanText(value, maxLength) {
-  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, maxLength) : "";
 }
 
 function formatAddress({ line1, line2, city, postalCode }) {

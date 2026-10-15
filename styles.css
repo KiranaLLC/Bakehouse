@@ -780,6 +780,10 @@ img {
     grid-template-columns: 1fr auto 1fr;
   }
 
+  .logo {
+    justify-self: start;
+  }
+
   .order-buttons {
     justify-self: center;
     max-width: none;

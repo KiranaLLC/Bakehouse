@@ -185,7 +185,7 @@ export const PICKUP = Object.freeze({
       key: "verve",
       weekday: 6,
       name: "Verve Coffee Roasters",
-      address: "Verve Coffee Roasters, 162 University Ave, Palo Alto, CA 94301",
+      address: "162 University Ave, Palo Alto, CA 94301",
       windowStart: "14:00",
       windowEnd: "15:00",
       slotMinutes: 15,

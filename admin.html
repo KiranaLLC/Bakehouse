@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Pickup Drops | Kirana Bakehouse</title>
+  <link rel="stylesheet" href="./styles.css?v=1800" />
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk&display=swap" rel="stylesheet" />
+  <style>
+    .admin-page {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px 20px 100px;
+      color: var(--deep-brown);
+    }
+
+    .admin-page h1 {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 2rem;
+      margin-bottom: 6px;
+    }
+
+    .admin-page h2 {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.4rem;
+      margin: 30px 0 14px;
+    }
+
+    .admin-page a {
+      color: var(--terracotta);
+    }
+
+    .admin-intro {
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .admin-card {
+      background: #f7f0d9;
+      border: 1px solid rgba(77, 26, 0, 0.2);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 16px;
+    }
+
+    .admin-card h3 {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.25rem;
+      margin-bottom: 4px;
+    }
+
+    .admin-meta {
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .admin-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 22px;
+      margin: 10px 0;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--deep-brown);
+      color: var(--cream);
+      font-size: .85rem;
+      font-weight: 600;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .badge.upcoming { background: #c9a227; color: #1c1c1c; }
+    .badge.sold-out, .badge.closed { background: var(--terracotta); color: white; }
+    .badge.past { background: #999; color: white; }
+
+    .admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .admin-button {
+      padding: 9px 18px;
+      border: 1px solid var(--deep-brown);
+      border-radius: 30px;
+      background: transparent;
+      color: var(--deep-brown);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .admin-button.primary {
+      background: var(--terracotta);
+      border-color: var(--terracotta);
+      color: white;
+      font-weight: 600;
+    }
+
+    .admin-button.danger {
+      color: #8f1d00;
+      border-color: #8f1d00;
+    }
+
+    .admin-button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .admin-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 18px;
+    }
+
+    .admin-form .wide {
+      grid-column: 1 / -1;
+    }
+
+    .admin-form label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .admin-form .hint {
+      display: block;
+      font-weight: 400;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+
+    .admin-form input,
+    .admin-form textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(77, 26, 0, 0.35);
+      border-radius: 8px;
+      font: inherit;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .admin-form .form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .admin-message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin: 14px 0;
+      background: #fbe8e5;
+      color: #6b1e14;
+    }
+
+    .admin-message.ok {
+      background: #e5f3e5;
+      color: #164016;
+    }
+
+    .orders-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      font-size: .95rem;
+    }
+
+    .orders-table th,
+    .orders-table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(77, 26, 0, 0.12);
+      vertical-align: top;
+    }
+
+    .orders-table th {
+      background: var(--deep-brown);
+      color: var(--cream);
+    }
+
+    .orders-table tr.pending td {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .loaf-totals {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+
+    .loaf-totals span {
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: white;
+      border: 1px solid rgba(77, 26, 0, 0.2);
+    }
+
+    .login-box {
+      max-width: 420px;
+      margin: 60px auto;
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(77, 26, 0, 0.35);
+      border-radius: 8px;
+      font: inherit;
+      margin: 10px 0 14px;
+    }
+
+    @media (max-width: 700px) {
+      .admin-form {
+        grid-template-columns: 1fr;
+      }
+
+      .orders-table {
+        font-size: .85rem;
+      }
+
+      .orders-table th,
+      .orders-table td {
+        padding: 8px 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="logo" href="index.html">
+      <img src="./img/kirana_cream_logo.svg" alt="Kirana Bakehouse" class="logo-image" />
+    </a>
+    <nav class="desktop-nav">
+      <a href="pickup.html" class="ig-link">Pickup page</a>
+    </nav>
+  </div>
+</header>
+
+<main class="admin-page">
+
+  <!-- LOGIN -->
+  <section id="login" class="admin-card login-box">
+    <h1>Pickup drops</h1>
+    <p class="admin-intro">Enter the admin password to manage pickup drops and see orders.</p>
+    <form id="login-form">
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <div id="login-error" class="admin-message" hidden></div>
+      <button type="submit" class="admin-button primary">Log in</button>
+    </form>
+  </section>
+
+  <!-- DROPS -->
+  <section id="dashboard" hidden>
+
+    <h1>Pickup drops</h1>
+    <p class="admin-intro">
+      Each drop is one pickup: its own address, date, pickup window and total number of loaves.
+      Customers order on the <a href="pickup.html">pickup page</a>.
+      <button type="button" id="logout" class="admin-button" style="margin-left:10px">Log out</button>
+    </p>
+
+    <div id="message" class="admin-message" hidden></div>
+
+    <div class="admin-actions">
+      <button type="button" id="new-drop" class="admin-button primary">+ New drop</button>
+      <button type="button" id="refresh" class="admin-button">Refresh</button>
+    </div>
+
+    <!-- DROP FORM -->
+    <section id="drop-form-card" class="admin-card" hidden>
+      <h2 id="drop-form-title">New drop</h2>
+      <form id="drop-form" class="admin-form" novalidate>
+        <input type="hidden" id="drop-id" />
+
+        <div class="wide">
+          <label for="drop-name">Name <span class="hint">e.g. "Downtown Palo Alto Saturday"</span></label>
+          <input id="drop-name" maxlength="80" required />
+        </div>
+
+        <div class="wide">
+          <label for="drop-address">Pickup address</label>
+          <input id="drop-address" maxlength="200" required />
+        </div>
+
+        <div>
+          <label for="drop-date">Pickup date</label>
+          <input id="drop-date" type="date" required />
+        </div>
+
+        <div>
+          <label for="drop-loaves">Total loaves <span class="hint">all flavours combined</span></label>
+          <input id="drop-loaves" type="number" min="1" max="500" required />
+        </div>
+
+        <div>
+          <label for="drop-start">Pickup window starts</label>
+          <input id="drop-start" type="time" required />
+        </div>
+
+        <div>
+          <label for="drop-end">Pickup window ends</label>
+          <input id="drop-end" type="time" required />
+        </div>
+
+        <div>
+          <label for="drop-slot">Time slot length <span class="hint">minutes</span></label>
+          <input id="drop-slot" type="number" min="5" max="240" step="5" value="15" required />
+        </div>
+
+        <div>
+          <label for="drop-max-slot">Max orders per time slot <span class="hint">leave empty for no limit</span></label>
+          <input id="drop-max-slot" type="number" min="1" max="100" />
+        </div>
+
+        <div>
+          <label for="drop-opens">Ordering opens</label>
+          <input id="drop-opens" type="datetime-local" required />
+        </div>
+
+        <div>
+          <label for="drop-closes">Ordering closes <span class="hint">must be before the pickup window ends</span></label>
+          <input id="drop-closes" type="datetime-local" required />
+        </div>
+
+        <div class="wide">
+          <label for="drop-notes">Note to customers <span class="hint">optional, shown on the pickup page</span></label>
+          <textarea id="drop-notes" rows="2" maxlength="300"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="admin-button primary" id="save-drop">Save drop</button>
+          <button type="button" class="admin-button" id="cancel-drop">Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ORDERS -->
+    <section id="orders-card" class="admin-card" hidden>
+      <h2 id="orders-title">Orders</h2>
+      <div id="orders-summary" class="admin-meta"></div>
+      <div id="loaf-totals" class="loaf-totals"></div>
+      <div style="overflow-x:auto">
+        <table class="orders-table">
+          <thead>
+            <tr><th>Time</th><th>Customer</th><th>Loaves</th><th>Paid</th></tr>
+          </thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+      </div>
+      <div class="admin-actions">
+        <button type="button" class="admin-button" id="copy-orders">Copy bake list</button>
+        <button type="button" class="admin-button" id="close-orders">Close</button>
+      </div>
+    </section>
+
+    <h2>Upcoming</h2>
+    <div id="upcoming-drops"></div>
+
+    <h2>Past</h2>
+    <div id="past-drops"></div>
+
+  </section>
+
+</main>
+
+<script type="module" src="./admin.js"></script>
+
+</body>
+</html>

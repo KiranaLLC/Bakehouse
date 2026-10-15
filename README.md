@@ -1,10 +1,10 @@
 # Kirana Bakehouse website
 
-The public website plus online delivery ordering with Stripe. The pages are
-plain HTML, CSS and JavaScript hosted on GitHub Pages. One small piece of
-server code, a **Cloudflare Worker** in `worker/`, checks delivery addresses
-and starts Stripe payments, because the Stripe secret key can't live in
-public web pages.
+The public website plus online ordering (delivery and pickup) with Stripe.
+The pages are plain HTML, CSS and JavaScript hosted on GitHub Pages. One
+small piece of server code, a **Cloudflare Worker** in `worker/`, checks
+delivery addresses, keeps track of pickup drops and starts Stripe payments,
+because the Stripe secret key can't live in public web pages.
 
 ## How ordering works
 
@@ -66,6 +66,53 @@ key and `npx wrangler deploy`.
 Also worth turning on in Stripe: customer email receipts for successful
 payments, and an email to you for each successful payment.
 
+### Pickup drops (one-time setup)
+
+Pickups work like Hotplate "drops": each drop has its own address, date,
+pickup window and total number of loaves, and you create them on the private
+admin page `admin.html`. Drops and orders are stored in a small Cloudflare
+database (D1, free). From the `worker` folder:
+
+1. Create the database and copy its id into `wrangler.toml`:
+   ```bash
+   npx wrangler d1 create kirana-orders
+   ```
+   It prints a `database_id`; paste it over `REPLACE_WITH_YOUR_DATABASE_ID`
+   in `wrangler.toml`.
+2. Create the tables:
+   ```bash
+   npx wrangler d1 execute kirana-orders --remote --file=schema.sql
+   ```
+3. Choose a password for the admin page:
+   ```bash
+   npx wrangler secret put ADMIN_PASSWORD
+   ```
+4. Tell Stripe to report payments to the worker, so loaves are released when
+   a payment is abandoned and confirmed when it completes. In the Stripe
+   Dashboard go to **Developers → Webhooks → Add endpoint**, enter
+   `https://<your-worker>.workers.dev/api/stripe/webhook`, and select the
+   events `checkout.session.completed` and `checkout.session.expired`.
+   Copy the endpoint's **signing secret** (`whsec_…`) and run:
+   ```bash
+   npx wrangler secret put STRIPE_WEBHOOK_SECRET
+   ```
+   (Without the webhook, orders are still confirmed when the customer lands
+   on the thank-you page, and holds expire on their own after 30 minutes.)
+5. `npx wrangler deploy`, then open `/api/status` on the worker: it should
+   show `pickupDatabase: OK`, `adminPasswordSet: true` and
+   `stripeWebhookSecretSet: true`.
+
+**Creating a drop:** open `https://www.kiranabakehouse.com/admin.html`, log
+in, click **+ New drop** and fill in the name, address, pickup date, pickup
+window, slot length, total loaves, and when ordering opens and closes (all in
+Pacific time). The drop appears on `pickup.html` as soon as it's saved: with a
+countdown until ordering opens, then "N loaves left", then "Sold out".
+
+**On baking day:** open the drop's **Orders** on the admin page for the list
+by pickup time (name, phone, loaves) and the bake list totals; **Copy bake
+list** puts it on the clipboard. Loaves "on hold" belong to customers who are
+on Stripe's payment page right now.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public
@@ -84,7 +131,7 @@ single-use coupon named after the code.
 
 ### Updating the worker later
 
-If `worker/`, `macros.js` or `delivery-rules.js` change (for example new
+If `worker/`, `macros.js`, `delivery-rules.js` or `pickup-rules.js` change (for example new
 prices or delivery zones), run `npx wrangler deploy` from the `worker` folder
 again so the worker picks up the new values. The website itself updates
 whenever `main` is pushed to GitHub, as before.
@@ -100,6 +147,7 @@ All in `macros.js`:
 | Tip percentages offered, maximum tip | `TIP` |
 | Kitchen address, delivery radius, fee per distance zone, free-delivery threshold | `DELIVERY_SERVICE` |
 | The worker's address | `WORKER_URL` |
+| Pickup hold time, default slot length | `PICKUP` |
 
 Product photos for the order page are in `img/menu/` (resized to load quickly
 on phones — keep new ones around 800px wide and under ~200 KB).

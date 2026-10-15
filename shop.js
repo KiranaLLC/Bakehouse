@@ -17,8 +17,8 @@ page (pickup.js). It works on these elements:
 ==================================================
 */
 
-import { API, BASE_INGREDIENTS, PRODUCTS, TIP } from "./macros.js";
-import { calculateDiscount, calculateSubtotal, formatMoney } from "./delivery-rules.js";
+import { API, BASE_INGREDIENTS, PRODUCTS, TIP } from "./macros.js?v=3";
+import { calculateDiscount, calculateSubtotal, formatMoney } from "./delivery-rules.js?v=3";
 
 const LAST_ORDER_KEY = "kirana-last-order";
 const REMEMBER_DAYS = 90;

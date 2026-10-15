@@ -1,5 +1,5 @@
-import { API, DELIVERY } from "./macros.js";
-import { formatMoney } from "./delivery-rules.js";
+import { API, DELIVERY } from "./macros.js?v=3";
+import { formatMoney } from "./delivery-rules.js?v=3";
 
 const STORAGE_KEY = "kirana-order";
 const LAST_ORDER_KEY = "kirana-last-order";

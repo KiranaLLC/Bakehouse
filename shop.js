@@ -408,7 +408,8 @@ export function createShop(options) {
 
   function showAppliedDiscount() {
 
-    showDiscountStatus("applied", `✓ ${discount.code} applied: ${discount.percent}% off your loaves${options.getFee ? " and delivery" : ""}.`);
+    const hasFee = Boolean(options.getFee && options.getFee());
+    showDiscountStatus("applied", `✓ ${discount.code} applied: ${discount.percent}% off your loaves${hasFee ? " and delivery" : ""}.`);
 
     const remove = document.createElement("button");
     remove.type = "button";

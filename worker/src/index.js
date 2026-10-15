@@ -8,14 +8,14 @@ Runs on Cloudflare Workers. The website calls it to:
   POST /api/check-delivery                  is this address in the delivery area?
   POST /api/check-discount                  is this discount code valid?
   POST /api/create-checkout-session         start a Stripe payment for a delivery order
-  GET  /api/pickup/drops                    upcoming pickup drops and what's left
+  GET  /api/pickup/days                     upcoming pickup days and what's left
   POST /api/pickup/create-checkout-session  start a Stripe payment for a pickup order
   GET  /api/order-summary                   details of a paid order, for the thank-you page
   POST /api/stripe/webhook                  Stripe tells us when a payment completes
   GET  /api/status                          is the worker set up correctly? (open it in a browser)
 
   Admin (admin.html, password-protected):
-  POST /api/admin/login, GET/POST/DELETE /api/admin/drops, GET /api/admin/orders
+  POST /api/admin/login, GET/POST/DELETE /api/admin/pickup-days, GET /api/admin/orders
 
 IMPORTANT:
 Prices, the delivery fee, the delivery area and
@@ -49,13 +49,13 @@ import {
   requireAdmin
 } from "./validate.js";
 import {
-  adminDeleteDrop,
-  adminListDrops,
+  adminDeletePickupDay,
   adminListOrders,
-  adminSaveDrop,
+  adminListPickupDays,
+  adminSavePickupDay,
   createPickupCheckoutSession,
   handleStripeWebhook,
-  listDrops,
+  listPickupDays,
   markPickupOrderPaid,
   pickupSummary
 } from "./pickup.js";
@@ -88,8 +88,8 @@ export default {
         result = findDiscount((await readJson(request)).code, env);
       } else if (method === "POST" && path === API.createCheckoutSession) {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
-      } else if (method === "GET" && path === API.pickupDrops) {
-        result = await listDrops(env);
+      } else if (method === "GET" && path === API.pickupDays) {
+        result = await listPickupDays(env);
       } else if (method === "POST" && path === API.createPickupCheckoutSession) {
         result = await createPickupCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
       } else if (method === "GET" && path === API.orderSummary) {
@@ -101,18 +101,18 @@ export default {
       } else if (method === "POST" && path === API.adminLogin) {
         requireAdmin(request, env);
         result = { ok: true };
-      } else if (method === "GET" && path === API.adminDrops) {
+      } else if (method === "GET" && path === API.adminPickupDays) {
         requireAdmin(request, env);
-        result = await adminListDrops(env);
-      } else if (method === "POST" && path === API.adminDrops) {
+        result = await adminListPickupDays(env);
+      } else if (method === "POST" && path === API.adminPickupDays) {
         requireAdmin(request, env);
-        result = await adminSaveDrop(await readJson(request), env);
-      } else if (method === "DELETE" && path === API.adminDrops) {
+        result = await adminSavePickupDay(await readJson(request), env);
+      } else if (method === "DELETE" && path === API.adminPickupDays) {
         requireAdmin(request, env);
-        result = await adminDeleteDrop(Number(url.searchParams.get("id")), env);
+        result = await adminDeletePickupDay(Number(url.searchParams.get("id")), env);
       } else if (method === "GET" && path === API.adminOrders) {
         requireAdmin(request, env);
-        result = await adminListOrders(Number(url.searchParams.get("drop")), env);
+        result = await adminListOrders(Number(url.searchParams.get("day")), env);
       } else {
         return json({ error: "Not found." }, 404, corsHeaders);
       }
@@ -392,8 +392,8 @@ async function getStatus(env) {
   };
 
   try {
-    const count = env.DB ? await env.DB.prepare("SELECT COUNT(*) AS count FROM drops").first("count") : null;
-    status.pickupDatabase = env.DB ? `OK — ${count} drop${count === 1 ? "" : "s"}` : "not set up (see README: npx wrangler d1 create kirana-orders)";
+    const count = env.DB ? await env.DB.prepare("SELECT COUNT(*) AS count FROM pickup_days").first("count") : null;
+    status.pickupDatabase = env.DB ? `OK — ${count} pickup day${count === 1 ? "" : "s"}` : "not set up (see README: npx wrangler d1 create kirana-orders)";
   } catch (error) {
     status.pickupDatabase = `Database error: ${error.message} (did you run the schema.sql step?)`;
   }

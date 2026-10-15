@@ -152,24 +152,24 @@ export const API = Object.freeze({
   createCheckoutSession: "/api/create-checkout-session",
   checkDelivery: "/api/check-delivery",
   checkDiscount: "/api/check-discount",
-  pickupDrops: "/api/pickup/drops",
+  pickupDays: "/api/pickup/days",
   createPickupCheckoutSession: "/api/pickup/create-checkout-session",
   adminLogin: "/api/admin/login",
-  adminDrops: "/api/admin/drops",
+  adminPickupDays: "/api/admin/pickup-days",
   adminOrders: "/api/admin/orders",
   orderSummary: "/api/order-summary"
 });
 
 /*
-  Pickups work as "drops": each one has its own date, address, pickup window
-  and total number of loaves, created on the admin page (admin.html).
+  Pickup days are scheduled on the admin page (admin.html). Each has its own
+  address, pickup window, total number of loaves and order cutoff.
 */
 export const PICKUP = Object.freeze({
   timeZone: "America/Los_Angeles",
   // How long loaves are held for a customer while they pay on Stripe.
   holdMinutes: 30,
   defaultSlotMinutes: 15,
-  maxLoavesPerDrop: 500
+  maxLoavesPerDay: 500
 });
 
 export const TIP = Object.freeze({

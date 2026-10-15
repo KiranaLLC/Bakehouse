@@ -1,9 +1,9 @@
 /*
 ==================================================
 KIRANA BAKEHOUSE
-PICKUP DROPS ADMIN
+PICKUP DAYS ADMIN
 
-Private page for creating pickup drops and
+Private page for scheduling pickup days and
 seeing their orders. Everything goes through the
 worker, which checks the password on every call.
 ==================================================
@@ -11,7 +11,6 @@ worker, which checks the password on every call.
 
 import { API, PICKUP } from "./macros.js";
 import { formatMoney } from "./delivery-rules.js";
-import { utcToLocal } from "./pickup-rules.js";
 
 const PASSWORD_KEY = "kirana-admin-password";
 
@@ -120,8 +119,8 @@ DROPS LIST
 async function loadDrops() {
 
   try {
-    const data = await request("GET", API.adminDrops);
-    drops = data.drops;
+    const data = await request("GET", API.adminPickupDays);
+    drops = data.days;
     renderDrops();
   } catch (error) {
     showMessage(error.message);
@@ -135,8 +134,8 @@ function renderDrops() {
   const upcoming = drops.filter(drop => drop.pickupDate >= today).sort((a, b) => a.pickupDate.localeCompare(b.pickupDate));
   const past = drops.filter(drop => drop.pickupDate < today);
 
-  renderDropList(document.getElementById("upcoming-drops"), upcoming, "No upcoming drops. Click \"+ New drop\" to schedule one.");
-  renderDropList(document.getElementById("past-drops"), past, "No past drops yet.");
+  renderDropList(document.getElementById("upcoming-drops"), upcoming, "No upcoming pickup days. Click \"+ New pickup day\" to schedule one.");
+  renderDropList(document.getElementById("past-drops"), past, "No past pickup days yet.");
 
 }
 
@@ -159,7 +158,7 @@ function renderDropList(container, list, emptyText) {
 
     const isPast = drop.pickupDate < new Date().toISOString().slice(0, 10);
     const statusLabel = isPast ? "past" : drop.status.replace("_", "-");
-    const statusText = { upcoming: "Opens soon", open: "Taking orders", "sold-out": "Sold out", closed: "Closed", past: "Done" }[statusLabel];
+    const statusText = { open: "Taking orders", "sold-out": "Sold out", closed: "Closed", past: "Done" }[statusLabel];
 
     card.innerHTML = `
       <h3></h3>
@@ -175,7 +174,7 @@ function renderDropList(container, list, emptyText) {
       <div class="admin-actions">
         <button type="button" class="admin-button" data-action="orders">Orders</button>
         <button type="button" class="admin-button" data-action="edit">Edit</button>
-        <button type="button" class="admin-button danger" data-action="delete" ${drop.ordersPaid > 0 ? "disabled title=\"Drops with paid orders can't be deleted\"" : ""}>Delete</button>
+        <button type="button" class="admin-button danger" data-action="delete" ${drop.ordersPaid > 0 ? "disabled title=\"Pickup days with paid orders can't be deleted\"" : ""}>Delete</button>
       </div>
     `;
 
@@ -184,7 +183,7 @@ function renderDropList(container, list, emptyText) {
     name.insertAdjacentHTML("beforeend", `<span class="badge ${statusLabel}">${statusText}</span>`);
     when.textContent = `${drop.pickupDateLabel}, ${drop.windowLabel} · ${drop.slotMinutes}-minute slots${drop.maxOrdersPerSlot ? `, max ${drop.maxOrdersPerSlot} ${drop.maxOrdersPerSlot === 1 ? "order" : "orders"} per slot` : ""}`;
     address.textContent = drop.address;
-    timing.textContent = `Ordering opens ${drop.opensAtLabel}, closes ${drop.closesAtLabel}`;
+    timing.textContent = `Ordering closes ${drop.closesAtLabel}`;
 
     card.querySelector('[data-action="orders"]').addEventListener("click", () => showOrders(drop));
     card.querySelector('[data-action="edit"]').addEventListener("click", () => editDrop(drop));
@@ -212,7 +211,6 @@ const formFields = {
   windowEnd: document.getElementById("drop-end"),
   slotMinutes: document.getElementById("drop-slot"),
   maxOrdersPerSlot: document.getElementById("drop-max-slot"),
-  opensAtLocal: document.getElementById("drop-opens"),
   closesAtLocal: document.getElementById("drop-closes"),
   notes: document.getElementById("drop-notes")
 };
@@ -230,11 +228,10 @@ function newDrop() {
   formFields.windowEnd.value = last?.windowEnd || "12:00";
   formFields.slotMinutes.value = last?.slotMinutes || PICKUP.defaultSlotMinutes;
   formFields.maxOrdersPerSlot.value = last?.maxOrdersPerSlot || "";
-  formFields.opensAtLocal.value = localNow();
   formFields.closesAtLocal.value = "";
   formFields.notes.value = "";
 
-  document.getElementById("drop-form-title").textContent = "New drop";
+  document.getElementById("drop-form-title").textContent = "New pickup day";
   elements.ordersCard.hidden = true;
   elements.formCard.hidden = false;
   formFields.name.focus();
@@ -252,7 +249,6 @@ function editDrop(drop) {
   formFields.windowEnd.value = drop.windowEnd;
   formFields.slotMinutes.value = drop.slotMinutes;
   formFields.maxOrdersPerSlot.value = drop.maxOrdersPerSlot || "";
-  formFields.opensAtLocal.value = drop.opensAtLocal;
   formFields.closesAtLocal.value = drop.closesAtLocal;
   formFields.notes.value = drop.notes;
 
@@ -271,12 +267,6 @@ function suggestClosingTime() {
   formFields.closesAtLocal.value = `${dayBefore.toISOString().slice(0, 10)}T23:59`;
 }
 
-// The current time in the bakery's time zone, for a datetime-local input.
-function localNow() {
-  const { date, time } = utcToLocal(new Date().toISOString());
-  return `${date}T${time}`;
-}
-
 async function saveDrop(event) {
 
   event.preventDefault();
@@ -291,7 +281,6 @@ async function saveDrop(event) {
     windowEnd: formFields.windowEnd.value,
     slotMinutes: Number(formFields.slotMinutes.value),
     maxOrdersPerSlot: formFields.maxOrdersPerSlot.value ? Number(formFields.maxOrdersPerSlot.value) : null,
-    opensAtLocal: formFields.opensAtLocal.value,
     closesAtLocal: formFields.closesAtLocal.value,
     notes: formFields.notes.value
   };
@@ -300,7 +289,7 @@ async function saveDrop(event) {
   button.disabled = true;
 
   try {
-    await request("POST", API.adminDrops, body);
+    await request("POST", API.adminPickupDays, body);
     elements.formCard.hidden = true;
     showMessage(`Saved "${body.name}".`, true);
     await loadDrops();
@@ -314,10 +303,10 @@ async function saveDrop(event) {
 
 async function deleteDrop(drop) {
 
-  if (!confirm(`Delete "${drop.name}" on ${drop.pickupDateLabel}?`)) return;
+  if (!confirm(`Delete the ${drop.pickupDateLabel} pickup at ${drop.name}?`)) return;
 
   try {
-    await request("DELETE", `${API.adminDrops}?id=${drop.id}`);
+    await request("DELETE", `${API.adminPickupDays}?id=${drop.id}`);
     showMessage(`Deleted "${drop.name}".`, true);
     await loadDrops();
   } catch (error) {
@@ -338,12 +327,12 @@ async function showOrders(drop) {
 
   try {
 
-    const data = await request("GET", `${API.adminOrders}?drop=${drop.id}`);
+    const data = await request("GET", `${API.adminOrders}?day=${drop.id}`);
     currentOrders = data;
 
     document.getElementById("orders-title").textContent = `${drop.name} — ${drop.pickupDateLabel}`;
     document.getElementById("orders-summary").textContent =
-      `${data.drop.totalLoaves - data.drop.remaining} of ${data.drop.totalLoaves} loaves spoken for · ${data.orders.filter(order => order.status === "paid").length} paid orders`;
+      `${data.day.totalLoaves - data.day.remaining} of ${data.day.totalLoaves} loaves spoken for · ${data.orders.filter(order => order.status === "paid").length} paid orders`;
 
     const totals = document.getElementById("loaf-totals");
     totals.innerHTML = "";
@@ -393,7 +382,7 @@ async function copyOrders() {
   if (!currentOrders) return;
 
   const lines = [
-    `${currentOrders.drop.name} — ${currentOrders.drop.pickupDateLabel}`,
+    `${currentOrders.day.name} — ${currentOrders.day.pickupDateLabel}`,
     "",
     "Bake list:",
     ...Object.entries(currentOrders.loafTotals).sort().map(([name, quantity]) => `  ${quantity} × ${name}`),

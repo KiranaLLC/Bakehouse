@@ -1,17 +1,17 @@
 /*
 ==================================================
 KIRANA BAKEHOUSE
-DELIVERY ORDERING
+ORDERING
 ==================================================
 
-The menu, cart, tip and discount code come from
-shop.js. This file adds what's specific to
-delivery: the address check, delivery fee,
-delivery details and delivery dates.
+One page for both delivery and pickup. The menu,
+cart, tip and discount code come from shop.js;
+this file adds the choice between delivery and
+pickup and the details each one needs.
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE } from "./macros.js";
+import { API, DELIVERY, DELIVERY_SERVICE, PICKUP } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateSubtotal,
@@ -21,10 +21,12 @@ import {
 } from "./delivery-rules.js";
 import { createShop } from "./shop.js";
 
-const STORAGE_KEY = "kirana-delivery-order";
+const STORAGE_KEY = "kirana-order";
 const ADDRESS_CHECK_DELAY_MS = 800;
+const PICKUP_REFRESH_SECONDS = 60;
 
 const form = document.getElementById("order-form");
+const button = document.getElementById("checkout-button");
 const fields = {
   name: document.getElementById("customer-name"),
   phone: document.getElementById("customer-phone"),
@@ -33,10 +35,14 @@ const fields = {
   city: document.getElementById("address-city"),
   postalCode: document.getElementById("address-zip"),
   notes: document.getElementById("delivery-notes"),
-  deliveryDate: document.getElementById("delivery-date")
+  deliveryDate: document.getElementById("delivery-date"),
+  slot: document.getElementById("pickup-slot")
 };
 const ADDRESS_FIELDS = ["line1", "city", "postalCode"];
 const SAVED_FIELDS = Object.keys(fields);
+
+// "delivery", "pickup" or null until the customer chooses.
+let mode = null;
 
 /*
   The result of the last delivery-area check:
@@ -45,20 +51,81 @@ const SAVED_FIELDS = Object.keys(fields);
 let addressCheck = null;
 let addressCheckTimer;
 
-const shop = createShop({
+// Pickup days from the worker, and the one the customer picked.
+let pickupDays = [];
+let selectedPickupDay = null;
+let savedPickupDayId = null;
+
+let shop;
+
+shop = createShop({
   storageKey: STORAGE_KEY,
-  getFee: getDeliveryFeeLine,
-  getValues: () => Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value])),
+  getFee: () => mode === "delivery" ? getDeliveryFeeLine() : null,
+  getValues: () => ({
+    mode,
+    pickupDayId: selectedPickupDay?.id ?? savedPickupDayId,
+    ...Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]))
+  }),
   setValues: values => {
     SAVED_FIELDS.forEach(name => {
       const value = values[name];
       if (typeof value !== "string") return;
-      // Only restore a delivery date that is still available.
+      // Dates and slots are only restored if they're still on offer.
       if (name === "deliveryDate" && ![...fields.deliveryDate.options].some(option => option.value === value)) return;
+      if (name === "slot") { fields.slot.dataset.wanted = value; return; }
       fields[name].value = value;
     });
-  }
+    if (Number.isInteger(values.pickupDayId)) savedPickupDayId = values.pickupDayId;
+    if (values.mode === "delivery" || values.mode === "pickup") selectMode(values.mode);
+  },
+  onChange: updateLoafWarning
 });
+
+
+/*
+==================================================
+DELIVERY OR PICKUP
+==================================================
+*/
+
+function selectMode(newMode) {
+
+  mode = newMode;
+
+  document.querySelectorAll(".mode-option").forEach(option => {
+    option.setAttribute("aria-pressed", String(option.dataset.mode === mode));
+  });
+
+  document.getElementById("contact-details").hidden = !mode;
+  document.getElementById("delivery-details").hidden = mode !== "delivery";
+  document.getElementById("pickup-details").hidden = mode !== "pickup";
+  document.getElementById("cart-fee-line").hidden = mode !== "delivery";
+  document.getElementById("hold-note").hidden = mode !== "pickup";
+
+  if (mode === "pickup" && pickupDays.length === 0) loadPickupDays();
+
+  shop.hideError();
+  shop.updateTotals();
+
+}
+
+function describeModes() {
+
+  document.getElementById("delivery-mode-summary").textContent =
+    `${describeDeliveryDays()}, ${DELIVERY.windowLabel}, within ${DELIVERY_SERVICE.maxMiles} miles of Menlo Park`;
+
+  const open = pickupDays.filter(day => day.status === "open");
+  const summary = document.getElementById("pickup-mode-summary");
+
+  if (!API.isConfigured) {
+    summary.textContent = "Pickup days are announced here";
+  } else if (open.length === 0) {
+    summary.textContent = "No pickups scheduled right now";
+  } else {
+    summary.textContent = `Next: ${open[0].pickupDateLabel}, ${open[0].name}`;
+  }
+
+}
 
 
 /*
@@ -219,6 +286,135 @@ function renderDeliveryDates() {
 
 /*
 ==================================================
+PICKUP DAYS
+==================================================
+*/
+
+async function loadPickupDays() {
+
+  if (!API.isConfigured) {
+    showPickupDays([]);
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API.origin}${API.pickupDays}`);
+    const data = await response.json();
+    showPickupDays(data.days || []);
+  } catch {
+    showPickupDays([]);
+    document.getElementById("no-pickup-days").textContent = "We couldn't load the pickup schedule. Please refresh the page to try again.";
+  }
+
+}
+
+function showPickupDays(days) {
+
+  pickupDays = days;
+
+  const wanted = selectedPickupDay?.id ?? savedPickupDayId;
+  selectedPickupDay =
+    days.find(day => day.id === wanted && day.status === "open") ||
+    (days.length === 1 && days[0].status === "open" ? days[0] : null);
+
+  const list = document.getElementById("pickup-days");
+  list.innerHTML = "";
+  document.getElementById("no-pickup-days").hidden = days.length > 0;
+
+  days.forEach(day => {
+
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "pickup-day";
+    card.disabled = day.status !== "open";
+    card.setAttribute("aria-pressed", String(day === selectedPickupDay));
+
+    const title = document.createElement("strong");
+    title.textContent = `${day.pickupDateLabel}, ${day.windowLabel}`;
+
+    const where = document.createElement("span");
+    where.className = "pickup-day-meta";
+    where.textContent = `${day.name} · ${day.address}`;
+
+    card.append(title, where);
+
+    if (day.notes) {
+      const notes = document.createElement("span");
+      notes.className = "pickup-day-meta";
+      notes.textContent = day.notes;
+      card.appendChild(notes);
+    }
+
+    const status = document.createElement("span");
+    status.className = "pickup-day-status";
+    status.textContent = day.status === "sold_out" ? "Sold out" : day.status === "closed" ? "Ordering closed" : day.remaining === 1 ? "1 loaf left" : `${day.remaining} loaves left`;
+    card.appendChild(status);
+
+    card.addEventListener("click", () => {
+      selectedPickupDay = day;
+      showPickupDays(pickupDays);
+      shop.hideError();
+      shop.saveOrder();
+    });
+
+    list.appendChild(card);
+
+  });
+
+  document.getElementById("pickup-slot-field").hidden = !selectedPickupDay;
+  if (selectedPickupDay) renderSlots(selectedPickupDay);
+
+  describeModes();
+  updateLoafWarning();
+
+}
+
+function renderSlots(day) {
+
+  const select = fields.slot;
+  const wanted = select.value || select.dataset.wanted || "";
+
+  select.innerHTML = '<option value="">Select a pickup time</option>';
+
+  day.slots.forEach(slot => {
+    const option = document.createElement("option");
+    option.value = slot.value;
+    option.textContent = slot.available ? slot.label : `${slot.label} (full)`;
+    option.disabled = !slot.available;
+    select.appendChild(option);
+  });
+
+  if (day.slots.some(slot => slot.value === wanted && slot.available)) {
+    select.value = wanted;
+  }
+
+  delete select.dataset.wanted;
+
+}
+
+/*
+  The cart can't hold more loaves than the pickup
+  day has left (the worker checks again at checkout).
+*/
+function updateLoafWarning() {
+
+  const warning = document.getElementById("loaf-warning");
+  const loaves = shop ? shop.getLoafCount() : 0;
+
+  let message = "";
+
+  if (mode === "pickup" && selectedPickupDay && loaves > selectedPickupDay.remaining) {
+    message = `Only ${selectedPickupDay.remaining} ${selectedPickupDay.remaining === 1 ? "loaf is" : "loaves are"} left for this pickup — please reduce your order.`;
+  }
+
+  warning.textContent = message;
+  warning.hidden = !message;
+
+}
+
+
+/*
+==================================================
 RETURNING CUSTOMERS
 ==================================================
 */
@@ -233,7 +429,7 @@ function showWelcomeBack(last) {
   shop.applySavedOrder(last, { details: true });
 
   document.getElementById("welcome-back-text").textContent =
-    `Welcome back${firstName ? `, ${firstName}` : ""}! Your delivery details are filled in below.` +
+    `Welcome back${firstName ? `, ${firstName}` : ""}! Your details are filled in below.` +
     (summary ? ` Last time you ordered ${summary}.` : "");
 
   document.getElementById("reorder-button").hidden = !summary;
@@ -275,13 +471,22 @@ function validateForm() {
     return { message: "Your cart is empty. Add some sourdough above to get started.", field: document.getElementById("product-grid") };
   }
 
+  if (!mode) {
+    return { message: "Please choose delivery or pickup.", field: document.querySelector(".mode-option") };
+  }
+
   const required = [
     ["name", "Please enter your name."],
-    ["phone", "Please enter your phone number so we can reach you on delivery day."],
-    ["line1", "Please enter your street address."],
-    ["city", "Please enter your city."],
-    ["postalCode", "Please enter a valid 5-digit ZIP code."]
+    ["phone", `Please enter your phone number so we can reach you on ${mode} day.`]
   ];
+
+  if (mode === "delivery") {
+    required.push(
+      ["line1", "Please enter your street address."],
+      ["city", "Please enter your city."],
+      ["postalCode", "Please enter a valid 5-digit ZIP code."]
+    );
+  }
 
   for (const [name, message] of required) {
     if (!fields[name].value.trim() || !fields[name].checkValidity()) {
@@ -297,8 +502,20 @@ function validateForm() {
     return { message: "Please enter a valid phone number, including area code.", field: fields.phone };
   }
 
-  if (!fields.deliveryDate.value) {
+  if (mode === "delivery" && !fields.deliveryDate.value) {
     return { message: "Please select a delivery date.", field: fields.deliveryDate };
+  }
+
+  if (mode === "pickup") {
+    if (!selectedPickupDay) {
+      return { message: "Please choose a pickup day.", field: document.getElementById("pickup-days") };
+    }
+    if (shop.getLoafCount() > selectedPickupDay.remaining) {
+      return { message: `Only ${selectedPickupDay.remaining} loaves are left for this pickup — please reduce your order.`, field: document.getElementById("product-grid") };
+    }
+    if (!fields.slot.value) {
+      return { message: "Please select a pickup time.", field: fields.slot };
+    }
   }
 
   return null;
@@ -330,28 +547,44 @@ async function checkout(event) {
     return;
   }
 
-  const button = document.getElementById("checkout-button");
-
   button.disabled = true;
-  button.textContent = "Preparing secure checkout...";
+  button.textContent = mode === "pickup" ? "Holding your loaves..." : "Preparing secure checkout...";
 
   try {
 
-    const check = await checkAddress();
-
-    if (check.status !== "valid") {
-      throw Object.assign(new Error(check.message), { field: fields.line1 });
-    }
-
-    const data = await shop.postJson(API.createCheckoutSession, {
+    const common = {
       items: shop.getCartItems(),
-      deliveryDate: fields.deliveryDate.value,
       customer: { name: fields.name.value, phone: fields.phone.value },
-      address: getAddress(),
-      notes: fields.notes.value,
       tipCents: shop.getTipCents(),
       discountCode: shop.getDiscount()?.code
-    });
+    };
+
+    let data;
+
+    if (mode === "delivery") {
+
+      const check = await checkAddress();
+
+      if (check.status !== "valid") {
+        throw Object.assign(new Error(check.message), { field: fields.line1 });
+      }
+
+      data = await shop.postJson(API.createCheckoutSession, {
+        ...common,
+        deliveryDate: fields.deliveryDate.value,
+        address: getAddress(),
+        notes: fields.notes.value
+      });
+
+    } else {
+
+      data = await shop.postJson(API.createPickupCheckoutSession, {
+        ...common,
+        pickupDayId: selectedPickupDay.id,
+        slot: fields.slot.value
+      });
+
+    }
 
     // Off to Stripe.
     window.location.href = data.url;
@@ -360,11 +593,17 @@ async function checkout(event) {
 
     console.error("Checkout error:", error);
     shop.showError(error.message || "Something went wrong. Please try again.", error.field);
-    button.disabled = false;
-    button.textContent = "Continue to Payment";
+    resetCheckoutButton();
+    // Pickup availability may have changed under us; show the latest numbers.
+    if (mode === "pickup") await loadPickupDays();
 
   }
 
+}
+
+function resetCheckoutButton() {
+  button.disabled = false;
+  button.textContent = "Continue to Payment";
 }
 
 
@@ -375,6 +614,8 @@ INITIALIZE
 */
 
 renderDeliveryDates();
+describeModes();
+document.getElementById("hold-minutes").textContent = PICKUP.holdMinutes;
 
 const params = new URLSearchParams(window.location.search);
 const lastOrder = shop.loadLastOrder();
@@ -391,15 +632,32 @@ if (params.has("cancelled")) {
   showWelcomeBack(lastOrder);
 }
 
-if (params.has("cancelled") || params.has("reorder")) {
+// Links like order.html?mode=pickup pre-select delivery or pickup.
+if (["delivery", "pickup"].includes(params.get("mode"))) {
+  selectMode(params.get("mode"));
+}
+
+if (params.has("cancelled") || params.has("reorder") || params.has("mode")) {
   history.replaceState(null, "", window.location.pathname);
 }
 
 shop.updateCart();
+loadPickupDays();
 
 if (isAddressComplete(getAddress())) {
   checkAddress();
 }
+
+// Keep the pickup loaf counts fresh while the page is open.
+setInterval(() => { if (!document.hidden && mode === "pickup") loadPickupDays(); }, PICKUP_REFRESH_SECONDS * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && mode === "pickup") loadPickupDays(); });
+
+document.querySelectorAll(".mode-option").forEach(option => {
+  option.addEventListener("click", () => {
+    selectMode(option.dataset.mode);
+    shop.saveOrder();
+  });
+});
 
 ADDRESS_FIELDS.forEach(name => {
   fields[name].addEventListener("input", scheduleAddressCheck);
@@ -414,9 +672,20 @@ Object.values(fields).forEach(field => {
   });
 });
 
-fields.deliveryDate.addEventListener("change", () => {
-  shop.hideError();
-  shop.saveOrder();
+[fields.deliveryDate, fields.slot].forEach(field => {
+  field.addEventListener("change", () => {
+    shop.hideError();
+    shop.saveOrder();
+  });
 });
 
 form.addEventListener("submit", checkout);
+
+// If the customer comes back from Stripe with the Back button, the browser
+// may show this page exactly as it was left, with the button still disabled.
+window.addEventListener("pageshow", event => {
+  if (event.persisted) {
+    resetCheckoutButton();
+    loadPickupDays();
+  }
+});

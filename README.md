@@ -3,21 +3,29 @@
 The public website plus online ordering (delivery and pickup) with Stripe.
 The pages are plain HTML, CSS and JavaScript hosted on GitHub Pages. One
 small piece of server code, a **Cloudflare Worker** in `worker/`, checks
-delivery addresses, keeps track of pickup drops and starts Stripe payments,
+delivery addresses, keeps track of pickup days and starts Stripe payments,
 because the Stripe secret key can't live in public web pages.
 
 ## How ordering works
 
-1. On `order.html` the customer picks their loaves, chooses a tip, enters
-   their name, phone and address, and picks a delivery date.
-2. As soon as the address is complete, the page asks the worker whether it
-   is inside the delivery area and shows the delivery fee and total.
-3. **Continue to Payment** sends the order to the worker, which re-checks
-   everything (prices, quantities, delivery date, delivery area, fee and tip;
-   the browser is never trusted for these) and creates a Stripe Checkout
-   session for the exact total.
-4. The customer enters their email and card on Stripe, then lands on
+1. On `order.html` the customer picks their loaves and a tip, then chooses
+   **Delivery** or **Pickup**.
+   - Delivery: they enter their name, phone and address and pick a delivery
+     date. As soon as the address is complete, the page asks the worker
+     whether it is inside the delivery area and shows the fee and total.
+   - Pickup: they choose one of the scheduled pickup days (each shows its
+     address, pickup window and how many loaves are left), a pickup time,
+     and their name and phone.
+2. **Continue to Payment** sends the order to the worker, which re-checks
+   everything (prices, quantities, dates, delivery area and fee, loaves
+   left, tip and discount; the browser is never trusted for these) and
+   creates a Stripe Checkout session for the exact total. For pickups the
+   loaves are held for 30 minutes while the customer pays.
+3. The customer enters their email and card on Stripe, then lands on
    `success.html`, which shows their order summary.
+
+`order.html?mode=delivery` and `order.html?mode=pickup` pre-select one or the
+other (the homepage buttons use these).
 
 Each paid order appears in the Stripe Dashboard under **Payments** with its
 line items, delivery charge and tip, and with the delivery date, name,
@@ -66,11 +74,11 @@ key and `npx wrangler deploy`.
 Also worth turning on in Stripe: customer email receipts for successful
 payments, and an email to you for each successful payment.
 
-### Pickup drops (one-time setup)
+### Pickup days (one-time setup)
 
-Pickups work like Hotplate "drops": each drop has its own address, date,
-pickup window and total number of loaves, and you create them on the private
-admin page `admin.html`. Drops and orders are stored in a small Cloudflare
+Each pickup day has its own address, date, pickup window, total number of
+loaves and order cutoff, and you schedule them on the private admin page
+`admin.html`. Pickup days and orders are stored in a small Cloudflare
 database (D1, free). From the `worker` folder:
 
 1. Create the database and copy its id into `wrangler.toml`:
@@ -102,13 +110,14 @@ database (D1, free). From the `worker` folder:
    show `pickupDatabase: OK`, `adminPasswordSet: true` and
    `stripeWebhookSecretSet: true`.
 
-**Creating a drop:** open `https://www.kiranabakehouse.com/admin.html`, log
-in, click **+ New drop** and fill in the name, address, pickup date, pickup
-window, slot length, total loaves, and when ordering opens and closes (all in
-Pacific time). The drop appears on `pickup.html` as soon as it's saved: with a
-countdown until ordering opens, then "N loaves left", then "Sold out".
+**Scheduling a pickup day:** open `https://www.kiranabakehouse.com/admin.html`,
+log in, click **+ New pickup day** and fill in the location name, address,
+pickup date, pickup window, slot length, total loaves and the order cutoff
+(Pacific time; the page suggests 11:59 pm the evening before). It appears on
+the order page under **Pickup** as soon as it's saved, showing "N loaves
+left" until it sells out or the cutoff passes.
 
-**On baking day:** open the drop's **Orders** on the admin page for the list
+**On baking day:** open the pickup day's **Orders** on the admin page for the list
 by pickup time (name, phone, loaves) and the bake list totals; **Copy bake
 list** puts it on the clipboard. Loaves "on hold" belong to customers who are
 on Stripe's payment page right now.

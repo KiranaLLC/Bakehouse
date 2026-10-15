@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   />
 
-  <title>Order Delivery | Kirana Bakehouse</title>
+  <title>Order | Kirana Bakehouse</title>
 
   <link
     rel="stylesheet"
@@ -388,6 +388,105 @@
       outline: none;
     }
 
+    .mode-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .mode-option {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 18px 20px;
+      border: 2px solid rgba(240,231,200,.4);
+      border-radius: 14px;
+      background: transparent;
+      color: var(--cream);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .mode-option strong {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.2rem;
+    }
+
+    .mode-option span {
+      font-size: .9rem;
+      opacity: .8;
+    }
+
+    .mode-option[aria-pressed="true"] {
+      background: var(--cream);
+      border-color: var(--cream);
+      color: var(--deep-brown);
+    }
+
+    .pickup-days {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .pickup-day {
+      display: block;
+      width: 100%;
+      padding: 16px 20px;
+      border: 2px solid rgba(240,231,200,.4);
+      border-radius: 14px;
+      background: transparent;
+      color: var(--cream);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .pickup-day[aria-pressed="true"] {
+      background: var(--cream);
+      border-color: var(--cream);
+      color: var(--deep-brown);
+    }
+
+    .pickup-day:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    .pickup-day strong {
+      display: block;
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .pickup-day .pickup-day-meta {
+      display: block;
+      font-size: .92rem;
+      opacity: .85;
+    }
+
+    .pickup-day .pickup-day-status {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: var(--terracotta);
+      color: white;
+      font-size: .85rem;
+      font-weight: 600;
+    }
+
+    .loaf-warning {
+      background: #fff;
+      color: #8f1d00;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
     .field-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -534,6 +633,10 @@
 
     @media (max-width: 800px) {
 
+      .mode-options {
+        grid-template-columns: 1fr;
+      }
+
       .shop-grid {
         grid-template-columns: 1fr;
       }
@@ -676,7 +779,7 @@
   <section class="shop-header">
 
     <h1 class="shop-title">
-      Order Delivery
+      Order Bread
     </h1>
 
     <p class="shop-subtitle">
@@ -684,7 +787,7 @@
     </p>
 
     <p class="shop-subtitle">
-      Local delivery <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>
+      Pick your loaves, then choose delivery or pickup
     </p>
 
   </section>
@@ -788,7 +891,7 @@
       <span id="cart-subtotal">$0.00</span>
     </div>
 
-    <div class="cart-line">
+    <div class="cart-line" id="cart-fee-line" hidden>
       <span>Delivery</span>
       <span id="cart-fee">Enter your address</span>
     </div>
@@ -819,97 +922,174 @@
     <form id="order-form" class="delivery-form" novalidate>
 
       <!-- =========================
-           DELIVERY DETAILS
+           DELIVERY OR PICKUP
       ========================== -->
 
       <h3 class="section-label">
-        Delivery Details
+        How would you like your bread?
       </h3>
 
-      <p class="delivery-note">
-        We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
-      </p>
+      <div class="mode-options" role="group" aria-label="Delivery or pickup">
 
-      <div class="field-grid">
+        <button type="button" class="mode-option" data-mode="delivery" aria-pressed="false">
+          <strong>Delivery</strong>
+          <span id="delivery-mode-summary">To your door, within 4 miles of Menlo Park</span>
+        </button>
 
-        <div class="field">
-          <label for="customer-name">Full name</label>
-          <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
-        </div>
+        <button type="button" class="mode-option" data-mode="pickup" aria-pressed="false">
+          <strong>Pickup</strong>
+          <span id="pickup-mode-summary">Loading pickup days…</span>
+        </button>
 
-        <div class="field">
-          <label for="customer-phone">Phone</label>
-          <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
-        </div>
+      </div>
 
-        <div class="field field-wide">
-          <label for="address-line1">Street address</label>
-          <input id="address-line1" name="line1" type="text" autocomplete="address-line1" maxlength="200" required />
-        </div>
 
-        <div class="field field-wide">
-          <label for="address-line2">Apt, suite, unit <span class="optional">(optional)</span></label>
-          <input id="address-line2" name="line2" type="text" autocomplete="address-line2" maxlength="100" />
-        </div>
+      <!-- =========================
+           YOUR DETAILS
+      ========================== -->
 
-        <div class="field">
-          <label for="address-city">City</label>
-          <input id="address-city" name="city" type="text" autocomplete="address-level2" maxlength="100" required />
-        </div>
+      <div id="contact-details" hidden>
 
-        <div class="field">
-          <label for="address-zip">ZIP code</label>
-          <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" required />
-        </div>
+        <h3 class="section-label">
+          Your Details
+        </h3>
 
-        <div class="field field-wide">
-          <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
-          <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
+        <div class="field-grid">
+
+          <div class="field">
+            <label for="customer-name">Full name</label>
+            <input id="customer-name" name="name" type="text" autocomplete="name" maxlength="100" required />
+          </div>
+
+          <div class="field">
+            <label for="customer-phone">Phone</label>
+            <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
+          </div>
+
         </div>
 
       </div>
 
-      <div
-        id="address-status"
-        class="address-status"
-        aria-live="polite"
-      ></div>
+
+      <!-- =========================
+           DELIVERY DETAILS
+      ========================== -->
+
+      <div id="delivery-details" hidden>
+
+        <h3 class="section-label">
+          Delivery Address
+        </h3>
+
+        <p class="delivery-note">
+          We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
+        </p>
+
+        <div class="field-grid">
+
+          <div class="field field-wide">
+            <label for="address-line1">Street address</label>
+            <input id="address-line1" name="line1" type="text" autocomplete="address-line1" maxlength="200" />
+          </div>
+
+          <div class="field field-wide">
+            <label for="address-line2">Apt, suite, unit <span class="optional">(optional)</span></label>
+            <input id="address-line2" name="line2" type="text" autocomplete="address-line2" maxlength="100" />
+          </div>
+
+          <div class="field">
+            <label for="address-city">City</label>
+            <input id="address-city" name="city" type="text" autocomplete="address-level2" maxlength="100" />
+          </div>
+
+          <div class="field">
+            <label for="address-zip">ZIP code</label>
+            <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" />
+          </div>
+
+          <div class="field field-wide">
+            <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
+            <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
+          </div>
+
+        </div>
+
+        <div
+          id="address-status"
+          class="address-status"
+          aria-live="polite"
+        ></div>
+
+        <h3 class="section-label">
+          Delivery Date
+        </h3>
+
+        <p class="delivery-note">
+          We deliver <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>,
+          <span class="delivery-window">between 2 pm and 4 pm</span>.
+          Your order will be baked fresh that morning.
+        </p>
+
+        <label
+          class="delivery-date-label"
+          for="delivery-date"
+        >
+          Select your delivery date
+        </label>
+
+        <select
+          id="delivery-date"
+          name="deliveryDate"
+          class="delivery-date-select"
+        >
+          <option value="">Select a delivery date</option>
+        </select>
+
+      </div>
 
 
       <!-- =========================
-           DELIVERY DATE
+           PICKUP DETAILS
       ========================== -->
 
-      <h3 class="section-label">
-        Delivery Date
-      </h3>
+      <div id="pickup-details" hidden>
 
-      <p class="delivery-note">
-        We deliver <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>,
-        <span class="delivery-window">between 2 pm and 4 pm</span>.
-        Your order will be baked fresh that morning.
-      </p>
+        <h3 class="section-label">
+          Pickup Day
+        </h3>
 
+        <p class="delivery-note" id="pickup-note">
+          Choose a pickup day. Your order will be baked fresh that morning.
+        </p>
 
-      <label
-        class="delivery-date-label"
-        for="delivery-date"
-      >
-        Select your delivery date
-      </label>
+        <div id="pickup-days" class="pickup-days"></div>
 
-      <select
-        id="delivery-date"
-        name="deliveryDate"
-        class="delivery-date-select"
-        required
-      >
+        <p id="no-pickup-days" class="delivery-note" hidden>
+          No pickups are scheduled right now — check back soon, or choose delivery.
+        </p>
 
-        <option value="">
-          Select a delivery date
-        </option>
+        <p id="loaf-warning" class="loaf-warning" hidden></p>
 
-      </select>
+        <div id="pickup-slot-field" hidden>
+
+          <label
+            class="delivery-date-label"
+            for="pickup-slot"
+          >
+            Select your pickup time
+          </label>
+
+          <select
+            id="pickup-slot"
+            name="slot"
+            class="delivery-date-select"
+          >
+            <option value="">Select a pickup time</option>
+          </select>
+
+        </div>
+
+      </div>
 
 
       <div
@@ -933,6 +1113,7 @@
 
       <p class="stripe-note">
         You'll enter your email and card details on the next page.
+        <span id="hold-note" hidden>Your loaves are held for <span id="hold-minutes">30</span> minutes while you pay.</span>
         Secure payment powered by Stripe.
       </p>
 

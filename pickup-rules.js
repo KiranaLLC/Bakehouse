@@ -1,9 +1,9 @@
 /**
- * Pickup "drop" rules shared by the pickup page, the admin page and the
- * worker: time slots, drop status and local-time handling.
+ * Pickup day rules shared by the order page, the admin page and the worker:
+ * time slots, status and local-time handling.
  *
- * Drops store their date and times in the bakery's time zone (PICKUP.timeZone);
- * the moments orders open and close are stored as UTC timestamps.
+ * Pickup days store their date and times in the bakery's time zone
+ * (PICKUP.timeZone); the order cutoff is stored as a UTC timestamp.
  */
 import { PICKUP } from "./macros.js";
 
@@ -84,29 +84,26 @@ export function utcToLocal(iso, timeZone = PICKUP.timeZone) {
 
 /*
 ==================================================
-DROPS
+PICKUP DAYS
 ==================================================
 */
 
-// All pickup times for a drop, e.g. 10:00, 10:15 … up to (not including) the window end.
-export function getPickupSlots(drop) {
+// All pickup times for a day, e.g. 10:00, 10:15 … up to (not including) the window end.
+export function getPickupSlots(day) {
   const slots = [];
-  const end = timeToMinutes(drop.windowEnd);
-  for (let minutes = timeToMinutes(drop.windowStart); minutes < end; minutes += drop.slotMinutes) {
+  const end = timeToMinutes(day.windowEnd);
+  for (let minutes = timeToMinutes(day.windowStart); minutes < end; minutes += day.slotMinutes) {
     const value = minutesToTime(minutes);
     slots.push({ value, label: formatTime(value) });
   }
   return slots;
 }
 
-// "upcoming" (orders not open yet), "open", or "closed"
-export function getDropStatus(drop, now = new Date()) {
-  const time = now.getTime();
-  if (time < new Date(drop.opensAt).getTime()) return "upcoming";
-  if (time >= new Date(drop.closesAt).getTime()) return "closed";
-  return "open";
+// "open" until the order cutoff, then "closed"
+export function getPickupDayStatus(day, now = new Date()) {
+  return now.getTime() >= new Date(day.closesAt).getTime() ? "closed" : "open";
 }
 
-export function describePickupWindow(drop) {
-  return `${formatTime(drop.windowStart)} – ${formatTime(drop.windowEnd)}`;
+export function describePickupWindow(day) {
+  return `${formatTime(day.windowStart)} – ${formatTime(day.windowEnd)}`;
 }

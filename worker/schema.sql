@@ -1,7 +1,7 @@
--- Pickup drops and their orders. Apply with (from the worker folder):
+-- Pickup days and their orders. Apply with (from the worker folder):
 --   npx wrangler d1 execute kirana-orders --remote --file=schema.sql
 
-CREATE TABLE IF NOT EXISTS drops (
+CREATE TABLE IF NOT EXISTS pickup_days (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   address TEXT NOT NULL,
@@ -11,15 +11,14 @@ CREATE TABLE IF NOT EXISTS drops (
   slot_minutes INTEGER NOT NULL,
   max_orders_per_slot INTEGER,          -- NULL = no limit
   total_loaves INTEGER NOT NULL,
-  opens_at TEXT NOT NULL,               -- ISO UTC timestamp: when ordering opens
-  closes_at TEXT NOT NULL,              -- ISO UTC timestamp: when ordering closes
+  closes_at TEXT NOT NULL,              -- ISO UTC timestamp: order cutoff
   notes TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pickup_orders (
   id TEXT PRIMARY KEY,                  -- reservation id
-  drop_id INTEGER NOT NULL,
+  pickup_day_id INTEGER NOT NULL,
   session_id TEXT,                      -- Stripe Checkout Session
   status TEXT NOT NULL,                 -- pending | paid | cancelled
   slot TEXT NOT NULL,                   -- HH:MM
@@ -36,5 +35,5 @@ CREATE TABLE IF NOT EXISTS pickup_orders (
   paid_at TEXT
 );
 
-CREATE INDEX IF NOT EXISTS pickup_orders_drop ON pickup_orders (drop_id, status);
+CREATE INDEX IF NOT EXISTS pickup_orders_day ON pickup_orders (pickup_day_id, status);
 CREATE INDEX IF NOT EXISTS pickup_orders_session ON pickup_orders (session_id);

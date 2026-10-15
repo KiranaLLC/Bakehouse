@@ -1,8 +1,7 @@
 import { API, DELIVERY } from "./macros.js";
 import { formatMoney } from "./delivery-rules.js";
 
-// One key per ordering page; whichever one is set is the order that just went through.
-const STORAGE_KEYS = { delivery: "kirana-delivery-order", pickup: "kirana-pickup-order" };
+const STORAGE_KEY = "kirana-order";
 const LAST_ORDER_KEY = "kirana-last-order";
 const summary = document.getElementById("order-summary");
 const sessionId = new URLSearchParams(window.location.search).get("session_id");
@@ -14,18 +13,14 @@ let orderType = "delivery";
   welcome the customer back next time, and offer a link to reorder it.
 */
 try {
-  for (const [type, key] of Object.entries(STORAGE_KEYS)) {
-    const order = JSON.parse(sessionStorage.getItem(key));
-    if (!order) continue;
+  const order = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+  sessionStorage.removeItem(STORAGE_KEY);
 
-    sessionStorage.removeItem(key);
-    orderType = type;
-
-    if (sessionId) {
-      const { deliveryDate, dropId, slot, ...values } = order.values || {};
-      localStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ savedAt: Date.now(), cart: order.cart, tip: order.tip, values }));
-      showReorderLink(order.cart, type);
-    }
+  if (sessionId && order) {
+    if (order.values?.mode === "pickup") orderType = "pickup";
+    const { deliveryDate, pickupDayId, slot, ...values } = order.values || {};
+    localStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ savedAt: Date.now(), cart: order.cart, tip: order.tip, values }));
+    showReorderLink(order.cart, orderType);
   }
 } catch {
   // Storage can be unavailable (e.g. private browsing). Nothing to do.
@@ -44,7 +39,7 @@ function showReorderLink(cart, type) {
   if (items.length === 0) return;
 
   // Built by hand so the link stays readable (":" and "," are safe in a query string).
-  const url = new URL(`${type === "pickup" ? "pickup" : "order"}.html?reorder=${items.join(",")}`, window.location.href);
+  const url = new URL(`order.html?reorder=${items.join(",")}${type === "pickup" ? "&mode=pickup" : ""}`, window.location.href);
 
   const link = document.getElementById("reorder-link");
   link.href = url.toString();

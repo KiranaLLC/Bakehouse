@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>Pickup Drops | Kirana Bakehouse</title>
+  <title>Pickup Days | Kirana Bakehouse</title>
   <link rel="stylesheet" href="./styles.css?v=1800" />
   <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk&display=swap" rel="stylesheet" />
   <style>
@@ -246,7 +246,7 @@
       <img src="./img/kirana_cream_logo.svg" alt="Kirana Bakehouse" class="logo-image" />
     </a>
     <nav class="desktop-nav">
-      <a href="pickup.html" class="ig-link">Pickup page</a>
+      <a href="order.html?mode=pickup" class="ig-link">Order page</a>
     </nav>
   </div>
 </header>
@@ -255,8 +255,8 @@
 
   <!-- LOGIN -->
   <section id="login" class="admin-card login-box">
-    <h1>Pickup drops</h1>
-    <p class="admin-intro">Enter the admin password to manage pickup drops and see orders.</p>
+    <h1>Pickup days</h1>
+    <p class="admin-intro">Enter the admin password to schedule pickup days and see orders.</p>
     <form id="login-form">
       <label for="password">Password</label>
       <input id="password" type="password" autocomplete="current-password" required />
@@ -268,28 +268,28 @@
   <!-- DROPS -->
   <section id="dashboard" hidden>
 
-    <h1>Pickup drops</h1>
+    <h1>Pickup days</h1>
     <p class="admin-intro">
-      Each drop is one pickup: its own address, date, pickup window and total number of loaves.
-      Customers order on the <a href="pickup.html">pickup page</a>.
+      Each pickup day has its own address, pickup window, total number of loaves and order cutoff.
+      It appears on the <a href="order.html?mode=pickup">order page</a> as soon as it's saved.
       <button type="button" id="logout" class="admin-button" style="margin-left:10px">Log out</button>
     </p>
 
     <div id="message" class="admin-message" hidden></div>
 
     <div class="admin-actions">
-      <button type="button" id="new-drop" class="admin-button primary">+ New drop</button>
+      <button type="button" id="new-drop" class="admin-button primary">+ New pickup day</button>
       <button type="button" id="refresh" class="admin-button">Refresh</button>
     </div>
 
     <!-- DROP FORM -->
     <section id="drop-form-card" class="admin-card" hidden>
-      <h2 id="drop-form-title">New drop</h2>
+      <h2 id="drop-form-title">New pickup day</h2>
       <form id="drop-form" class="admin-form" novalidate>
         <input type="hidden" id="drop-id" />
 
         <div class="wide">
-          <label for="drop-name">Name <span class="hint">e.g. "Downtown Palo Alto Saturday"</span></label>
+          <label for="drop-name">Location name <span class="hint">e.g. "Downtown Palo Alto"</span></label>
           <input id="drop-name" maxlength="80" required />
         </div>
 
@@ -328,13 +328,8 @@
           <input id="drop-max-slot" type="number" min="1" max="100" />
         </div>
 
-        <div>
-          <label for="drop-opens">Ordering opens</label>
-          <input id="drop-opens" type="datetime-local" required />
-        </div>
-
-        <div>
-          <label for="drop-closes">Ordering closes <span class="hint">must be before the pickup window ends</span></label>
+        <div class="wide">
+          <label for="drop-closes">Ordering closes <span class="hint">suggested: 11:59 pm the evening before, so you know what to bake</span></label>
           <input id="drop-closes" type="datetime-local" required />
         </div>
 
@@ -344,7 +339,7 @@
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="admin-button primary" id="save-drop">Save drop</button>
+          <button type="submit" class="admin-button primary" id="save-drop">Save pickup day</button>
           <button type="button" class="admin-button" id="cancel-drop">Cancel</button>
         </div>
       </form>

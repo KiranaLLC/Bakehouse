@@ -401,6 +401,7 @@ async function getStatus(env) {
   try {
     const count = env.DB ? await env.DB.prepare("SELECT COUNT(*) AS count FROM pickup_days").first("count") : null;
     status.pickupDatabase = env.DB ? `OK — ${count} pickup day${count === 1 ? "" : "s"}` : "not set up (see README: npx wrangler d1 create kirana-orders)";
+    if (env.DB) status.pickupSchema = await checkPickupSchema(env);
   } catch (error) {
     status.pickupDatabase = `Database error: ${error.message} (did you run the schema.sql step?)`;
   }
@@ -423,6 +424,14 @@ async function getStatus(env) {
 
   return status;
 
+}
+
+// Catches tables created from an older schema.sql (orders would fail with "Something went wrong").
+async function checkPickupSchema(env) {
+  const { results } = await env.DB.prepare("PRAGMA table_info(pickup_orders)").all();
+  const columns = Object.fromEntries(results.map(column => [column.name, column]));
+  const outdated = columns.slot || columns.customer_phone?.notnull || !columns.customer_name?.dflt_value;
+  return outdated ? "OUTDATED — see README: Updating the database" : "OK";
 }
 
 /*

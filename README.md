@@ -130,6 +130,18 @@ else. Changed dates and all orders are stored in a small Cloudflare database
    show `pickupDatabase: OK`, `adminPasswordSet: true` and
    `stripeWebhookSecretSet: true`.
 
+**Updating the database** (only if `/api/status` shows `pickupSchema:
+OUTDATED`, which happens when the tables were created from an older
+`schema.sql`): from the `worker` folder run
+
+```
+npx wrangler d1 execute kirana-orders --remote --command "DROP TABLE IF EXISTS pickup_orders; DROP TABLE IF EXISTS pickup_days;"
+npx wrangler d1 execute kirana-orders --remote --file=schema.sql
+```
+
+This clears any test orders and pickup-day edits; the weekly schedule comes
+back automatically.
+
 **Changing the weekly schedule** (day, time, place, loaves): edit
 `PICKUP.schedule` in `macros.js`, push to `main`, and run `npx wrangler
 deploy` from the `worker` folder. Dates you've already edited on the admin

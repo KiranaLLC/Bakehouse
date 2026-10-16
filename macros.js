@@ -223,6 +223,10 @@ export const DELIVERY_SERVICE = Object.freeze({
   userAgent: "Kirana-Bakehouse-Delivery-Checker/1.0 (hellokiranabakehouse@gmail.com)",
   countryCode: "us",
   geocoderUrl: "https://nominatim.openstreetmap.org/search",
+  // Driving distance comes from OpenRouteService (free key, see README);
+  // if it's unavailable the straight-line distance is used instead.
+  routingUrl: "https://api.openrouteservice.org/v2/directions/driving-car",
+  metersPerMile: 1609.344,
   earthRadiusMiles: 3958.8,
   zones: Object.freeze([
     Object.freeze({ maxMiles: 1, feeCents: 0, freeOverCents: 0 }),

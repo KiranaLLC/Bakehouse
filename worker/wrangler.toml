@@ -15,9 +15,11 @@ ALLOWED_ORIGINS = "https://www.kiranabakehouse.com,https://kiranabakehouse.com,h
 #   npx wrangler secret put STRIPE_SECRET_KEY
 # For local testing, put it in worker/.dev.vars instead (never committed).
 
-# ADMIN_PASSWORD (for admin.html) and STRIPE_WEBHOOK_SECRET are secrets too:
+# ADMIN_PASSWORD (for admin.html), STRIPE_WEBHOOK_SECRET and ROUTING_API_KEY
+# (OpenRouteService, for driving distances) are secrets too:
 #   npx wrangler secret put ADMIN_PASSWORD
 #   npx wrangler secret put STRIPE_WEBHOOK_SECRET
+#   npx wrangler secret put ROUTING_API_KEY
 
 # Database for pickup drops and orders. Create it once with
 #   npx wrangler d1 create kirana-orders

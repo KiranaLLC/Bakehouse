@@ -64,6 +64,7 @@ const GEOCODE_CACHE_LIMIT = 500;
 
 let originCoordinates;
 const geocodeCache = new Map();
+const distanceCache = new Map();
 
 export default {
 
@@ -83,7 +84,7 @@ export default {
       let result;
 
       if (method === "POST" && path === API.checkDelivery) {
-        result = await checkDelivery(await readJson(request));
+        result = await checkDelivery(await readJson(request), env);
       } else if (method === "POST" && path === API.checkDiscount) {
         result = findDiscount((await readJson(request)).code, env);
       } else if (method === "POST" && path === API.createCheckoutSession) {
@@ -193,7 +194,7 @@ DELIVERY AREA CHECK
 ==================================================
 */
 
-async function checkDelivery(body) {
+async function checkDelivery(body, env) {
 
   const address = typeof body.address === "string" ? cleanText(body.address, 300) : parseAddress(body.address);
 
@@ -201,7 +202,7 @@ async function checkDelivery(body) {
     throw new OrderValidationError("Please enter a delivery address.");
   }
 
-  const { distanceMiles, zone } = await checkDeliveryArea(address);
+  const { distanceMiles, zone } = await checkDeliveryArea(address, env);
 
   if (!zone) {
     return { deliverable: false, distanceMiles, message: `This address is outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.` };
@@ -227,7 +228,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const tipCents = parseTip(body.tipCents);
   const discount = body.discountCode ? findDiscount(body.discountCode, env) : null;
 
-  const { distanceMiles, zone } = await checkDeliveryArea(address);
+  const { distanceMiles, zone } = await checkDeliveryArea(address, env);
 
   if (!zone) {
     throw new OrderValidationError(`Sorry, this address is about ${distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`);
@@ -393,7 +394,8 @@ async function getStatus(env) {
     allowedOrigins: env.ALLOWED_ORIGINS || "not set",
     discountCodesSet: Boolean(env.DISCOUNT_CODES),
     adminPasswordSet: Boolean(env.ADMIN_PASSWORD),
-    stripeWebhookSecretSet: Boolean(env.STRIPE_WEBHOOK_SECRET)
+    stripeWebhookSecretSet: Boolean(env.STRIPE_WEBHOOK_SECRET),
+    drivingDistance: env.ROUTING_API_KEY ? "OK — OpenRouteService key set" : "not set (straight-line distance in use); run: npx wrangler secret put ROUTING_API_KEY"
   };
 
   try {
@@ -472,11 +474,45 @@ DELIVERY AREA
 ==================================================
 */
 
-async function checkDeliveryArea(address) {
+async function checkDeliveryArea(address, env) {
   const origin = await getOriginCoordinates();
   const destination = await geocodeAddress(address);
-  const distanceMiles = Number(calculateDistanceMiles(origin, destination).toFixed(1));
+  const distanceMiles = Number((await drivingDistanceMiles(origin, destination, env)).toFixed(1));
   return { distanceMiles, zone: findDeliveryZone(distanceMiles) };
+}
+
+/*
+  Driving distance along the roads, from
+  OpenRouteService. Falls back to the straight-line
+  distance if the routing key isn't set or the
+  service is unavailable, so ordering keeps working.
+*/
+async function drivingDistanceMiles(origin, destination, env) {
+
+  const cacheKey = `${destination.latitude},${destination.longitude}`;
+  if (distanceCache.has(cacheKey)) return distanceCache.get(cacheKey);
+
+  let miles;
+
+  if (env.ROUTING_API_KEY) {
+    try {
+      const url = `${DELIVERY_SERVICE.routingUrl}?start=${origin.longitude},${origin.latitude}&end=${destination.longitude},${destination.latitude}`;
+      const response = await fetch(url, { headers: { Authorization: env.ROUTING_API_KEY, Accept: "application/geo+json" } });
+      const data = await response.json();
+      const meters = data.features?.[0]?.properties?.summary?.distance;
+      if (!response.ok || !Number.isFinite(meters)) throw new Error(`Routing ${response.status}: ${JSON.stringify(data.error || data).slice(0, 200)}`);
+      miles = meters / DELIVERY_SERVICE.metersPerMile;
+    } catch (error) {
+      console.error("Driving distance unavailable, using straight line:", error.message);
+    }
+  }
+
+  if (miles === undefined) miles = calculateDistanceMiles(origin, destination);
+
+  if (distanceCache.size >= GEOCODE_CACHE_LIMIT) distanceCache.delete(distanceCache.keys().next().value);
+  distanceCache.set(cacheKey, miles);
+  return miles;
+
 }
 
 async function getOriginCoordinates() {

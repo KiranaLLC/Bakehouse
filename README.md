@@ -75,6 +75,20 @@ key and `npx wrangler deploy`.
 Also worth turning on in Stripe: customer email receipts for successful
 payments, and an email to you for each successful payment.
 
+### Driving distance (one-time setup)
+
+Delivery fees are based on the **driving distance** from the kitchen, as
+Google Maps would show it. The worker gets it from
+[OpenRouteService](https://openrouteservice.org), which is free (a free
+account allows 2,000 lookups a day). Without it, the worker falls back to
+the straight-line distance, which is shorter than the road distance.
+
+1. Sign up at https://openrouteservice.org/dev/#/signup and create an API key
+   (the free "standard" plan).
+2. From the `worker` folder, `npx wrangler secret put ROUTING_API_KEY` and
+   paste the key.
+3. `/api/status` on the worker should then show `drivingDistance: OK`.
+
 ### Pickup days (one-time setup)
 
 Regular pickups come from the **weekly schedule** in `macros.js`

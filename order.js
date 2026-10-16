@@ -22,7 +22,7 @@ import {
 import { createShop } from "./shop.js?v=3";
 
 const STORAGE_KEY = "kirana-order";
-const ADDRESS_CHECK_DELAY_MS = 800;
+const ADDRESS_CHECK_DELAY_MS = 400;
 const PICKUP_REFRESH_SECONDS = 60;
 
 const form = document.getElementById("order-form");
@@ -186,7 +186,9 @@ function scheduleAddressCheck() {
   }
 
   if (isAddressComplete(address)) {
-    addressCheckTimer = setTimeout(checkAddress, ADDRESS_CHECK_DELAY_MS);
+    // A complete ZIP code is a strong sign they've finished typing.
+    const delay = /^\d{5}$/.test(address.postalCode) && fields.postalCode === document.activeElement ? 0 : ADDRESS_CHECK_DELAY_MS;
+    addressCheckTimer = setTimeout(checkAddress, delay);
   }
 
 }
@@ -688,6 +690,12 @@ document.querySelectorAll(".mode-option").forEach(option => {
 ADDRESS_FIELDS.forEach(name => {
   fields[name].addEventListener("input", scheduleAddressCheck);
   fields[name].addEventListener("change", () => isAddressComplete(getAddress()) && checkAddress());
+  // Enter in an address box checks the address instead of submitting the whole form.
+  fields[name].addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (isAddressComplete(getAddress())) checkAddress();
+  });
 });
 
 Object.values(fields).forEach(field => {

@@ -193,7 +193,7 @@ export const PICKUP = Object.freeze({
       totalLoaves: 20,
       cutoffDaysBefore: 1,
       cutoffTime: "23:59",
-      notes: ""
+      notes: "Meet us in the outdoor seating area at Verve."
     })
   ])
 });
@@ -218,7 +218,7 @@ export const MONEY = Object.freeze({
 
 export const DELIVERY_SERVICE = Object.freeze({
   originAddress: "339 Trenton Way, Menlo Park, CA 94025",
-  maxMiles: 4,
+  maxMiles: 3,
   // Sent with address lookups so OpenStreetMap can contact us if needed.
   userAgent: "Kirana-Bakehouse-Delivery-Checker/1.0 (hellokiranabakehouse@gmail.com)",
   countryCode: "us",
@@ -227,7 +227,6 @@ export const DELIVERY_SERVICE = Object.freeze({
   zones: Object.freeze([
     Object.freeze({ maxMiles: 1, feeCents: 0, freeOverCents: 0 }),
     Object.freeze({ maxMiles: 2, feeCents: 300, freeOverCents: 5000 }),
-    Object.freeze({ maxMiles: 3, feeCents: 450, freeOverCents: 5000 }),
-    Object.freeze({ maxMiles: 4, feeCents: 600, freeOverCents: 5000 })
+    Object.freeze({ maxMiles: 3, feeCents: 450, freeOverCents: 5000 })
   ])
 });

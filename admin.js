@@ -9,7 +9,7 @@ worker, which checks the password on every call.
 ==================================================
 */
 
-import { API, PICKUP } from "./macros.js?v=4";
+import { API } from "./macros.js?v=4";
 import { formatMoney } from "./delivery-rules.js?v=4";
 
 const PASSWORD_KEY = "kirana-admin-password";
@@ -181,7 +181,7 @@ function renderDropList(container, list, emptyText) {
     const [name, when, address, timing] = card.querySelectorAll("h3, .admin-meta");
     name.textContent = drop.name;
     name.insertAdjacentHTML("beforeend", `<span class="badge ${statusLabel}">${statusText}</span>`);
-    when.textContent = `${drop.pickupDateLabel}, ${drop.windowLabel} · ${drop.slotMinutes}-minute slots${drop.maxOrdersPerSlot ? `, max ${drop.maxOrdersPerSlot} ${drop.maxOrdersPerSlot === 1 ? "order" : "orders"} per slot` : ""}`;
+    when.textContent = `${drop.pickupDateLabel}, ${drop.windowLabel}`;
     address.textContent = drop.address;
     timing.textContent = `Ordering closes ${drop.closesAtLabel}${drop.ruleKey ? " · from the weekly schedule" : " · one-off pickup"}`;
 
@@ -209,8 +209,6 @@ const formFields = {
   totalLoaves: document.getElementById("drop-loaves"),
   windowStart: document.getElementById("drop-start"),
   windowEnd: document.getElementById("drop-end"),
-  slotMinutes: document.getElementById("drop-slot"),
-  maxOrdersPerSlot: document.getElementById("drop-max-slot"),
   closesAtLocal: document.getElementById("drop-closes"),
   notes: document.getElementById("drop-notes")
 };
@@ -226,8 +224,6 @@ function newDrop() {
   formFields.totalLoaves.value = last?.totalLoaves || "";
   formFields.windowStart.value = last?.windowStart || "10:00";
   formFields.windowEnd.value = last?.windowEnd || "12:00";
-  formFields.slotMinutes.value = last?.slotMinutes || PICKUP.defaultSlotMinutes;
-  formFields.maxOrdersPerSlot.value = last?.maxOrdersPerSlot || "";
   formFields.closesAtLocal.value = "";
   formFields.notes.value = "";
 
@@ -247,8 +243,6 @@ function editDrop(drop) {
   formFields.totalLoaves.value = drop.totalLoaves;
   formFields.windowStart.value = drop.windowStart;
   formFields.windowEnd.value = drop.windowEnd;
-  formFields.slotMinutes.value = drop.slotMinutes;
-  formFields.maxOrdersPerSlot.value = drop.maxOrdersPerSlot || "";
   formFields.closesAtLocal.value = drop.closesAtLocal;
   formFields.notes.value = drop.notes;
 
@@ -279,8 +273,6 @@ async function saveDrop(event) {
     totalLoaves: Number(formFields.totalLoaves.value),
     windowStart: formFields.windowStart.value,
     windowEnd: formFields.windowEnd.value,
-    slotMinutes: Number(formFields.slotMinutes.value),
-    maxOrdersPerSlot: formFields.maxOrdersPerSlot.value ? Number(formFields.maxOrdersPerSlot.value) : null,
     closesAtLocal: formFields.closesAtLocal.value,
     notes: formFields.notes.value
   };
@@ -346,15 +338,14 @@ async function showOrders(drop) {
     body.innerHTML = "";
 
     if (data.orders.length === 0) {
-      body.innerHTML = '<tr><td colspan="4">No orders yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="3">No orders yet.</td></tr>';
     }
 
     data.orders.forEach(order => {
       const row = document.createElement("tr");
       row.className = order.status;
       const cells = [
-        order.slotLabel,
-        `${order.name}\n${order.phone}${order.email ? `\n${order.email}` : ""}`,
+        [order.name, order.email, order.phone].filter(Boolean).join("\n") || "—",
         order.items.map(item => `${item.quantity} × ${item.name}`).join("\n"),
         order.status === "paid" ? `${formatMoney(order.amountTotal || 0)}${order.discountCode ? ` (${order.discountCode})` : ""}` : "Paying now…"
       ];
@@ -389,7 +380,7 @@ async function copyOrders() {
     "",
     "Orders:",
     ...currentOrders.orders.filter(order => order.status === "paid").map(order =>
-      `  ${order.slotLabel}  ${order.name} (${order.phone})  ${order.items.map(item => `${item.quantity} × ${item.name}`).join(", ")}`)
+      `  ${[order.name, order.email, order.phone].filter(Boolean).join(", ")}  ${order.items.map(item => `${item.quantity} × ${item.name}`).join(", ")}`)
   ];
 
   const button = document.getElementById("copy-orders");

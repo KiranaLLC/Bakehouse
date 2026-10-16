@@ -18,7 +18,7 @@ try {
 
   if (sessionId && order) {
     if (order.values?.mode === "pickup") orderType = "pickup";
-    const { deliveryDate, pickupDayId, slot, ...values } = order.values || {};
+    const { deliveryDate, pickupDayId, ...values } = order.values || {};
     localStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ savedAt: Date.now(), cart: order.cart, tip: order.tip, values }));
     showReorderLink(order.cart, orderType);
   }
@@ -92,7 +92,7 @@ function renderOrderSummary(order) {
   delivery.className = "summary-delivery";
   if (order.type === "pickup") {
     delivery.append(
-      strong("Pickup: "), order.pickupSlot, document.createElement("br"),
+      strong("Pickup: "), order.pickupWhen, document.createElement("br"),
       strong("Where: "), order.pickupAddress, document.createElement("br"),
       strong("Name: "), order.name
     );

@@ -168,8 +168,11 @@ export const PICKUP = Object.freeze({
   timeZone: "America/Los_Angeles",
   // How long loaves are held for a customer while they pay on Stripe.
   holdMinutes: 30,
-  defaultSlotMinutes: 15,
   maxLoavesPerDay: 500,
+  // How many upcoming pickup days customers see at once.
+  maxDaysShown: 2,
+  // Below this many loaves left, the order page shows "< 5 remaining" (never the exact count).
+  fewLeftThreshold: 5,
   // How far ahead the weekly schedule is offered.
   bookingWindowDays: 28,
   /*
@@ -188,8 +191,6 @@ export const PICKUP = Object.freeze({
       address: "162 University Ave, Palo Alto, CA 94301",
       windowStart: "14:00",
       windowEnd: "15:00",
-      slotMinutes: 15,
-      maxOrdersPerSlot: null,
       totalLoaves: 20,
       cutoffDaysBefore: 1,
       cutoffTime: "23:59",

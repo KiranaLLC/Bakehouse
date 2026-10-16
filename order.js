@@ -35,8 +35,7 @@ const fields = {
   city: document.getElementById("address-city"),
   postalCode: document.getElementById("address-zip"),
   notes: document.getElementById("delivery-notes"),
-  deliveryDate: document.getElementById("delivery-date"),
-  slot: document.getElementById("pickup-slot")
+  deliveryDate: document.getElementById("delivery-date")
 };
 const ADDRESS_FIELDS = ["line1", "city", "postalCode"];
 const SAVED_FIELDS = Object.keys(fields);
@@ -70,9 +69,8 @@ shop = createShop({
     SAVED_FIELDS.forEach(name => {
       const value = values[name];
       if (typeof value !== "string") return;
-      // Dates and slots are only restored if they're still on offer.
+      // Dates are only restored if they're still on offer.
       if (name === "deliveryDate") { selectDeliveryDate(value); return; }
-      if (name === "slot") { fields.slot.dataset.wanted = value; return; }
       fields[name].value = value;
     });
     if (values.pickupDayId !== undefined && values.pickupDayId !== null) savedPickupDayId = values.pickupDayId;
@@ -96,7 +94,7 @@ function selectMode(newMode) {
     option.setAttribute("aria-pressed", String(option.dataset.mode === mode));
   });
 
-  document.getElementById("contact-details").hidden = !mode;
+  document.getElementById("contact-details").hidden = mode !== "delivery";
   document.getElementById("delivery-details").hidden = mode !== "delivery";
   document.getElementById("pickup-details").hidden = mode !== "pickup";
   document.getElementById("cart-fee-line").hidden = mode !== "delivery";
@@ -367,9 +365,9 @@ function showPickupDays(days) {
 
     const status = document.createElement("span");
     status.className = "pickup-day-status";
-    status.textContent = day.status === "sold_out" ? "Sold out" : day.status === "closed" ? "Ordering closed" : day.remaining === 1 ? "1 loaf left" : `${day.remaining} loaves left`;
+    status.textContent = day.status === "sold_out" ? "Sold out" : day.status === "closed" ? "Ordering closed" : day.fewLeft ? `< ${PICKUP.fewLeftThreshold} remaining` : "";
     status.title = `Order by ${day.closesAtLabel}`;
-    card.appendChild(status);
+    if (status.textContent) card.appendChild(status);
 
     card.addEventListener("click", () => {
       selectedPickupDay = day;
@@ -382,39 +380,8 @@ function showPickupDays(days) {
 
   });
 
-  document.getElementById("pickup-slot-field").hidden = !selectedPickupDay;
-  if (selectedPickupDay) renderSlots(selectedPickupDay);
-
   describeModes();
   updateLoafWarning();
-
-}
-
-function renderSlots(day) {
-
-  const pills = document.getElementById("pickup-slots");
-  const wanted = fields.slot.value || fields.slot.dataset.wanted || "";
-
-  pills.innerHTML = "";
-  fields.slot.value = day.slots.some(slot => slot.value === wanted && slot.available) ? wanted : "";
-  delete fields.slot.dataset.wanted;
-
-  day.slots.forEach(slot => {
-    const pill = document.createElement("button");
-    pill.type = "button";
-    pill.className = "pill";
-    pill.textContent = slot.label;
-    pill.disabled = !slot.available;
-    pill.title = slot.available ? "" : "This time is full";
-    pill.setAttribute("aria-pressed", String(slot.value === fields.slot.value));
-    pill.addEventListener("click", () => {
-      fields.slot.value = slot.value;
-      pills.querySelectorAll(".pill").forEach(other => other.setAttribute("aria-pressed", String(other === pill)));
-      shop.hideError();
-      shop.saveOrder();
-    });
-    pills.appendChild(pill);
-  });
 
 }
 
@@ -511,10 +478,13 @@ function validateForm() {
     );
   }
 
-  required.push(
-    ["name", "Please enter your name."],
-    ["phone", `Please enter your phone number so we can reach you on ${mode} day.`]
-  );
+  // Pickup orders need no details from us: Stripe collects the name and email.
+  if (mode === "delivery") {
+    required.push(
+      ["name", "Please enter your name."],
+      ["phone", "Please enter your phone number so we can reach you on delivery day."]
+    );
+  }
 
   for (const [name, message] of required) {
     if (!fields[name].value.trim() || !fields[name].checkValidity()) {
@@ -525,7 +495,7 @@ function validateForm() {
 
   const phoneDigits = fields.phone.value.replace(/\D/g, "");
 
-  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+  if (mode === "delivery" && (phoneDigits.length < 10 || phoneDigits.length > 15)) {
     fields.phone.setAttribute("aria-invalid", "true");
     return { message: "Please enter a valid phone number, including area code.", field: fields.phone };
   }
@@ -540,9 +510,6 @@ function validateForm() {
     }
     if (shop.getLoafCount() > selectedPickupDay.remaining) {
       return { message: `Only ${selectedPickupDay.remaining} loaves are left for this pickup — please reduce your order.`, field: document.getElementById("product-grid") };
-    }
-    if (!fields.slot.value) {
-      return { message: "Please choose a pickup time.", field: document.getElementById("pickup-slots") };
     }
   }
 
@@ -582,7 +549,6 @@ async function checkout(event) {
 
     const common = {
       items: shop.getCartItems(),
-      customer: { name: fields.name.value, phone: fields.phone.value },
       tipCents: shop.getTipCents(),
       discountCode: shop.getDiscount()?.code
     };
@@ -599,6 +565,7 @@ async function checkout(event) {
 
       data = await shop.postJson(API.createCheckoutSession, {
         ...common,
+        customer: { name: fields.name.value, phone: fields.phone.value },
         deliveryDate: fields.deliveryDate.value,
         address: getAddress(),
         notes: fields.notes.value
@@ -608,8 +575,7 @@ async function checkout(event) {
 
       data = await shop.postJson(API.createPickupCheckoutSession, {
         ...common,
-        pickupDayId: selectedPickupDay.id,
-        slot: fields.slot.value
+        pickupDayId: selectedPickupDay.id
       });
 
     }

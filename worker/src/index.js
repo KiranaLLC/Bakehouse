@@ -362,7 +362,7 @@ async function getOrderSummary(sessionId, env) {
   return {
     type: isPickup ? "pickup" : "delivery",
     email: session.customer_details?.email || "",
-    name: metadata.customer_name,
+    name: metadata.customer_name || session.customer_details?.name || "",
     deliveryDate: metadata.delivery_date_label,
     address: metadata.delivery_address,
     items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_subtotal ?? item.amount_total })),

@@ -14,8 +14,9 @@ A scheduled date that nobody has changed or
 ordered from yet has no database row; it gets
 one ("materialized") on the first order or edit.
 
-While a customer pays on Stripe their loaves and
-time slot are held (a "pending" order). The hold
+While a customer pays on Stripe their loaves are
+held (a "pending" order). Stripe collects their
+name and email at checkout; we ask for nothing else. The hold
 is released if the payment doesn't complete
 within PICKUP.holdMinutes.
 ==================================================
@@ -25,17 +26,16 @@ import { PICKUP, PRODUCTS } from "../../macros.js";
 import { calculateDiscount, calculateSubtotal } from "../../delivery-rules.js";
 import {
   formatMoment,
+  describePickupWindow,
   formatPickupDate,
-  formatPickupSlot,
-  formatTime,
+  formatPickupWhen,
   getPickupDayStatus,
-  getPickupSlots,
   getScheduledPickupDays,
   localToUtc,
   utcToLocal
 } from "../../pickup-rules.js";
 import { CONTACT_EMAIL, createDiscountCoupon, stripe, verifyWebhookSignature } from "./stripe.js";
-import { OrderValidationError, cleanText, findDiscount, parseCustomer, parseItems, parseTip } from "./validate.js";
+import { OrderValidationError, cleanText, findDiscount, parseItems, parseTip } from "./validate.js";
 
 const HOLD_GRACE_MINUTES = 2;
 
@@ -62,8 +62,6 @@ function rowToDay(row) {
     pickupDate: row.pickup_date,
     windowStart: row.window_start,
     windowEnd: row.window_end,
-    slotMinutes: row.slot_minutes,
-    maxOrdersPerSlot: row.max_orders_per_slot,
     totalLoaves: row.total_loaves,
     closesAt: row.closes_at
   };
@@ -122,8 +120,8 @@ async function materialize(env, day) {
   if (Number.isInteger(day.id)) return day;
 
   await db(env)
-    .prepare("INSERT OR IGNORE INTO pickup_days (name, address, notes, pickup_date, window_start, window_end, slot_minutes, max_orders_per_slot, total_loaves, closes_at, rule_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(day.name, day.address, day.notes, day.pickupDate, day.windowStart, day.windowEnd, day.slotMinutes, day.maxOrdersPerSlot, day.totalLoaves, day.closesAt, day.ruleKey, new Date().toISOString())
+    .prepare("INSERT OR IGNORE INTO pickup_days (name, address, notes, pickup_date, window_start, window_end, total_loaves, closes_at, rule_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(day.name, day.address, day.notes, day.pickupDate, day.windowStart, day.windowEnd, day.totalLoaves, day.closesAt, day.ruleKey, new Date().toISOString())
     .run();
 
   const row = await db(env).prepare("SELECT * FROM pickup_days WHERE rule_key = ? AND pickup_date = ?").bind(day.ruleKey, day.pickupDate).first();
@@ -131,25 +129,17 @@ async function materialize(env, day) {
 
 }
 
-// Loaves and slots taken by paid orders and by holds that haven't expired.
+// Loaves taken by paid orders and by holds that haven't expired.
 async function getAvailability(env, dayId, now) {
 
-  if (!Number.isInteger(dayId)) return { loavesTaken: 0, slotCounts: {} };
+  if (!Number.isInteger(dayId)) return { loavesTaken: 0 };
 
-  const { results } = await db(env)
-    .prepare("SELECT slot, loaves FROM pickup_orders WHERE pickup_day_id = ? AND (status = 'paid' OR (status = 'pending' AND expires_at > ?))")
+  const loavesTaken = await db(env)
+    .prepare("SELECT COALESCE(SUM(loaves), 0) AS loaves FROM pickup_orders WHERE pickup_day_id = ? AND (status = 'paid' OR (status = 'pending' AND expires_at > ?))")
     .bind(dayId, now.toISOString())
-    .all();
+    .first("loaves");
 
-  const slotCounts = {};
-  let loavesTaken = 0;
-
-  for (const row of results) {
-    loavesTaken += row.loaves;
-    slotCounts[row.slot] = (slotCounts[row.slot] || 0) + 1;
-  }
-
-  return { loavesTaken, slotCounts };
+  return { loavesTaken: loavesTaken || 0 };
 
 }
 
@@ -168,22 +158,20 @@ function describeDay(day, availability, now) {
     pickupDateLabel: formatPickupDate(day.pickupDate),
     windowStart: day.windowStart,
     windowEnd: day.windowEnd,
-    windowLabel: `${formatTime(day.windowStart)} – ${formatTime(day.windowEnd)}`,
-    slotMinutes: day.slotMinutes,
+    windowLabel: describePickupWindow(day),
+    whenLabel: formatPickupWhen(day),
     totalLoaves: day.totalLoaves,
     remaining,
+    // Customers only see "sold out" and a "fewer than N left" hint, never the count.
+    fewLeft: remaining > 0 && remaining <= PICKUP.fewLeftThreshold,
     closesAt: day.closesAt,
     closesAtLabel: formatMoment(day.closesAt),
-    status,
-    slots: getPickupSlots(day).map(slot => ({
-      ...slot,
-      available: !day.maxOrdersPerSlot || (availability.slotCounts[slot.value] || 0) < day.maxOrdersPerSlot
-    }))
+    status
   };
 
 }
 
-// The pickup days customers can see: anything still taking orders (and not skipped).
+// The pickup days customers can see: the next few still taking orders (and not skipped).
 export async function listPickupDays(env) {
 
   const now = new Date();
@@ -192,6 +180,7 @@ export async function listPickupDays(env) {
   for (const day of await getAllDays(env, now)) {
     if (day.totalLoaves === 0 || getPickupDayStatus(day, now) === "closed") continue;
     days.push(describeDay(day, await getAvailability(env, day.id, now), now));
+    if (days.length >= PICKUP.maxDaysShown) break;
   }
 
   return { days };
@@ -207,10 +196,8 @@ CREATE STRIPE CHECKOUT SESSION FOR A PICKUP
 export async function createPickupCheckoutSession(body, env, siteUrl) {
 
   const items = parseItems(body.items);
-  const customer = parseCustomer(body.customer, "on pickup day");
   const tipCents = parseTip(body.tipCents);
   const discount = body.discountCode ? findDiscount(body.discountCode, env) : null;
-  const slot = cleanText(body.slot, 5);
   const now = new Date();
 
   let day = await resolveDay(env, body.pickupDayId, now);
@@ -223,13 +210,9 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
     throw new OrderValidationError("Ordering for this pickup has closed.");
   }
 
-  if (!getPickupSlots(day).some(option => option.value === slot)) {
-    throw new OrderValidationError("Please choose a pickup time.");
-  }
-
   /*
   ==========================================
-  LOAVES AND SLOT AVAILABILITY
+  LOAVES AVAILABLE
   ==========================================
   */
 
@@ -241,10 +224,6 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
     throw new OrderValidationError(remaining <= 0
       ? "Sorry, this pickup has just sold out."
       : `Only ${remaining} ${remaining === 1 ? "loaf is" : "loaves are"} left for this pickup — please reduce your order.`);
-  }
-
-  if (day.maxOrdersPerSlot && (availability.slotCounts[slot] || 0) >= day.maxOrdersPerSlot) {
-    throw new OrderValidationError("That pickup time has just filled up — please choose another.");
   }
 
   /*
@@ -260,8 +239,8 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
   const expiresAt = new Date(now.getTime() + (PICKUP.holdMinutes + HOLD_GRACE_MINUTES) * 60 * 1000).toISOString();
 
   await db(env)
-    .prepare("INSERT INTO pickup_orders (id, pickup_day_id, status, slot, loaves, items, customer_name, customer_phone, tip_cents, discount_code, created_at, expires_at) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(reservationId, day.id, slot, loaves, JSON.stringify(items), customer.name, customer.phone, tipCents, discount?.code || null, now.toISOString(), expiresAt)
+    .prepare("INSERT INTO pickup_orders (id, pickup_day_id, status, loaves, items, tip_cents, discount_code, created_at, expires_at) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?)")
+    .bind(reservationId, day.id, loaves, JSON.stringify(items), tipCents, discount?.code || null, now.toISOString(), expiresAt)
     .run();
 
   try {
@@ -274,7 +253,7 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
 
     const subtotal = calculateSubtotal(items);
     const discountCents = discount ? calculateDiscount(discount.percent, subtotal, 0) : 0;
-    const slotLabel = formatPickupSlot(day.pickupDate, slot);
+    const whenLabel = formatPickupWhen(day);
 
     const lineItems = items.map(({ productId, quantity }) => ({
       price_data: { currency: "usd", product_data: { name: PRODUCTS[productId].name }, unit_amount: PRODUCTS[productId].price },
@@ -291,11 +270,8 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
       pickup_day_id: String(day.id),
       pickup_day_name: day.name,
       pickup_date: day.pickupDate,
-      pickup_slot: slot,
-      pickup_slot_label: slotLabel,
+      pickup_when_label: whenLabel,
       pickup_address: day.address,
-      customer_name: customer.name,
-      customer_phone: customer.phone,
       tip_cents: String(tipCents),
       discount_code: discount?.code || "",
       discount_cents: String(discountCents)
@@ -308,13 +284,13 @@ export async function createPickupCheckoutSession(body, env, siteUrl) {
       customer_creation: "always",
       expires_at: Math.floor(now.getTime() / 1000) + holdSeconds,
       payment_intent_data: {
-        description: `Kirana Bakehouse pickup — ${slotLabel}`,
+        description: `Kirana Bakehouse pickup — ${whenLabel}`,
         metadata
       },
       metadata,
       custom_text: {
         submit: {
-          message: `Pick up at ${day.address} on ${slotLabel}. Your loaves are held for ${PICKUP.holdMinutes} minutes while you pay.`
+          message: `Pick up at ${day.address} on ${whenLabel}. Your loaves are held for ${PICKUP.holdMinutes} minutes while you pay.`
         }
       },
       success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
@@ -378,8 +354,8 @@ export async function markPickupOrderPaid(env, session) {
   if (session.metadata?.order_type !== "pickup" || !env.DB) return;
 
   await db(env)
-    .prepare("UPDATE pickup_orders SET status = 'paid', paid_at = COALESCE(paid_at, ?), session_id = COALESCE(session_id, ?), customer_email = ?, amount_total = ? WHERE (id = ? OR session_id = ?) AND status != 'paid'")
-    .bind(new Date().toISOString(), session.id, session.customer_details?.email || null, session.amount_total ?? null, session.metadata.reservation_id || "", session.id)
+    .prepare("UPDATE pickup_orders SET status = 'paid', paid_at = COALESCE(paid_at, ?), session_id = COALESCE(session_id, ?), customer_name = ?, customer_phone = ?, customer_email = ?, amount_total = ? WHERE (id = ? OR session_id = ?) AND status != 'paid'")
+    .bind(new Date().toISOString(), session.id, session.customer_details?.name || "", session.customer_details?.phone || null, session.customer_details?.email || null, session.amount_total ?? null, session.metadata.reservation_id || "", session.id)
     .run();
 
 }
@@ -391,7 +367,7 @@ export function pickupSummary(session) {
     type: "pickup",
     pickupDayName: metadata.pickup_day_name,
     pickupDate: metadata.pickup_date,
-    pickupSlot: metadata.pickup_slot_label,
+    pickupWhen: metadata.pickup_when_label,
     pickupAddress: metadata.pickup_address
   };
 }
@@ -408,7 +384,6 @@ function adminDay(day, availability, stats, now) {
     ruleKey: day.ruleKey,
     scheduled: !Number.isInteger(day.id),
     skipped: day.totalLoaves === 0,
-    maxOrdersPerSlot: day.maxOrdersPerSlot,
     closesAtLocal: localInputValue(day.closesAt),
     loavesSold: stats.loavesSold || 0,
     ordersPaid: stats.ordersPaid || 0,
@@ -449,8 +424,6 @@ export async function adminSavePickupDay(body, env) {
   const pickupDate = cleanText(body.pickupDate, 10);
   const windowStart = cleanText(body.windowStart, 5);
   const windowEnd = cleanText(body.windowEnd, 5);
-  const slotMinutes = Number(body.slotMinutes) || PICKUP.defaultSlotMinutes;
-  const maxOrdersPerSlot = body.maxOrdersPerSlot ? Number(body.maxOrdersPerSlot) : null;
   const totalLoaves = Number(body.totalLoaves);
   const closesAtLocal = cleanText(body.closesAtLocal, 16);
 
@@ -460,8 +433,6 @@ export async function adminSavePickupDay(body, env) {
   if (!address) throw new OrderValidationError("Please enter the pickup address.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(pickupDate)) throw new OrderValidationError("Please choose the pickup date.");
   if (!timePattern.test(windowStart) || !timePattern.test(windowEnd) || windowStart >= windowEnd) throw new OrderValidationError("The pickup window must start before it ends.");
-  if (!Number.isInteger(slotMinutes) || slotMinutes < 5 || slotMinutes > 240) throw new OrderValidationError("Slot length must be between 5 and 240 minutes.");
-  if (maxOrdersPerSlot !== null && (!Number.isInteger(maxOrdersPerSlot) || maxOrdersPerSlot < 1)) throw new OrderValidationError("Max orders per slot must be a whole number.");
   if (!Number.isInteger(totalLoaves) || totalLoaves < 0 || totalLoaves > PICKUP.maxLoavesPerDay) throw new OrderValidationError(`Total loaves must be between 0 (skip this pickup) and ${PICKUP.maxLoavesPerDay}.`);
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(closesAtLocal)) throw new OrderValidationError("Please set when ordering closes.");
 
@@ -477,16 +448,16 @@ export async function adminSavePickupDay(body, env) {
 
   if (existing) {
     await db(env)
-      .prepare("UPDATE pickup_days SET name = ?, address = ?, notes = ?, pickup_date = ?, window_start = ?, window_end = ?, slot_minutes = ?, max_orders_per_slot = ?, total_loaves = ?, closes_at = ? WHERE id = ?")
-      .bind(name, address, notes, pickupDate, windowStart, windowEnd, slotMinutes, maxOrdersPerSlot, totalLoaves, closesAt, existing.id)
+      .prepare("UPDATE pickup_days SET name = ?, address = ?, notes = ?, pickup_date = ?, window_start = ?, window_end = ?, total_loaves = ?, closes_at = ? WHERE id = ?")
+      .bind(name, address, notes, pickupDate, windowStart, windowEnd, totalLoaves, closesAt, existing.id)
       .run();
 
     return { id: existing.id };
   }
 
   const result = await db(env)
-    .prepare("INSERT INTO pickup_days (name, address, notes, pickup_date, window_start, window_end, slot_minutes, max_orders_per_slot, total_loaves, closes_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(name, address, notes, pickupDate, windowStart, windowEnd, slotMinutes, maxOrdersPerSlot, totalLoaves, closesAt, new Date().toISOString())
+    .prepare("INSERT INTO pickup_days (name, address, notes, pickup_date, window_start, window_end, total_loaves, closes_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(name, address, notes, pickupDate, windowStart, windowEnd, totalLoaves, closesAt, new Date().toISOString())
     .run();
 
   return { id: result.meta.last_row_id };
@@ -519,11 +490,11 @@ export async function adminListOrders(dayId, env) {
   if (!day) throw new OrderValidationError("That pickup day doesn't exist.");
 
   if (!Number.isInteger(day.id)) {
-    return { day: describeDay(day, { loavesTaken: 0, slotCounts: {} }, now), orders: [], loafTotals: {} };
+    return { day: describeDay(day, { loavesTaken: 0 }, now), orders: [], loafTotals: {} };
   }
 
   const { results } = await db(env)
-    .prepare("SELECT * FROM pickup_orders WHERE pickup_day_id = ? AND (status = 'paid' OR (status = 'pending' AND expires_at > ?)) ORDER BY slot, paid_at, created_at")
+    .prepare("SELECT * FROM pickup_orders WHERE pickup_day_id = ? AND (status = 'paid' OR (status = 'pending' AND expires_at > ?)) ORDER BY paid_at, created_at")
     .bind(day.id, now.toISOString())
     .all();
 
@@ -539,12 +510,10 @@ export async function adminListOrders(dayId, env) {
     return {
       id: row.id,
       status: row.status,
-      slot: row.slot,
-      slotLabel: formatTime(row.slot),
       loaves: row.loaves,
       items,
       name: row.customer_name,
-      phone: row.customer_phone,
+      phone: row.customer_phone || "",
       email: row.customer_email || "",
       tipCents: row.tip_cents,
       discountCode: row.discount_code || "",

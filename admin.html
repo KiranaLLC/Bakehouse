@@ -310,23 +310,13 @@
         </div>
 
         <div>
-          <label for="drop-start">Pickup window starts</label>
+          <label for="drop-start">Pickup window starts <span class="hint">customers come anytime in the window</span></label>
           <input id="drop-start" type="time" required />
         </div>
 
         <div>
           <label for="drop-end">Pickup window ends</label>
           <input id="drop-end" type="time" required />
-        </div>
-
-        <div>
-          <label for="drop-slot">Time slot length <span class="hint">minutes</span></label>
-          <input id="drop-slot" type="number" min="5" max="240" step="5" value="15" required />
-        </div>
-
-        <div>
-          <label for="drop-max-slot">Max orders per time slot <span class="hint">leave empty for no limit</span></label>
-          <input id="drop-max-slot" type="number" min="1" max="100" />
         </div>
 
         <div class="wide">
@@ -354,7 +344,7 @@
       <div style="overflow-x:auto">
         <table class="orders-table">
           <thead>
-            <tr><th>Time</th><th>Customer</th><th>Loaves</th><th>Paid</th></tr>
+            <tr><th>Customer</th><th>Loaves</th><th>Paid</th></tr>
           </thead>
           <tbody id="orders-body"></tbody>
         </table>

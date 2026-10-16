@@ -1,6 +1,7 @@
 /**
  * Pickup day rules shared by the order page, the admin page and the worker:
- * time slots, status and local-time handling.
+ * pickup windows, status and local-time handling. Customers come anytime
+ * within a day's window; there are no time slots.
  *
  * Pickup days store their date and times in the bakery's time zone
  * (PICKUP.timeZone); the order cutoff is stored as a UTC timestamp.
@@ -28,24 +29,20 @@ export function formatPickupDate(date) {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString(LOCALE, { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" });
 }
 
-// "2026-11-01", "10:15" → "Saturday, November 1 at 10:15 am"
-export function formatPickupSlot(date, time) {
-  return `${formatPickupDate(date)} at ${formatTime(time)}`;
+// "2:00 pm – 3:00 pm"
+export function describePickupWindow(day) {
+  return `${formatTime(day.windowStart)} – ${formatTime(day.windowEnd)}`;
+}
+
+// "Saturday, November 1, anytime between 2:00 pm and 3:00 pm"
+export function formatPickupWhen(day) {
+  return `${formatPickupDate(day.pickupDate)}, anytime between ${formatTime(day.windowStart)} and ${formatTime(day.windowEnd)}`;
 }
 
 // UTC timestamp → "Sunday, October 26 at 6:00 pm" in the bakery's time zone
 export function formatMoment(iso) {
   const { date, time } = utcToLocal(iso);
-  return formatPickupSlot(date, time);
-}
-
-function timeToMinutes(time) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToTime(total) {
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  return `${formatPickupDate(date)} at ${formatTime(time)}`;
 }
 
 /*
@@ -88,24 +85,9 @@ PICKUP DAYS
 ==================================================
 */
 
-// All pickup times for a day, e.g. 10:00, 10:15 … up to (not including) the window end.
-export function getPickupSlots(day) {
-  const slots = [];
-  const end = timeToMinutes(day.windowEnd);
-  for (let minutes = timeToMinutes(day.windowStart); minutes < end; minutes += day.slotMinutes) {
-    const value = minutesToTime(minutes);
-    slots.push({ value, label: formatTime(value) });
-  }
-  return slots;
-}
-
 // "open" until the order cutoff, then "closed"
 export function getPickupDayStatus(day, now = new Date()) {
   return now.getTime() >= new Date(day.closesAt).getTime() ? "closed" : "open";
-}
-
-export function describePickupWindow(day) {
-  return `${formatTime(day.windowStart)} – ${formatTime(day.windowEnd)}`;
 }
 
 /*
@@ -146,8 +128,6 @@ export function getScheduledPickupDays(now = new Date()) {
         pickupDate,
         windowStart: rule.windowStart,
         windowEnd: rule.windowEnd,
-        slotMinutes: rule.slotMinutes || PICKUP.defaultSlotMinutes,
-        maxOrdersPerSlot: rule.maxOrdersPerSlot || null,
         totalLoaves: rule.totalLoaves,
         closesAt
       });

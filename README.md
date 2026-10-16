@@ -14,9 +14,10 @@ because the Stripe secret key can't live in public web pages.
      page asks the worker whether it is inside the delivery area and shows
      the fee. Then they pick a delivery date, and enter their name, phone
      and any delivery instructions.
-   - Pickup: they pick a pickup date (each shows the place, the pickup
-     window and how many loaves are left), then a pickup time, then their
-     name and phone.
+   - Pickup: they pick one of the next two pickup dates (each shows the
+     place and the pickup window; "< 5 remaining" appears when a date is
+     nearly sold out). They come anytime in the window, and we ask nothing
+     else: Stripe collects their name and email at payment.
 2. **Continue to Payment** sends the order to the worker, which re-checks
    everything (prices, quantities, dates, delivery area and fee, loaves
    left, tip and discount; the browser is never trusted for these) and
@@ -136,14 +137,15 @@ page keep their own settings.
 
 **A one-off pickup day:** open `https://www.kiranabakehouse.com/admin.html`,
 log in, click **+ New pickup day** and fill in the location name, address,
-pickup date, pickup window, slot length, total loaves and the order cutoff
-(Pacific time; the page suggests 11:59 pm the evening before). It appears on
-the order page under **Pickup** as soon as it's saved, showing "N loaves
-left" until it sells out or the cutoff passes. **Reset to schedule** on an
+pickup date, pickup window, total loaves and the order cutoff (Pacific
+time; the page suggests 11:59 pm the evening before). It appears on the order
+page under **Pickup** as soon as it's saved (customers see the next
+`PICKUP.maxDaysShown` dates, two by default) until it sells out or the
+cutoff passes. **Reset to schedule** on an
 edited weekly date puts it back to the schedule's settings.
 
-**On baking day:** open the pickup day's **Orders** on the admin page for the list
-by pickup time (name, phone, loaves) and the bake list totals; **Copy bake
+**On baking day:** open the pickup day's **Orders** on the admin page for the
+order list (name and email from Stripe, loaves) and the bake list totals; **Copy bake
 list** puts it on the clipboard. Loaves "on hold" belong to customers who are
 on Stripe's payment page right now.
 

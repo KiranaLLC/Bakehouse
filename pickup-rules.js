@@ -5,7 +5,7 @@
  * Pickup days store their date and times in the bakery's time zone
  * (PICKUP.timeZone); the order cutoff is stored as a UTC timestamp.
  */
-import { PICKUP } from "./macros.js?v=3";
+import { PICKUP } from "./macros.js?v=4";
 
 const LOCALE = "en-US";
 

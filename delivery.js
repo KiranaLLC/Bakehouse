@@ -1,4 +1,4 @@
-import { API, MONEY } from "./macros.js?v=3";
+import { API, MONEY } from "./macros.js?v=4";
 
 const form = document.getElementById("delivery-check-form");
 const addressInput = document.getElementById("delivery-address");

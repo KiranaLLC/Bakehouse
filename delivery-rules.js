@@ -2,7 +2,7 @@
  * Delivery and pricing rules shared by the order page and the checkout
  * server, so what the customer sees is exactly what they are charged.
  */
-import { DELIVERY, DELIVERY_SERVICE, MONEY, PRODUCTS } from "./macros.js?v=3";
+import { DELIVERY, DELIVERY_SERVICE, MONEY, PRODUCTS } from "./macros.js?v=4";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

@@ -9,8 +9,8 @@ worker, which checks the password on every call.
 ==================================================
 */
 
-import { API, PICKUP } from "./macros.js?v=3";
-import { formatMoney } from "./delivery-rules.js?v=3";
+import { API, PICKUP } from "./macros.js?v=4";
+import { formatMoney } from "./delivery-rules.js?v=4";
 
 const PASSWORD_KEY = "kirana-admin-password";
 

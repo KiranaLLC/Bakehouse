@@ -17,8 +17,8 @@ page (pickup.js). It works on these elements:
 ==================================================
 */
 
-import { API, BASE_INGREDIENTS, PRODUCTS, TIP } from "./macros.js?v=3";
-import { calculateDiscount, calculateSubtotal, formatMoney } from "./delivery-rules.js?v=3";
+import { API, BASE_INGREDIENTS, PRODUCTS, TIP } from "./macros.js?v=4";
+import { calculateDiscount, calculateSubtotal, formatMoney } from "./delivery-rules.js?v=4";
 
 const LAST_ORDER_KEY = "kirana-last-order";
 const REMEMBER_DAYS = 90;
@@ -120,6 +120,8 @@ export function createShop(options) {
             ${[...BASE_INGREDIENTS, ...(product.ingredients || [])].join(", ")}
           </p>
 
+          <div class="product-actions">
+
           <div class="product-price">
             ${formatMoney(product.price)}
           </div>
@@ -151,6 +153,8 @@ export function createShop(options) {
             >
               +
             </button>
+
+          </div>
 
           </div>
 

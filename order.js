@@ -11,15 +11,15 @@ pickup and the details each one needs.
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PICKUP } from "./macros.js?v=3";
+import { API, DELIVERY, DELIVERY_SERVICE, PICKUP } from "./macros.js?v=4";
 import {
   calculateDeliveryFee,
   calculateSubtotal,
   describeDeliveryDays,
   formatMoney,
   getDeliveryDates
-} from "./delivery-rules.js?v=3";
-import { createShop } from "./shop.js?v=3";
+} from "./delivery-rules.js?v=4";
+import { createShop } from "./shop.js?v=4";
 
 const STORAGE_KEY = "kirana-order";
 const ADDRESS_CHECK_DELAY_MS = 400;

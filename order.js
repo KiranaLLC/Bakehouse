@@ -223,8 +223,8 @@ async function checkAddress() {
       if (data.deliverable) {
         check.status = "valid";
         check.zone = { feeCents: data.feeCents, freeOverCents: data.freeOverCents };
-        check.message = data.freeOverCents > 0
-          ? `We deliver to you! About ${data.distanceMiles} miles away — delivery is free on orders over ${formatMoney(data.freeOverCents)}.`
+        check.message = data.feeCents > 0
+          ? `We deliver to you! About ${data.distanceMiles} miles away — delivery is ${formatMoney(data.feeCents)}, or free on orders over ${formatMoney(data.freeOverCents)}.`
           : `We deliver to you! About ${data.distanceMiles} miles away — delivery is free.`;
       } else {
         check.status = "invalid";

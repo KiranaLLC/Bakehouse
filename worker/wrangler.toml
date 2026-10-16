@@ -28,4 +28,4 @@ ALLOWED_ORIGINS = "https://www.kiranabakehouse.com,https://kiranabakehouse.com,h
 [[d1_databases]]
 binding = "DB"
 database_name = "kirana-orders"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "67ed528d-a7a6-48d4-a7f5-d11af6c02e30"

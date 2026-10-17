@@ -1,3 +1,5 @@
 # Copy to .dev.vars for local testing with `npx wrangler dev`. Never commit .dev.vars.
 STRIPE_SECRET_KEY=sk_test_replace_me
+STRIPE_WEBHOOK_SECRET=whsec_replace_me
+RESEND_API_KEY=re_replace_me
 SITE_URL=http://localhost:8000

@@ -64,7 +64,43 @@ works, run `npx wrangler secret put STRIPE_SECRET_KEY` again with your live
 key and `npx wrangler deploy`.
 
 Also worth turning on in Stripe: customer email receipts for successful
-payments, and an email to you for each successful payment.
+payments (Settings → Customer emails).
+
+### 4. Order emails
+
+Each paid order can be emailed to you with the loaves, delivery date,
+address, instructions, tip, discount and the customer's contact details.
+Stripe tells the worker about the payment, and the worker sends the email
+through [Resend](https://resend.com) (free for this volume).
+
+1. **Resend:** sign up at resend.com **with the Gmail address the orders
+   should go to** (Resend's shared sender only delivers to your own account
+   address; to send from `@kiranabakehouse.com` later, add the domain under
+   Domains and change `ORDER_EMAIL_FROM` in `worker/wrangler.toml`). Under
+   **API Keys** create a key, then from the `worker` folder:
+
+   ```bash
+   npx wrangler secret put RESEND_API_KEY
+   ```
+
+2. **Stripe:** Dashboard → Developers → Webhooks → **Add endpoint**, with the
+   URL `https://<your-worker>.workers.dev/api/stripe/webhook` and the single
+   event `checkout.session.completed`. Open the new endpoint, reveal its
+   **Signing secret** (`whsec_…`) and run:
+
+   ```bash
+   npx wrangler secret put STRIPE_WEBHOOK_SECRET
+   ```
+
+   Test and live mode each have their own webhooks and signing secrets.
+
+3. `npx wrangler deploy`, then check `/api/status` shows `orderEmails: OK`.
+   Place a test order (test mode) or use **Send test event** on the Stripe
+   webhook page; the email arrives within a few seconds. If not, the
+   webhook's **Event deliveries** tab in Stripe shows the worker's response.
+
+To change where the emails go, edit `ORDER_EMAIL_TO` in `worker/wrangler.toml`
+and redeploy.
 
 ### Discount codes
 

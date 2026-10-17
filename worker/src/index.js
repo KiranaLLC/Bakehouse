@@ -9,6 +9,7 @@ Runs on Cloudflare Workers. The website calls it to:
   POST /api/check-discount          is this discount code valid?
   POST /api/create-checkout-session start a Stripe payment for an order
   GET  /api/order-summary           details of a paid order, for the thank-you page
+  POST /api/stripe/webhook          Stripe tells us a payment completed → email the bakery
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
 IMPORTANT:
@@ -29,7 +30,9 @@ import {
   formatDeliverySlot,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
+import { handleStripeWebhook } from "./notify.js";
 
+const STRIPE_WEBHOOK_PATH = "/api/stripe/webhook";
 const STRIPE_API = "https://api.stripe.com/v1";
 const GEOCODE_CACHE_LIMIT = 500;
 
@@ -62,6 +65,8 @@ export default {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
         result = await getOrderSummary(url.searchParams.get("session_id"), env);
+      } else if (request.method === "POST" && url.pathname === STRIPE_WEBHOOK_PATH) {
+        result = await handleStripeWebhook(request, env, id => stripe(env, "GET", `/checkout/sessions/${id}`, { "expand[]": "line_items" }));
       } else if (request.method === "GET" && url.pathname === "/api/status") {
         result = await getStatus(env);
       } else {
@@ -77,7 +82,7 @@ export default {
       }
 
       console.error(error);
-      return json({ error: error.publicMessage || "Something went wrong. Please try again." }, 500, corsHeaders);
+      return json({ error: error.publicMessage || "Something went wrong. Please try again." }, error.status || 500, corsHeaders);
 
     }
 
@@ -347,7 +352,8 @@ async function getStatus(env) {
     stripeKeySet: Boolean(key),
     stripeKeyLooksLike: key ? `${key.slice(0, 8)}… (${key.length} characters)` : "not set",
     siteUrl: env.SITE_URL || "not set",
-    allowedOrigins: env.ALLOWED_ORIGINS || "not set"
+    allowedOrigins: env.ALLOWED_ORIGINS || "not set",
+    orderEmails: describeOrderEmailSetup(env)
   };
 
   if (!key) {
@@ -368,6 +374,15 @@ async function getStatus(env) {
 
   return status;
 
+}
+
+// Everything the new-order email needs, in one line.
+function describeOrderEmailSetup(env) {
+  const missing = [];
+  if (!env.STRIPE_WEBHOOK_SECRET) missing.push("STRIPE_WEBHOOK_SECRET");
+  if (!env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
+  if (missing.length) return `not set up — run: npx wrangler secret put ${missing.join(" / ")} (see README: Order emails)`;
+  return `OK — each paid order is emailed to ${env.ORDER_EMAIL_TO} from ${env.ORDER_EMAIL_FROM}`;
 }
 
 /*

@@ -10,15 +10,7 @@ compatibility_date = "2025-09-01"
 SITE_URL = "https://www.kiranabakehouse.com"
 # Websites allowed to call this worker, comma-separated.
 ALLOWED_ORIGINS = "https://www.kiranabakehouse.com,https://kiranabakehouse.com,http://localhost:8000"
-# Where the new-order email goes (comma-separated for more than one address).
-ORDER_EMAIL_TO = "hellokiranabakehouse@gmail.com"
-# Who it comes from. Resend's shared onboarding@resend.dev sender can only
-# deliver to the email address of your Resend account; to send from your own
-# domain, verify kiranabakehouse.com in Resend and use e.g.
-# "Kirana Bakehouse <orders@kiranabakehouse.com>".
-ORDER_EMAIL_FROM = "Kirana Bakehouse <onboarding@resend.dev>"
 
-# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and RESEND_API_KEY are secrets, not
-# vars. Set each with:
+# STRIPE_SECRET_KEY is a secret, not a var. Set it with:
 #   npx wrangler secret put STRIPE_SECRET_KEY
 # For local testing, put it in worker/.dev.vars instead (never committed).

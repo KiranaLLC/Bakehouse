@@ -140,5 +140,7 @@ To run the worker's tests (no Stripe account or network needed):
 cd worker && npm test
 ```
 
-Once `WORKER_URL` in `macros.js` points at your deployed worker, the local
-page talks to that worker and Terminal 2 isn't needed.
+On localhost the order page always uses the worker from Terminal 2, never the
+live one, so local test orders go to your Stripe test account. If Terminal 2
+isn't running, the order page says it can't reach the ordering system; the
+other pages work as normal.

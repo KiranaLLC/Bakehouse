@@ -8,6 +8,7 @@ Runs on Cloudflare Workers. The website calls it to:
   POST /api/check-delivery          is this address in the delivery area?
   POST /api/check-discount          is this discount code valid?
   POST /api/create-checkout-session start a Stripe payment for an order
+  GET  /api/capacity                loaves still available on each delivery date
   GET  /api/order-summary           details of a paid order, for the thank-you page
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
@@ -27,8 +28,19 @@ import {
   findDeliveryZone,
   formatDeliveryDate,
   formatDeliverySlot,
+  getDeliveryDates,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
+import {
+  CHECKOUT_HOLD_SECONDS,
+  countLoaves,
+  describeShortfall,
+  holdsCapacity,
+  loavesFromLineItems,
+  loavesFromMetadata,
+  lookbackSeconds,
+  remainingLoaves
+} from "./capacity.js";
 
 const STRIPE_API = "https://api.stripe.com/v1";
 const GEOCODE_CACHE_LIMIT = 500;
@@ -60,6 +72,8 @@ export default {
         result = findDiscount((await readJson(request)).code, env);
       } else if (request.method === "POST" && url.pathname === API.createCheckoutSession) {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
+      } else if (request.method === "GET" && url.pathname === API.capacity) {
+        result = await getCapacity(url.searchParams.get("exclude"), env);
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
         result = await getOrderSummary(url.searchParams.get("session_id"), env);
       } else if (request.method === "GET" && url.pathname === "/api/status") {
@@ -168,11 +182,31 @@ async function createCheckoutSession(body, env, siteUrl) {
   const notes = cleanText(body.notes, DELIVERY.notesMaxLength);
   const tipCents = parseTip(body.tipCents);
   const discount = body.discountCode ? findDiscount(body.discountCode, env) : null;
+  const loafCount = countLoaves(items);
 
   const { distanceMiles, zone } = await checkDeliveryArea(address);
 
   if (!zone) {
     throw new OrderValidationError(`Sorry, this address is about ${distanceMiles} miles away, outside our ${DELIVERY_SERVICE.maxMiles}-mile delivery area.`);
+  }
+
+  /*
+  ==========================================
+  DAILY CAPACITY
+
+  If this customer already started a payment
+  (and came back to change their order), let
+  that one go first so their own loaves don't
+  count against them twice.
+  ==========================================
+  */
+
+  const released = await releaseCheckoutSession(body.previousSessionId, env);
+  const booked = await getBookedLoaves(env, [deliveryDate], released);
+  const remaining = remainingLoaves(booked.get(deliveryDate) || 0);
+
+  if (loafCount > remaining) {
+    throw new OrderValidationError(describeShortfall(remaining, loafCount, formatDeliveryDate(deliveryDate)));
   }
 
   const subtotal = calculateSubtotal(items);
@@ -219,6 +253,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const metadata = {
     delivery_date: deliveryDate,
     delivery_date_label: deliverySlotLabel,
+    loaf_count: String(loafCount),
     customer_name: customer.name,
     customer_phone: customer.phone,
     delivery_address: addressLine,
@@ -266,6 +301,8 @@ async function createCheckoutSession(body, env, siteUrl) {
 
   const session = await stripe(env, "POST", "/checkout/sessions", {
     mode: "payment",
+    // Holds this order's loaves only while the customer is paying.
+    expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_HOLD_SECONDS,
     line_items: lineItems,
     discounts,
     customer_creation: "always",
@@ -295,8 +332,92 @@ async function createCheckoutSession(body, env, siteUrl) {
     cancel_url: `${siteUrl}/order.html?cancelled=true`
   });
 
-  return { url: session.url };
+  return { url: session.url, id: session.id };
 
+}
+
+/*
+==================================================
+CAPACITY (order page)
+
+Loaves still available on each date a customer
+can choose. "exclude" is the customer's own
+unfinished payment, if they came back from it.
+==================================================
+*/
+
+async function getCapacity(excludeSessionId, env) {
+
+  const dates = getDeliveryDates().map(({ value }) => value);
+  const booked = await getBookedLoaves(env, dates, null, excludeSessionId);
+
+  return {
+    limit: DELIVERY.dailyLoafLimit,
+    dates: dates.map(value => ({ value, remaining: remainingLoaves(booked.get(value) || 0) }))
+  };
+
+}
+
+/*
+  Loaves booked per delivery date, as a Map of
+  "YYYY-MM-DD" → count, for the given dates only.
+  ignoreSessionId is skipped whatever its state;
+  ignoreOpenSessionId only while it is unpaid.
+*/
+async function getBookedLoaves(env, dates, ignoreSessionId, ignoreOpenSessionId) {
+
+  const wanted = new Set(dates);
+  const booked = new Map();
+  const since = Math.floor(Date.now() / 1000) - lookbackSeconds();
+  let startingAfter;
+
+  do {
+
+    const page = await stripe(env, "GET", "/checkout/sessions", { limit: 100, created: { gte: since }, starting_after: startingAfter });
+
+    for (const session of page.data) {
+      const date = session.metadata?.delivery_date;
+      if (!holdsCapacity(session) || !wanted.has(date) || session.id === ignoreSessionId) continue;
+      if (session.id === ignoreOpenSessionId && session.status === "open") continue;
+      booked.set(date, (booked.get(date) || 0) + await countSessionLoaves(session, env));
+    }
+
+    startingAfter = page.has_more ? page.data.at(-1).id : undefined;
+
+  } while (startingAfter);
+
+  return booked;
+
+}
+
+async function countSessionLoaves(session, env) {
+  const fromMetadata = loavesFromMetadata(session);
+  if (fromMetadata !== null) return fromMetadata;
+  const lineItems = await stripe(env, "GET", `/checkout/sessions/${session.id}/line_items`, { limit: 100 });
+  return loavesFromLineItems(lineItems.data);
+}
+
+/*
+  Ends a customer's unfinished payment page so its
+  loaves are free again. Returns the session id if
+  it was released, or null (no id, already paid,
+  already expired, not ours).
+*/
+async function releaseCheckoutSession(sessionId, env) {
+
+  if (typeof sessionId !== "string" || !isSessionId(sessionId)) return null;
+
+  try {
+    await stripe(env, "POST", `/checkout/sessions/${sessionId}/expire`, {});
+    return sessionId;
+  } catch {
+    return null;
+  }
+
+}
+
+function isSessionId(value) {
+  return /^cs_[A-Za-z0-9_]+$/.test(value);
 }
 
 /*
@@ -307,7 +428,7 @@ ORDER SUMMARY (thank-you page)
 
 async function getOrderSummary(sessionId, env) {
 
-  if (typeof sessionId !== "string" || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+  if (typeof sessionId !== "string" || !isSessionId(sessionId)) {
     throw new OrderValidationError("Invalid order reference.");
   }
 

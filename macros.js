@@ -120,6 +120,8 @@ export const DELIVERY = Object.freeze({
   timeZone: "America/Los_Angeles",
   firstAvailableOffsetDays: 3,
   bookingWindowDays: 15,
+  // Most loaves we can bake for one delivery day, across all orders.
+  dailyLoafLimit: 10,
   // Sunday = 0 … Saturday = 6
   unavailableDays: Object.freeze([0, 1, 2, 6]),
   // Dates we're closed (holidays, trips). Inclusive, YYYY-MM-DD.
@@ -152,6 +154,7 @@ export const API = Object.freeze({
   createCheckoutSession: "/api/create-checkout-session",
   checkDelivery: "/api/check-delivery",
   checkDiscount: "/api/check-discount",
+  capacity: "/api/capacity",
   orderSummary: "/api/order-summary"
 });
 

@@ -66,6 +66,22 @@ key and `npx wrangler deploy`.
 Also worth turning on in Stripe: customer email receipts for successful
 payments, and an email to you for each successful payment.
 
+### Daily capacity
+
+Each delivery day takes at most `DELIVERY.dailyLoafLimit` loaves (10) across
+all orders, set in `macros.js`. The order page shows how many loaves are left
+on each date, and the worker refuses a checkout that doesn't fit.
+
+There's no separate database: the worker counts loaves from Stripe Checkout
+Sessions. Paid orders count, and so do customers who are on the Stripe payment
+page right now. Their loaves are held for about 30 minutes, until that payment
+page expires. A customer who goes back to change their order releases their
+own hold. To change the limit, edit `dailyLoafLimit` and deploy the worker
+again (see below).
+
+Two customers paying for the very last loaves at the same moment could both
+get through, so a day can occasionally go a loaf or two over.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public
@@ -96,7 +112,7 @@ All in `macros.js`:
 | What | Where |
 | --- | --- |
 | Menu items, prices (in cents), descriptions, ingredients, photos, max per order | `PRODUCTS` (and `BASE_INGREDIENTS` for what every loaf shares) |
-| Delivery days, closed dates (holidays), delivery window, how many days ahead customers must order, how far ahead they can book | `DELIVERY` |
+| Delivery days, closed dates (holidays), delivery window, how many days ahead customers must order, how far ahead they can book, loaves per day | `DELIVERY` |
 | Tip percentages offered, maximum tip | `TIP` |
 | Kitchen address, delivery radius, fee per distance zone, free-delivery threshold | `DELIVERY_SERVICE` |
 | The worker's address | `WORKER_URL` |
@@ -117,6 +133,12 @@ cd worker && npx wrangler dev
 ```
 
 Then open http://localhost:8000/order.html.
+
+To run the worker's tests (no Stripe account or network needed):
+
+```bash
+cd worker && npm test
+```
 
 Once `WORKER_URL` in `macros.js` points at your deployed worker, the local
 page talks to that worker and Terminal 2 isn't needed.

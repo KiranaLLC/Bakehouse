@@ -13,6 +13,8 @@ const sessionId = new URLSearchParams(window.location.search).get("session_id");
 try {
   const order = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
   sessionStorage.removeItem(STORAGE_KEY);
+  // Paid, so there's no unfinished payment to release next time.
+  sessionStorage.removeItem("kirana-pending-session");
 
   if (sessionId && order) {
     const { deliveryDate, ...values } = order.values || {};

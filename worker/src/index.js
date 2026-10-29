@@ -151,11 +151,7 @@ DELIVERY AREA CHECK
 
 async function checkDelivery(body) {
 
-  const address = typeof body.address === "string" ? cleanText(body.address, 300) : parseAddress(body.address);
-
-  if (!address) {
-    throw new OrderValidationError("Please enter a delivery address.");
-  }
+  const address = parseAddress(body.address);
 
   const { distanceMiles, zone } = await checkDeliveryArea(address);
 
@@ -699,8 +695,9 @@ async function getOriginCoordinates() {
 }
 
 /*
-  Accepts a free-form string (delivery.html) or a
-  { line1, city, postalCode } object (order page).
+  Accepts a free-form string (the kitchen's own
+  address) or a { line1, city, postalCode }
+  object (a customer's address).
   Structured searches are more accurate, so try
   that first and fall back to a free-form search.
 */

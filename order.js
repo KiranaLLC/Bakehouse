@@ -16,6 +16,9 @@ import {
 } from "./delivery-rules.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
+// The Stripe payment this browser last started, so going back to change the
+// order releases the loaves it was holding.
+const PENDING_SESSION_KEY = "kirana-pending-session";
 const LAST_ORDER_KEY = "kirana-last-order";
 const REMEMBER_DAYS = 90;
 const ADDRESS_CHECK_DELAY_MS = 800;
@@ -62,6 +65,14 @@ const tip = { percent: 0, customCents: null };
 
 // The applied discount code, e.g. { code: "BREADUCATION", percent: 20 }.
 let discount = null;
+
+/*
+  Loaves still available per delivery date, from
+  the worker: { "YYYY-MM-DD": remaining }. null
+  until loaded (or if it couldn't be loaded; the
+  worker still enforces the limit at checkout).
+*/
+let capacity = null;
 
 
 /*
@@ -290,6 +301,8 @@ function updateCart() {
   });
 
   updateTotals();
+
+  updateDateStatus();
 
 }
 
@@ -632,6 +645,9 @@ function renderDeliveryDates() {
     option.textContent =
       label;
 
+    option.dataset.label =
+      label;
+
     select.appendChild(option);
 
   });
@@ -646,6 +662,111 @@ function renderDeliveryDates() {
 
   document.getElementById("delivery-radius").textContent =
     DELIVERY_SERVICE.maxMiles;
+
+}
+
+
+/*
+==================================================
+DAILY CAPACITY
+
+Each delivery day has room for a limited number
+of loaves across all orders. The date list shows
+what's left, and the line under it compares that
+with the cart.
+==================================================
+*/
+
+function getPendingSessionId() {
+  try {
+    return sessionStorage.getItem(PENDING_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+async function loadCapacity() {
+
+  if (!API.isConfigured) return;
+
+  try {
+    const exclude = getPendingSessionId();
+    const response = await fetch(`${API.origin}${API.capacity}${exclude ? `?exclude=${encodeURIComponent(exclude)}` : ""}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    capacity = Object.fromEntries(data.dates.map(({ value, remaining }) => [value, remaining]));
+  } catch {
+    return;
+  }
+
+  renderDateAvailability();
+
+}
+
+function renderDateAvailability() {
+
+  [...fields.deliveryDate.options].forEach(option => {
+    if (!option.value) return;
+    const remaining = capacity?.[option.value];
+    if (remaining === undefined) return;
+    option.textContent = remaining === 0
+      ? `${option.dataset.label} (fully booked)`
+      : `${option.dataset.label} (${remaining} ${remaining === 1 ? "loaf" : "loaves"} left)`;
+    // Keep a fully booked date selectable if it's already chosen, so the
+    // customer sees why it can't be used rather than it silently changing.
+    option.disabled = remaining === 0 && option.value !== fields.deliveryDate.value;
+  });
+
+  updateDateStatus();
+
+}
+
+function getLoafCount() {
+  return getCartItems().reduce((total, { quantity }) => total + quantity, 0);
+}
+
+// Why the chosen date can't take this order, or null if it can (or we don't know yet).
+function getCapacityProblem() {
+
+  const remaining = capacity?.[fields.deliveryDate.value];
+  if (remaining === undefined) return null;
+
+  const loaves = getLoafCount();
+
+  if (remaining === 0) {
+    return "This day is fully booked. Please choose another delivery date.";
+  }
+
+  if (loaves > remaining) {
+    return `Only ${remaining} ${remaining === 1 ? "loaf is" : "loaves are"} left on this day and your cart has ${loaves}. Please remove ${loaves - remaining} or choose another date.`;
+  }
+
+  return null;
+
+}
+
+function updateDateStatus() {
+
+  const element =
+    document.getElementById("date-status");
+
+  const remaining =
+    capacity?.[fields.deliveryDate.value];
+
+  if (remaining === undefined) {
+    element.className = "address-status date-status";
+    element.textContent = "";
+    return;
+  }
+
+  const problem =
+    getCapacityProblem();
+
+  element.className =
+    `address-status date-status ${problem ? "invalid" : "valid"}`;
+
+  element.textContent =
+    problem || `${remaining} of ${DELIVERY.dailyLoafLimit} loaves still available on this day.`;
 
 }
 
@@ -914,6 +1035,13 @@ function validateForm() {
     return { message: "Please select a delivery date.", field: fields.deliveryDate };
   }
 
+  const capacityProblem =
+    getCapacityProblem();
+
+  if (capacityProblem) {
+    return { message: capacityProblem, field: fields.deliveryDate };
+  }
+
   return null;
 
 }
@@ -982,8 +1110,15 @@ async function checkout(event) {
         address: getAddress(),
         notes: fields.notes.value,
         tipCents: getTipCents(calculateSubtotal(getCartItems())),
-        discountCode: discount?.code
+        discountCode: discount?.code,
+        previousSessionId: getPendingSessionId() || undefined
       });
+
+    try {
+      sessionStorage.setItem(PENDING_SESSION_KEY, data.id);
+    } catch {
+      // Storage unavailable: the hold simply expires on its own.
+    }
 
     /*
       Redirect customer to Stripe.
@@ -1005,6 +1140,9 @@ async function checkout(event) {
       error.message || "Something went wrong. Please try again.",
       error.field
     );
+
+    // Someone else may have just booked the last loaves for this day.
+    loadCapacity();
 
     button.disabled =
       false;
@@ -1101,7 +1239,11 @@ Object.values(fields).forEach(field => {
 fields.deliveryDate.addEventListener("change", () => {
   hideError();
   saveOrder();
+  renderDateAvailability();
+  loadCapacity();
 });
+
+loadCapacity();
 
 form.addEventListener(
   "submit",

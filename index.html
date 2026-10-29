@@ -5,12 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link href="https://fonts.googleapis.com/css2?family=Luxurious+Script&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
-  <!-- <link rel="stylesheet" href="./styles.css" /> -->
+  <link href="https://fonts.googleapis.com/css2?family=Luxurious+Script&family=Host+Grotesk&family=Montserrat&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
   <link rel="stylesheet" href="./styles.css?v=1800" />
 </head>
 <body>
@@ -31,9 +27,6 @@
    <a href="order.html" class="order-btn mobile-order-btn">
       Order Delivery
     </a>
-    <!-- <a href="delivery.html" class="order-btn mobile-order-btn">
-      Check Delivery Area
-    </a> -->
     </div>
     <!-- Desktop only: Instagram link -->
     <nav class="desktop-nav">
@@ -301,38 +294,15 @@
   </a></div>
     </footer>
 </main>
-  <!-- </main> -->
-  
+
   <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
 <script>
   AOS.init({
     duration: 800,      // animation speed (ms)
     once: true,         // animate only once (recommended)
     easing: 'ease-out',
-    offset: 80         // start animation 120px before element enters view
+    offset: 80         // start animating 80px before an element enters view
   });
-  function showIngredients(title, ingredientsHTML) {
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-ingredients').innerHTML = ingredientsHTML;
-  document.getElementById('ingredientModal').style.display = 'flex';
-}
-
-function closeModal() {
-  document.getElementById('ingredientModal').style.display = 'none';
-}
-
-// Close on outside click
-document.getElementById('ingredientModal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
 </script>
-<!-- Shared Modal Structure -->
-<div id="ingredientModal" class="modal" style="display:none;">
-  <div class="modal-content">
-    <span class="modal-close" onclick="closeModal()">&times;</span>
-    <h3 id="modal-title"></h3>
-    <div id="modal-ingredients"></div>
-  </div>
-</div>
 </body>
 </html>

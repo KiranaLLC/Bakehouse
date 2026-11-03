@@ -194,6 +194,7 @@ test("checkout that fits is created with a loaf count and a short expiry", async
   const created = stripeCalls.find(({ method, path }) => method === "POST" && path === "/v1/checkout/sessions").params;
   assert.equal(created.get("metadata[loaf_count]"), "2");
   assert.equal(created.get("payment_intent_data[metadata][loaf_count]"), "2");
+  assert.equal(created.get("metadata[items]"), "house_white:2");
   const expiresIn = Number(created.get("expires_at")) - before;
   assert.ok(expiresIn >= 30 * 60 && expiresIn <= 32 * 60, `expires in ${expiresIn}s`);
 });

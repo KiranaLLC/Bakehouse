@@ -25,6 +25,11 @@ function bakeryToday(now) {
   return Date.UTC(year, month - 1, day);
 }
 
+// Today in the bakery's time zone, as "YYYY-MM-DD".
+export function bakeryTodayValue(now = new Date()) {
+  return new Date(bakeryToday(now)).toISOString().slice(0, 10);
+}
+
 export function formatDeliveryDate(value) {
   return new Date(`${value}T00:00:00Z`).toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" });
 }

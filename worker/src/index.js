@@ -12,6 +12,8 @@ Runs on Cloudflare Workers. The website calls it to:
   GET  /api/order-summary           details of a paid order, for the thank-you page
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
+It also serves the bakery's private orders page at /admin (see admin.js).
+
 IMPORTANT:
 Prices, the delivery fee and the delivery area
 are all worked out HERE, never trusted from the
@@ -31,6 +33,7 @@ import {
   getDeliveryDates,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
+import { handleAdmin } from "./admin.js";
 import {
   CHECKOUT_HOLD_SECONDS,
   countLoaves,
@@ -56,6 +59,12 @@ export default {
   async fetch(request, env) {
 
     const url = new URL(request.url);
+
+    // The bakery's private orders page (see admin.js). Same-origin only, so no CORS.
+    if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
+      return handleAdmin(request, env, { stripe });
+    }
+
     const corsHeaders = getCorsHeaders(request, env);
 
     if (request.method === "OPTIONS") {
@@ -250,6 +259,8 @@ async function createCheckoutSession(body, env, siteUrl) {
     delivery_date: deliveryDate,
     delivery_date_label: deliverySlotLabel,
     loaf_count: String(loafCount),
+    // e.g. "house_white:2,margherita:1", for the bakery's prep list.
+    items: items.map(({ productId, quantity }) => `${productId}:${quantity}`).join(","),
     customer_name: customer.name,
     customer_phone: customer.phone,
     delivery_address: addressLine,
@@ -464,6 +475,7 @@ async function getStatus(env) {
     stripeKeySet: Boolean(key),
     stripeKeyLooksLike: key ? `${key.slice(0, 8)}… (${key.length} characters)` : "not set",
     siteUrl: env.SITE_URL || "not set",
+    adminPasswordSet: Boolean(env.ADMIN_PASSWORD),
     allowedOrigins: env.ALLOWED_ORIGINS || "not set"
   };
 

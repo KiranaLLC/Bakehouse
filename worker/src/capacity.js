@@ -16,13 +16,14 @@ Expired sessions free their loaves again.
 ==================================================
 */
 
-import { DELIVERY, PRODUCTS } from "../../macros.js";
+import { DELIVERY } from "../../macros.js";
 
 // Stripe only allows a Checkout Session to expire 30 minutes to 24 hours after
 // it's created. The extra minute keeps us clear of that lower limit.
 export const CHECKOUT_HOLD_SECONDS = 31 * 60;
 
-const PRODUCT_NAMES = new Set(Object.values(PRODUCTS).map(({ name }) => name));
+// Checkout line items that aren't loaves.
+export const NON_LOAF_LINES = new Set(["Local delivery", "Tip for your baker"]);
 
 export function countLoaves(items) {
   return items.reduce((total, { quantity }) => total + quantity, 0);
@@ -42,10 +43,11 @@ export function loavesFromMetadata(session) {
   return session?.metadata?.loaf_count !== undefined && Number.isInteger(count) && count >= 0 ? count : null;
 }
 
-// Line items include delivery and tip lines; only loaves count.
+// Line items include delivery and tip lines; everything else is a loaf, even
+// one that has since left the menu.
 export function loavesFromLineItems(lineItems) {
   return lineItems
-    .filter(({ description }) => PRODUCT_NAMES.has(description))
+    .filter(({ description }) => !NON_LOAF_LINES.has(description))
     .reduce((total, { quantity }) => total + quantity, 0);
 }
 

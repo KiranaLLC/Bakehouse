@@ -128,7 +128,7 @@ export const DELIVERY = Object.freeze({
   closedDates: Object.freeze([
     Object.freeze({ from: "2026-10-22", to: "2026-10-29" }),
     Object.freeze({ from: "2026-12-02", to: "2026-12-04" }),
-    Object.freeze({ from: "2026-12-09", to: "2026-12-10" })
+    Object.freeze({ from: "2026-12-11", to: "2026-12-11" })
   ]),
   // Deliveries are made within this window on the chosen day.
   windowLabel: "between 2 pm and 4 pm",

@@ -8,6 +8,14 @@
 export const BASE_INGREDIENTS = Object.freeze(["Organic Unbleached All Purpose Flour", "Water", "Sea Salt"]);
 
 export const PRODUCTS = Object.freeze({
+  bacon_cheddar: {
+    name: "Bacon & Cheddar",
+    description: "Smoky bacon and sharp cheddar, swirled through every layer.",
+    price: 1600,
+    image: "./img/menu/bacon-cheddar.jpg",
+    ingredients: ["Bacon", "Sharp Cheddar Cheese"],
+    maxQuantity: 6
+  },
   birds_eye: {
     name: "Bird's Eye",
     description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
@@ -48,20 +56,20 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
     maxQuantity: 6
   },
+  croissourdough: {
+    name: "Croissourdough",
+    description: "Sourdough laminated with butter like a croissant, for flaky, golden layers.",
+    price: 1600,
+    image: "./img/menu/croissourdough.jpg",
+    ingredients: ["Butter"],
+    maxQuantity: 6
+  },
   double_chocolate: {
     name: "Double Chocolate",
     description: "Every chocolate craving, answered in sourdough.",
     price: 1600,
     image: "./img/menu/double-chocolate.jpg",
     ingredients: ["Milk Chocolate Chips", "Unsweetened Cocoa Powder", "Vanilla Essence"],
-    maxQuantity: 6
-  },
-  elote: {
-    name: "Elote",
-    description: "Bringing Mexican street corn flavours to sourdough bread.",
-    price: 1600,
-    image: "./img/menu/elote.jpg",
-    ingredients: ["Roasted Corn", "Cotija Cheese", "Chili Powder"],
     maxQuantity: 6
   },
   everything_seasoning: {
@@ -86,14 +94,6 @@ export const PRODUCTS = Object.freeze({
     price: 1200,
     image: "./img/menu/house-white.jpg",
     ingredients: [],
-    maxQuantity: 6
-  },
-  im_like_a_bird: {
-    name: "I'm Like a Bird (ILAB)",
-    description: "A seed-packed sourdough the birds would envy.",
-    price: 1600,
-    image: "./img/menu/ilab.jpg",
-    ingredients: ["Black Sesame Seeds", "White Sesame Seeds", "Pumpkin Seeds", "Chia Seeds", "Hemp Seeds"],
     maxQuantity: 6
   },
   margherita: {

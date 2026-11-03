@@ -82,6 +82,37 @@ again (see below).
 Two customers paying for the very last loaves at the same moment could both
 get through, so a day can occasionally go a loaf or two over.
 
+### Orders page
+
+Your private orders page is at your worker's address plus `/admin`:
+**https://kirana-checkout.hellokiranabakehouse.workers.dev/admin**.
+Bookmark it on your phone. It has two views:
+
+- **Orders**: every paid delivery order not yet delivered, grouped by
+  delivery date, with the customer's address (tap for directions), phone
+  (tap to call), email and delivery notes. Orders whose date has passed but
+  that were never marked delivered stay at the top, marked "Past date".
+- **Prep**: how many of each loaf to bake for each delivery date.
+
+When you tap **Mark delivered**, the order is saved as delivered in Stripe
+and a ready-written "your order has been delivered" email to the customer
+opens in your Mail app; press Send. The order then drops off the page.
+Tapped the wrong one? **Undo** puts it back.
+
+To set your password (once, from the `worker` folder):
+
+```bash
+npx wrangler secret put ADMIN_PASSWORD
+npx wrangler deploy
+```
+
+Use a long password that you don't use anywhere else. Signing in lasts 30
+days on each device. To sign out everywhere, set a new password the same
+way.
+
+Orders come straight from Stripe, so there's nothing else to keep in sync.
+"Delivered" is saved on the order's payment in Stripe as `delivered_at`.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public
@@ -139,6 +170,9 @@ To run the worker's tests (no Stripe account or network needed):
 ```bash
 cd worker && npm test
 ```
+
+The orders page is at http://localhost:8787/admin while Terminal 2 is
+running; set `ADMIN_PASSWORD` in `worker/.dev.vars` first.
 
 On localhost the order page always uses the worker from Terminal 2, never the
 live one, so local test orders go to your Stripe test account. If Terminal 2

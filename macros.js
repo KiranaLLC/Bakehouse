@@ -61,7 +61,7 @@ export const PRODUCTS = Object.freeze({
     description: "Sourdough laminated with butter like a croissant, for flaky, golden layers.",
     price: 1600,
     image: "./img/menu/croissourdough.jpg",
-    ingredients: ["Butter"],
+    ingredients: ["Unsalted Butter"],
     maxQuantity: 6
   },
   double_chocolate: {

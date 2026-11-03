@@ -84,9 +84,10 @@ get through, so a day can occasionally go a loaf or two over.
 
 ### Orders page
 
-Your private orders page is at your worker's address plus `/admin`:
-**https://kirana-checkout.hellokiranabakehouse.workers.dev/admin**.
-Bookmark it on your phone. It has two views:
+Your private orders page runs as its own small worker, `kirana-orders`,
+separate from the public checkout worker. Its address is
+**https://kirana-orders.hellokiranabakehouse.workers.dev**. Nothing on the
+website links to it. Bookmark it on your phone. It has two views:
 
 - **Orders**: every paid delivery order not yet delivered, grouped by
   delivery date, with the customer's address (tap for directions), phone
@@ -99,16 +100,38 @@ and a ready-written "your order has been delivered" email to the customer
 opens in your Mail app; press Send. The order then drops off the page.
 Tapped the wrong one? **Undo** puts it back.
 
-To set your password (once, from the `worker` folder):
+Two locks keep it private:
+
+1. **Cloudflare Access**: Cloudflare emails a one-time code to your address
+   before the page even loads. Anyone else is stopped by Cloudflare and
+   never reaches the page.
+2. **Your password**: then the page itself asks for your password.
+
+Each device remembers you, so you won't be asked every time: the password
+for 30 days, the Access code for as long as the Access settings say.
+
+#### One-time setup
+
+From the `worker` folder:
 
 ```bash
-npx wrangler secret put ADMIN_PASSWORD
-npx wrangler deploy
+npx wrangler secret put STRIPE_SECRET_KEY --config wrangler.orders.toml   # same live key as the checkout worker
+npx wrangler secret put ADMIN_PASSWORD --config wrangler.orders.toml      # a long password you don't use anywhere else
+npm run deploy:orders
 ```
 
-Use a long password that you don't use anywhere else. Signing in lasts 30
-days on each device. To sign out everywhere, set a new password the same
-way.
+Then turn on Cloudflare Access:
+
+1. In the Cloudflare dashboard, go to **Workers & Pages** → **kirana-orders**
+   → **Settings** → **Domains & Routes**.
+2. Next to `workers.dev`, click **Enable Cloudflare Access**.
+3. Click **Manage Cloudflare Access** and make sure the allowed email is
+   only hellokiranabakehouse@gmail.com. Remove any other address.
+4. Open the orders page in a private window to check: you should get a
+   Cloudflare screen asking for your email before anything else.
+
+To sign out every device, set a new password the same way and run
+`npm run deploy:orders` again.
 
 Orders come straight from Stripe, so there's nothing else to keep in sync.
 "Delivered" is saved on the order's payment in Stripe as `delivered_at`.
@@ -171,8 +194,10 @@ To run the worker's tests (no Stripe account or network needed):
 cd worker && npm test
 ```
 
-The orders page is at http://localhost:8787/admin while Terminal 2 is
-running; set `ADMIN_PASSWORD` in `worker/.dev.vars` first.
+To preview the orders page, set `ADMIN_PASSWORD` in `worker/.dev.vars`,
+run `npm run dev:orders` in a third terminal (in the `worker` folder) and open
+http://localhost:8788/admin. Access isn't involved locally, only the
+password.
 
 On localhost the order page always uses the worker from Terminal 2, never the
 live one, so local test orders go to your Stripe test account. If Terminal 2

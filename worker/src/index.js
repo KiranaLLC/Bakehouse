@@ -12,7 +12,8 @@ Runs on Cloudflare Workers. The website calls it to:
   GET  /api/order-summary           details of a paid order, for the thank-you page
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
-It also serves the bakery's private orders page at /admin (see admin.js).
+The bakery's private orders page is a separate worker (orders.js), so it
+can sit behind Cloudflare Access while this one stays public.
 
 IMPORTANT:
 Prices, the delivery fee and the delivery area
@@ -33,7 +34,7 @@ import {
   getDeliveryDates,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
-import { handleAdmin } from "./admin.js";
+import { stripe } from "./stripe.js";
 import {
   CHECKOUT_HOLD_SECONDS,
   countLoaves,
@@ -45,7 +46,6 @@ import {
   remainingLoaves
 } from "./capacity.js";
 
-const STRIPE_API = "https://api.stripe.com/v1";
 const GEOCODE_CACHE_LIMIT = 500;
 
 class AddressNotFoundError extends Error {}
@@ -59,11 +59,6 @@ export default {
   async fetch(request, env) {
 
     const url = new URL(request.url);
-
-    // The bakery's private orders page (see admin.js). Same-origin only, so no CORS.
-    if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      return handleAdmin(request, env, { stripe });
-    }
 
     const corsHeaders = getCorsHeaders(request, env);
 
@@ -475,7 +470,6 @@ async function getStatus(env) {
     stripeKeySet: Boolean(key),
     stripeKeyLooksLike: key ? `${key.slice(0, 8)}… (${key.length} characters)` : "not set",
     siteUrl: env.SITE_URL || "not set",
-    adminPasswordSet: Boolean(env.ADMIN_PASSWORD),
     allowedOrigins: env.ALLOWED_ORIGINS || "not set"
   };
 
@@ -496,62 +490,6 @@ async function getStatus(env) {
   }
 
   return status;
-
-}
-
-/*
-==================================================
-STRIPE API
-
-Stripe's API takes form-encoded requests, with
-nested values written as line_items[0][quantity].
-==================================================
-*/
-
-async function stripe(env, method, path, params) {
-
-  if (!env.STRIPE_SECRET_KEY) {
-    throw Object.assign(new Error("STRIPE_SECRET_KEY is not set"), { publicMessage: "Online payment isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order." });
-  }
-
-  const body = encodeForm(params);
-  const url = method === "GET" ? `${STRIPE_API}${path}?${body}` : `${STRIPE_API}${path}`;
-
-  const response = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-      ...(method === "GET" ? {} : { "Content-Type": "application/x-www-form-urlencoded" })
-    },
-    body: method === "GET" ? undefined : body
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    const publicMessage = response.status === 401
-      ? "Online payment isn't set up correctly (Stripe rejected the key). Please email us at hellokiranabakehouse@gmail.com to place your order."
-      : "Unable to start Stripe checkout. Please try again.";
-    throw Object.assign(new Error(`Stripe ${response.status}: ${data.error?.message}`), { publicMessage });
-  }
-
-  return data;
-
-}
-
-function encodeForm(value, prefix = "", params = new URLSearchParams()) {
-
-  if (value === undefined || value === null) return params;
-
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => encodeForm(item, `${prefix}[${index}]`, params));
-  } else if (typeof value === "object") {
-    Object.entries(value).forEach(([key, item]) => encodeForm(item, prefix ? `${prefix}[${key}]` : key, params));
-  } else {
-    params.append(prefix, String(value));
-  }
-
-  return params;
 
 }
 

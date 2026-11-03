@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "dev:orders": "wrangler dev --config wrangler.orders.toml",
+    "deploy:orders": "wrangler deploy --config wrangler.orders.toml",
     "test": "node --test"
   },
   "devDependencies": {

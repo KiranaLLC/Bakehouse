@@ -126,7 +126,9 @@ export const DELIVERY = Object.freeze({
   unavailableDays: Object.freeze([0, 1, 2, 6]),
   // Dates we're closed (holidays, trips). Inclusive, YYYY-MM-DD.
   closedDates: Object.freeze([
-    Object.freeze({ from: "2026-10-22", to: "2026-10-29" })
+    Object.freeze({ from: "2026-10-22", to: "2026-10-29" }),
+    Object.freeze({ from: "2026-12-02", to: "2026-12-04" }),
+    Object.freeze({ from: "2026-12-09", to: "2026-12-10" })
   ]),
   // Deliveries are made within this window on the chosen day.
   windowLabel: "between 2 pm and 4 pm",

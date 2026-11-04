@@ -95,6 +95,14 @@ website links to it. Bookmark it on your phone. It has two views:
   that were never marked delivered stay at the top, marked "Past date".
 - **Prep**: how many of each loaf to bake for each delivery date.
 
+**Invoices** you create in Stripe (e.g. for catering) appear too, marked
+"Invoice": paid ones, and sent ones not yet paid (also marked "Unpaid").
+Drafts and voided invoices don't. To put an invoice under its delivery day,
+add metadata to it in Stripe with the key `delivery_date` and a value like
+`2026-12-16`; otherwise it's listed under "No delivery date set". Each
+invoice line counts as loaves in the prep view, except lines mentioning
+delivery, shipping, tips, fees or discounts.
+
 Each order has two separate buttons:
 
 - **Email \<name\>** opens a ready-written "your order has been delivered"

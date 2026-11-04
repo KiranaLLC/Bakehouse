@@ -95,10 +95,14 @@ website links to it. Bookmark it on your phone. It has two views:
   that were never marked delivered stay at the top, marked "Past date".
 - **Prep**: how many of each loaf to bake for each delivery date.
 
-When you tap **Mark delivered**, the order is saved as delivered in Stripe
-and a ready-written "your order has been delivered" email to the customer
-opens in your Mail app; press Send. The order then drops off the page.
-Tapped the wrong one? **Undo** puts it back.
+Each order has two separate buttons:
+
+- **Email \<name\>** opens a ready-written "your order has been delivered"
+  email to the customer in your Mail app; press Send. It doesn't change the
+  order.
+- **Mark delivered** saves the order as delivered in Stripe, and it drops
+  off the page. Tapped the wrong one? **Undo** puts it back. The email
+  button stays available until you leave the page.
 
 Two locks keep it private:
 

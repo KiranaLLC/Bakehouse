@@ -90,8 +90,11 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .order dt { color: var(--muted); }
   .order dd { margin: 0; overflow-wrap: anywhere; }
   .order a { color: var(--terracotta); }
-  .deliver { padding: 12px; font: inherit; font-weight: 600; width: 100%; border-radius: 999px; border: 2px solid var(--good); background: white; color: var(--good); cursor: pointer; }
+  .order-actions { display: flex; gap: 8px; }
+  .order-actions > * { flex: 1; padding: 12px; font: inherit; font-weight: 600; text-align: center; text-decoration: none; border-radius: 999px; cursor: pointer; }
+  .deliver { border: 2px solid var(--good); background: white; color: var(--good); }
   .deliver:disabled { opacity: .6; cursor: default; }
+  .email { border: 2px solid var(--terracotta); background: white; color: var(--terracotta) !important; }
   .done { border-color: var(--good); }
   .done p { margin: 0 0 6px; color: var(--good); font-weight: 600; }
   .done .actions { display: flex; gap: 16px; flex-wrap: wrap; font-size: .95rem; }
@@ -340,14 +343,19 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       el("dd", { text: money(order.totalCents) + (order.tipCents ? " (incl. " + money(order.tipCents) + " tip)" : "") })
     );
 
-    var button = el("button", { class: "deliver", type: "button", text: "Mark delivered" + (order.email ? " & email " + firstName(order) : "") });
+    // Two separate actions: emailing doesn't mark the order, and marking
+    // doesn't open an email.
+    var button = el("button", { class: "deliver", type: "button", text: "Mark delivered" });
     button.addEventListener("click", function () { markDelivered(order, button); });
 
     return el("article", { class: "card order" },
       el("h3", { text: order.name || "(no name)" }),
       el("p", { class: "items", text: describeItems(order.items) }),
       details,
-      button
+      el("div", { class: "order-actions" },
+        order.email ? el("a", { class: "email", href: deliveredEmail(order), text: "Email " + firstName(order) }) : null,
+        button
+      )
     );
   }
 
@@ -366,7 +374,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return el("article", { class: "card done" },
       el("p", { text: "✓ " + (order.name || "Order") + " delivered" }),
       el("div", { class: "actions" },
-        order.email ? el("a", { href: deliveredEmail(order), text: "Email didn't open? Email " + firstName(order) }) : el("span", { text: "No email address on this order." }),
+        order.email ? el("a", { href: deliveredEmail(order), text: "Email " + firstName(order) }) : null,
         undo
       )
     );
@@ -435,7 +443,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     api("POST", "orders/" + order.id + "/delivered", { delivered: true }).then(function () {
       state.delivered[order.id] = true;
       render();
-      if (order.email) window.location.href = deliveredEmail(order);
     }).catch(function (error) {
       if (error.message === "signed-out") return;
       button.disabled = false;

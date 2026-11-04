@@ -8,7 +8,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import worker from "../src/index.js";
+import worker from "../src/orders.js";
+import checkoutWorker from "../src/index.js";
 import { bakeryTodayValue } from "../../delivery-rules.js";
 
 const BASE = "https://kirana-checkout.example.workers.dev";
@@ -245,6 +246,21 @@ test("only completed delivery orders can be marked", async () => {
   const { status } = await call("POST", "/admin/api/orders/cs_open/delivered", { cookie, body: { delivered: true } });
   assert.equal(status, 400);
   assert.equal(updates.length, 0);
+});
+
+test("the orders worker serves only the orders page", async () => {
+  const root = await worker.fetch(new Request(`${BASE}/`), env);
+  assert.equal(root.status, 302);
+  assert.equal(root.headers.get("Location"), `${BASE}/admin`);
+  assert.equal((await call("POST", "/api/create-checkout-session", { body: {} })).status, 404);
+  assert.equal((await call("GET", "/api/status")).status, 404);
+});
+
+test("the public checkout worker no longer serves the orders page", async () => {
+  for (const path of ["/admin", "/admin/api/orders"]) {
+    const response = await checkoutWorker.fetch(new Request(`https://kirana-checkout.example.workers.dev${path}`), env);
+    assert.equal(response.status, 404, path);
+  }
 });
 
 test("signing out clears the cookie", async () => {

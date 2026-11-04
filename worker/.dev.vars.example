@@ -1,5 +1,5 @@
 # Copy to .dev.vars for local testing with `npx wrangler dev`. Never commit .dev.vars.
 STRIPE_SECRET_KEY=sk_test_replace_me
 SITE_URL=http://localhost:8000
-# Password for the orders page at http://localhost:8787/admin
+# Password for the orders page (npm run dev:orders, then http://localhost:8788/admin)
 ADMIN_PASSWORD=choose_a_local_password

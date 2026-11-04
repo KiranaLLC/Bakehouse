@@ -1,0 +1,20 @@
+# The bakery's private orders page, separate from the public checkout worker
+# so it can sit behind Cloudflare Access. See README.md, "Orders page".
+#
+# Deploy with:  npx wrangler deploy --config wrangler.orders.toml
+# Secrets (set once, with the same --config):
+#   npx wrangler secret put STRIPE_SECRET_KEY --config wrangler.orders.toml
+#   npx wrangler secret put ADMIN_PASSWORD --config wrangler.orders.toml
+
+name = "kirana-orders"
+main = "src/orders.js"
+compatibility_date = "2025-09-01"
+
+# Served only at kirana-orders.<account>.workers.dev, which Cloudflare Access
+# protects. Preview URLs are off so there's no second address to protect.
+workers_dev = true
+preview_urls = false
+
+# Local preview: http://localhost:8788/admin (the checkout worker uses 8787).
+[dev]
+port = 8788

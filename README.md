@@ -86,7 +86,7 @@ get through, so a day can occasionally go a loaf or two over.
 
 Your private orders page runs as its own small worker, `kirana-orders`,
 separate from the public checkout worker. Its address is
-**https://kirana-orders.hellokiranabakehouse.workers.dev**. Nothing on the
+**https://kirana-orders.vanya-weng.workers.dev**. Nothing on the
 website links to it. Bookmark it on your phone. It has two views:
 
 - **Orders**: every paid delivery order not yet delivered, grouped by

@@ -145,7 +145,7 @@ export const DELIVERY = Object.freeze({
 // A page opened from localhost always talks to the worker started on this
 // computer with `npx wrangler dev` (using your Stripe test key), so a local
 // preview can never take a real payment.
-const WORKER_URL = "https://kirana-checkout.hellokiranabakehouse.workers.dev";
+const WORKER_URL = "https://kirana-checkout.vanya-weng.workers.dev";
 const LOCAL_WORKER_URL = "http://localhost:8787";
 
 const isWorkerConfigured = !WORKER_URL.includes("REPLACE_WITH_YOUR_WORKER");

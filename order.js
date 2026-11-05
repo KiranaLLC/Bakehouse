@@ -81,6 +81,19 @@ RENDER PRODUCTS
 ==================================================
 */
 
+/*
+  The card shows a 6:5 slice of each 4:5 photo, i.e. two thirds of its
+  height. Given where the loaf's middle is (imageCenter, % down the photo),
+  returns the object-position that puts it in the middle of that slice.
+*/
+const VISIBLE_SHARE_OF_PHOTO = (5 / 6) / (5 / 4);
+
+function photoCropPosition(imageCenter) {
+  const top = imageCenter / 100 - VISIBLE_SHARE_OF_PHOTO / 2;
+  const position = top / (1 - VISIBLE_SHARE_OF_PHOTO);
+  return Math.round(Math.min(Math.max(position, 0), 1) * 100);
+}
+
 function renderProducts() {
 
   const grid =
@@ -171,6 +184,9 @@ function renderProducts() {
         </div>
 
       `;
+
+      card.querySelector(".product-image").style.objectPosition =
+        `50% ${photoCropPosition(product.imageCenter ?? 50)}%`;
 
       grid.appendChild(card);
 

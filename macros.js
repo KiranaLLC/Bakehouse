@@ -45,7 +45,6 @@ export const PRODUCTS = Object.freeze({
     description: "A classic sourdough flavour with melty cheese and a kick of jalapeño.",
     price: 1600,
     image: "./img/menu/cheddar-jalapeno.jpg",
-    imageCenter: 52,
     ingredients: ["Sharp Cheddar Cheese", "Pickled Jalapeños"],
     maxQuantity: 6
   },
@@ -62,7 +61,6 @@ export const PRODUCTS = Object.freeze({
     description: "Scallion pancakes with chili oil inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/cong-la.jpg",
-    imageCenter: 52,
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
     maxQuantity: 6
   },
@@ -79,7 +77,6 @@ export const PRODUCTS = Object.freeze({
     description: "Every chocolate craving, answered in sourdough.",
     price: 1600,
     image: "./img/menu/double-chocolate.jpg",
-    imageCenter: 58,
     ingredients: ["Milk Chocolate Chips", "Unsweetened Cocoa Powder", "Vanilla Essence"],
     maxQuantity: 6
   },
@@ -133,7 +130,6 @@ export const PRODUCTS = Object.freeze({
     description: "Autumn's favourite flavour, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/pumpkin-spice.jpg",
-    imageCenter: 51,
     ingredients: ["Pumpkin Purée", "Cinnamon", "Ginger", "Lemon Peel", "Nutmeg", "Cloves", "Cardamom"],
     maxQuantity: 6
   }

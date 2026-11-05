@@ -183,6 +183,11 @@ All in `macros.js`:
 | Kitchen address, delivery radius, fee per distance zone, free-delivery threshold | `DELIVERY_SERVICE` |
 | The worker's address | `WORKER_URL` |
 
+After changing `order.js`, `success.js`, `macros.js` or `delivery-rules.js`,
+bump the `?v=` number in `order.html` and `success.html` (it appears in the
+`importmap` and the `<script>` tag) so browsers load the new scripts instead
+of a cached copy.
+
 Product photos for the order page are in `img/menu/` (resized to load quickly
 on phones — keep new ones around 800px wide and under ~200 KB).
 

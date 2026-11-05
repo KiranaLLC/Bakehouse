@@ -60,9 +60,10 @@ export function lookbackSeconds() {
   return (DELIVERY.firstAvailableOffsetDays + DELIVERY.bookingWindowDays + 1) * 24 * 60 * 60;
 }
 
+// Says the day can't take the order without revealing how many loaves are left.
 export function describeShortfall(remaining, wanted, dateLabel) {
   if (remaining === 0) {
     return `Sorry, ${dateLabel} is fully booked. Please choose another delivery date.`;
   }
-  return `Sorry, only ${remaining} ${remaining === 1 ? "loaf is" : "loaves are"} left for ${dateLabel} and your cart has ${wanted}. Please remove ${wanted - remaining} or choose another date.`;
+  return `Sorry, ${dateLabel} can't fit your order of ${wanted} loaves. Please choose another delivery date, or remove a few loaves.`;
 }

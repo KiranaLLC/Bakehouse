@@ -172,7 +172,8 @@ test("checkout is refused when the day doesn't have enough loaves left", async (
   const { status, body } = await call("POST", "/api/create-checkout-session", order(3));
 
   assert.equal(status, 400);
-  assert.match(body.error, /only 2 loaves are left/);
+  assert.match(body.error, /can't fit your order of 3 loaves/);
+  assert.doesNotMatch(body.error, /\b2\b/, "doesn't reveal how many are left");
   assert.equal(stripeCalls.some(({ method, path }) => method === "POST" && path === "/v1/checkout/sessions"), false);
 });
 

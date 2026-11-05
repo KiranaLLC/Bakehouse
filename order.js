@@ -318,7 +318,7 @@ function updateCart() {
 
   updateTotals();
 
-  updateDateStatus();
+  renderDateAvailability();
 
 }
 
@@ -679,6 +679,10 @@ function renderDeliveryDates() {
   document.getElementById("delivery-radius").textContent =
     DELIVERY_SERVICE.maxMiles;
 
+  document.querySelectorAll(".daily-loaf-limit").forEach(element => {
+    element.textContent = DELIVERY.dailyLoafLimit;
+  });
+
 }
 
 
@@ -721,68 +725,72 @@ async function loadCapacity() {
 
 function renderDateAvailability() {
 
+  // Dates show without counts; a day that can't fit the cart is greyed out.
+  const loaves = getLoafCount();
+
   [...fields.deliveryDate.options].forEach(option => {
     if (!option.value) return;
     const remaining = capacity?.[option.value];
     if (remaining === undefined) return;
-    option.textContent = remaining === 0
-      ? `${option.dataset.label} (fully booked)`
-      : `${option.dataset.label} (${remaining} ${remaining === 1 ? "loaf" : "loaves"} left)`;
-    // Keep a fully booked date selectable if it's already chosen, so the
+    // Keep an unavailable date selectable if it's already chosen, so the
     // customer sees why it can't be used rather than it silently changing.
-    option.disabled = remaining === 0 && option.value !== fields.deliveryDate.value;
+    option.disabled = !dayFits(remaining, loaves) && option.value !== fields.deliveryDate.value;
   });
 
   updateDateStatus();
 
 }
 
+function dayFits(remaining, loaves) {
+  return remaining > 0 && loaves <= remaining;
+}
+
 function getLoafCount() {
   return getCartItems().reduce((total, { quantity }) => total + quantity, 0);
 }
 
+function isLargeOrder() {
+  return getLoafCount() > DELIVERY.dailyLoafLimit;
+}
+
 // Why the chosen date can't take this order, or null if it can (or we don't know yet).
 function getCapacityProblem() {
+
+  // More than a whole day's bake: arranged by email, on any date.
+  if (isLargeOrder()) {
+    return `For orders of more than ${DELIVERY.dailyLoafLimit} loaves on one day, please email us at hellokiranabakehouse@gmail.com and we'll arrange it with you.`;
+  }
 
   const remaining = capacity?.[fields.deliveryDate.value];
   if (remaining === undefined) return null;
 
   const loaves = getLoafCount();
 
-  if (remaining === 0) {
-    return "This day is fully booked. Please choose another delivery date.";
-  }
+  if (dayFits(remaining, loaves)) return null;
 
-  if (loaves > remaining) {
-    return `Only ${remaining} ${remaining === 1 ? "loaf is" : "loaves are"} left on this day and your cart has ${loaves}. Please remove ${loaves - remaining} or choose another date.`;
-  }
-
-  return null;
+  return remaining === 0
+    ? "This day is fully booked. Please choose another delivery date."
+    : "This day can't fit your order. Please choose another delivery date, or remove a few loaves.";
 
 }
 
 function updateDateStatus() {
 
+  document.getElementById("large-order-note").hidden =
+    !isLargeOrder();
+
+  // Only speaks up when the chosen day can't take the order; no counts shown.
   const element =
     document.getElementById("date-status");
-
-  const remaining =
-    capacity?.[fields.deliveryDate.value];
-
-  if (remaining === undefined) {
-    element.className = "address-status date-status";
-    element.textContent = "";
-    return;
-  }
 
   const problem =
     getCapacityProblem();
 
   element.className =
-    `address-status date-status ${problem ? "invalid" : "valid"}`;
+    `address-status date-status${problem ? " invalid" : ""}`;
 
   element.textContent =
-    problem || `${remaining} of ${DELIVERY.dailyLoafLimit} loaves still available on this day.`;
+    problem || "";
 
 }
 
@@ -1045,6 +1053,11 @@ function validateForm() {
   if (phoneDigits.length < 10 || phoneDigits.length > 15) {
     fields.phone.setAttribute("aria-invalid", "true");
     return { message: "Please enter a valid phone number, including area code.", field: fields.phone };
+  }
+
+  // Checked before the date: no date can take an order this big.
+  if (isLargeOrder()) {
+    return { message: getCapacityProblem(), field: document.getElementById("large-order-note") };
   }
 
   if (!fields.deliveryDate.value) {

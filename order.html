@@ -699,6 +699,277 @@
 
     }
 
+
+    /* =========================
+       CHECKOUT LAYOUT
+       Three numbered steps. On wide screens the summary (step 3)
+       sits beside the form and stays in view while scrolling.
+    ========================== */
+
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .checkout-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+      gap: 36px;
+      align-items: start;
+    }
+
+    .checkout-section .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 32px 0 10px;
+    }
+
+    .checkout-steps .section-label:first-child,
+    .order-summary .section-label {
+      margin-top: 0;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--terracotta);
+      color: var(--cream);
+      font-size: .95rem;
+      font-weight: 600;
+    }
+
+    .checkout-section .delivery-note {
+      margin-bottom: 16px;
+    }
+
+    .checkout-section .field-grid {
+      gap: 12px;
+    }
+
+    .checkout-section .field label {
+      font-size: .92rem;
+    }
+
+    .checkout-section .field input,
+    .checkout-section .field textarea {
+      padding: 10px 12px;
+    }
+
+    .order-summary {
+      position: sticky;
+      top: 20px;
+      background: rgba(240, 231, 200, .07);
+      border: 1px solid rgba(240, 231, 200, .18);
+      border-radius: 14px;
+      padding: 22px;
+    }
+
+    .order-summary .tip-section {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(240, 231, 200, .2);
+    }
+
+    .order-summary .tip-label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .order-summary .tip-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .order-summary .tip-option {
+      padding: 7px 14px;
+    }
+
+    .discount-section {
+      margin-top: 14px;
+    }
+
+    .discount-section summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: .9rem;
+      text-decoration: underline;
+      opacity: .85;
+    }
+
+    .discount-section summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .discount-section[open] summary {
+      margin-bottom: 10px;
+    }
+
+    .summary-lines {
+      margin-top: 16px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(240, 231, 200, .2);
+    }
+
+    .summary-lines .cart-line {
+      padding-top: 10px;
+    }
+
+    .order-summary .checkout-button {
+      margin-top: 18px;
+    }
+
+    .order-summary .error-message {
+      margin: 16px 0 0;
+    }
+
+    /* Delivery day cards (they drive the hidden #delivery-date select). */
+    .date-picker {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      gap: 10px;
+    }
+
+    .date-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 10px 6px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(240, 231, 200, .35);
+      color: var(--cream);
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .date-card input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      margin: 0;
+      cursor: inherit;
+    }
+
+    .date-card .date-dow {
+      font-size: .72rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      opacity: .8;
+    }
+
+    .date-card .date-day {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.7rem;
+      font-weight: 600;
+      line-height: 1.1;
+    }
+
+    .date-card .date-month {
+      font-size: .8rem;
+      opacity: .8;
+    }
+
+    .date-card:hover {
+      border-color: var(--cream);
+    }
+
+    .date-card.is-selected {
+      background: var(--cream);
+      border-color: var(--cream);
+      color: var(--deep-brown);
+    }
+
+    .date-card.is-focused {
+      outline: 2px solid var(--terracotta);
+      outline-offset: 2px;
+    }
+
+    .date-card.is-unavailable {
+      opacity: .3;
+      cursor: not-allowed;
+    }
+
+    .date-card.is-unavailable .date-day {
+      text-decoration: line-through;
+    }
+
+    .date-card.is-unavailable:hover {
+      border-color: rgba(240, 231, 200, .35);
+    }
+
+    .checkout-section .date-status:empty {
+      display: none;
+    }
+
+    .checkout-section .date-status {
+      margin: 12px 0 0;
+    }
+
+    @media (max-width: 900px) {
+
+      .checkout-layout {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+
+      .order-summary {
+        position: static;
+        padding: 18px;
+      }
+
+    }
+
+    @media (max-width: 800px) {
+
+      /* Name + phone and city + ZIP share a row even on phones. */
+      .checkout-section .field-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .date-picker {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      /* Five tip buttons share one row. */
+      .order-summary .tip-options {
+        flex-wrap: nowrap;
+        gap: 5px;
+      }
+
+      .order-summary .tip-option {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 7px 0;
+        font-size: .9rem;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .order-summary {
+        padding: 16px 14px;
+      }
+
+    }
+
   </style>
 </head>
 
@@ -794,120 +1065,26 @@
       Your Order
     </h2>
 
-
     <div
       id="checkout-notice"
       class="notice-message"
       role="status"
     ></div>
 
-
-    <!-- CART -->
-
-    <div id="cart-items">
-
-      <p class="empty-cart">
-        Your cart is empty.
-      </p>
-
-    </div>
-
-    <p id="large-order-note" class="large-order-note" role="status" hidden>
-      Planning a bigger bake? We'd love to help. For more than
-      <span class="daily-loaf-limit">10</span> loaves on one day, please email us at
-      <a href="mailto:hellokiranabakehouse@gmail.com">hellokiranabakehouse@gmail.com</a>
-      and we'll arrange it with you.
-    </p>
-
-
-    <div class="tip-section">
-
-      <span class="tip-label">
-        Add a tip <span class="optional">(optional)</span>
-      </span>
-
-      <div
-        id="tip-options"
-        class="tip-options"
-        role="group"
-        aria-label="Tip"
-      ></div>
-
-      <div id="tip-custom" class="tip-custom" hidden>
-        <label for="tip-amount">Tip amount</label>
-        <span class="tip-input">
-          <span aria-hidden="true">$</span>
-          <input id="tip-amount" type="number" min="0" max="200" step="0.5" inputmode="decimal" placeholder="0.00" />
-        </span>
-      </div>
-
-    </div>
-
-
-    <div class="discount-section">
-
-      <label class="tip-label" for="discount-code">
-        Discount code <span class="optional">(optional)</span>
-      </label>
-
-      <div id="discount-entry" class="discount-entry">
-        <input id="discount-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" />
-        <button type="button" id="discount-apply" class="tip-option">Apply</button>
-      </div>
-
-      <p id="discount-status" class="discount-status" aria-live="polite"></p>
-
-    </div>
-
-
-    <div class="cart-line">
-      <span>Subtotal</span>
-      <span id="cart-subtotal">$0.00</span>
-    </div>
-
-    <div class="cart-line">
-      <span>Delivery</span>
-      <span id="cart-delivery-fee">Enter your address</span>
-    </div>
-
-    <div class="cart-line">
-      <span>Tip</span>
-      <span id="cart-tip">$0.00</span>
-    </div>
-
-    <div class="cart-line" id="cart-discount-line" hidden>
-      <span id="cart-discount-label">Discount</span>
-      <span id="cart-discount">−$0.00</span>
-    </div>
-
-    <div class="cart-total">
-
-      <span>
-        Total
-      </span>
-
-      <span id="cart-total">
-        $0.00
-      </span>
-
-    </div>
-
-
-    <form id="order-form" class="delivery-form" novalidate>
+    <div class="checkout-layout">
 
       <!-- =========================
-           DELIVERY DETAILS
+           STEPS 1-2: DETAILS AND DAY
       ========================== -->
+      <form id="order-form" class="delivery-form checkout-steps" novalidate>
 
-      <h3 class="section-label">
-        Delivery Details
-      </h3>
+        <h3 class="section-label"><span class="step-number">1</span> Delivery details</h3>
 
-      <p class="delivery-note">
+        <p class="delivery-note">
         We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
       </p>
 
-      <div class="field-grid">
+        <div class="field-grid">
 
         <div class="field">
           <label for="customer-name">Full name</label>
@@ -952,33 +1129,21 @@
         aria-live="polite"
       ></div>
 
+        <h3 class="section-label"><span class="step-number">2</span> Delivery day</h3>
 
-      <!-- =========================
-           DELIVERY DATE
-      ========================== -->
-
-      <h3 class="section-label">
-        Delivery Date
-      </h3>
-
-      <p class="delivery-note">
+        <p class="delivery-note">
         We deliver <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>,
         <span class="delivery-window">between 2 pm and 4 pm</span>.
         Your order will be baked fresh that morning.
       </p>
 
-
-      <label
-        class="delivery-date-label"
-        for="delivery-date"
-      >
-        Select your delivery date
-      </label>
-
-      <select
+        <!-- The real field, kept in sync with the date cards below. -->
+        <select
         id="delivery-date"
         name="deliveryDate"
-        class="delivery-date-select"
+        class="delivery-date-select visually-hidden"
+        aria-hidden="true"
+        tabindex="-1"
         required
       >
 
@@ -988,38 +1153,133 @@
 
       </select>
 
-      <p
+        <div id="date-picker" class="date-picker" role="radiogroup" aria-label="Delivery day"></div>
+
+        <p
         id="date-status"
         class="address-status date-status"
         aria-live="polite"
       ></p>
 
+      </form>
+
+      <!-- =========================
+           STEP 3: REVIEW AND PAY
+           (stays in view beside the form on wide screens)
+      ========================== -->
+      <aside class="order-summary" aria-label="Order summary">
+
+        <h3 class="section-label"><span class="step-number">3</span> Review &amp; pay</h3>
+
+        <div id="cart-items">
+
+      <p class="empty-cart">
+        Your cart is empty.
+      </p>
+
+    </div>
+
+        <p id="large-order-note" class="large-order-note" role="status" hidden>
+      Planning a bigger bake? We'd love to help. For more than
+      <span class="daily-loaf-limit">10</span> loaves on one day, please email us at
+      <a href="mailto:hellokiranabakehouse@gmail.com">hellokiranabakehouse@gmail.com</a>
+      and we'll arrange it with you.
+    </p>
+
+        <div class="tip-section">
+
+      <span class="tip-label">
+        Add a tip <span class="optional">(optional)</span>
+      </span>
 
       <div
+        id="tip-options"
+        class="tip-options"
+        role="group"
+        aria-label="Tip"
+      ></div>
+
+      <div id="tip-custom" class="tip-custom" hidden>
+        <label for="tip-amount">Tip amount</label>
+        <span class="tip-input">
+          <span aria-hidden="true">$</span>
+          <input id="tip-amount" type="number" min="0" max="200" step="0.5" inputmode="decimal" placeholder="0.00" />
+        </span>
+      </div>
+
+    </div>
+
+        <details id="discount-details" class="discount-section">
+          <summary>Have a discount code?</summary>
+
+
+      <label class="visually-hidden" for="discount-code">Discount code</label>
+
+      <div id="discount-entry" class="discount-entry">
+        <input id="discount-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" />
+        <button type="button" id="discount-apply" class="tip-option">Apply</button>
+      </div>
+
+      <p id="discount-status" class="discount-status" aria-live="polite"></p>
+        </details>
+
+        <div class="summary-lines">
+        <div class="cart-line">
+      <span>Subtotal</span>
+      <span id="cart-subtotal">$0.00</span>
+    </div>
+
+    <div class="cart-line">
+      <span>Delivery</span>
+      <span id="cart-delivery-fee">Enter your address</span>
+    </div>
+
+    <div class="cart-line">
+      <span>Tip</span>
+      <span id="cart-tip">$0.00</span>
+    </div>
+
+    <div class="cart-line" id="cart-discount-line" hidden>
+      <span id="cart-discount-label">Discount</span>
+      <span id="cart-discount">−$0.00</span>
+    </div>
+
+    <div class="cart-total">
+
+      <span>
+        Total
+      </span>
+
+      <span id="cart-total">
+        $0.00
+      </span>
+
+    </div>
+        </div>
+
+        <div
         id="checkout-error"
         class="error-message"
         role="alert"
       ></div>
 
-
-      <!-- =========================
-           CHECKOUT BUTTON
-      ========================== -->
-
-      <button
+        <button
         id="checkout-button"
+        form="order-form"
         class="checkout-button"
         type="submit"
       >
         Continue to Payment
       </button>
 
-      <p class="stripe-note">
+        <p class="stripe-note">
         You'll enter your email and card details on the next page.
         Secure payment powered by Stripe.
       </p>
 
-    </form>
+      </aside>
+
+    </div>
 
   </section>
 

@@ -1286,7 +1286,20 @@
 </main>
 
 
-<script type="module" src="./order.js"></script>
+<!--
+  Versioned script URLs, so browsers never pair a new page with an old cached
+  script. Change the number (e.g. to today's date) whenever order.js,
+  success.js, macros.js or delivery-rules.js change.
+-->
+<script type="importmap">
+  {
+    "imports": {
+      "./macros.js": "./macros.js?v=20261104",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261104"
+    }
+  }
+</script>
+<script type="module" src="./order.js?v=20261104"></script>
 
 </body>
 

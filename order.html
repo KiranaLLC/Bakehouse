@@ -109,10 +109,12 @@
       overflow: hidden;
     }
 
+    /* A fixed 6:5 shape (about 300px tall, as before) so each photo's
+       imageCenter in macros.js lines its loaf up the same way at any width. */
     .product-image {
       display: block;
       width: 100%;
-      height: 300px;
+      aspect-ratio: 6 / 5;
       object-fit: cover;
     }
 

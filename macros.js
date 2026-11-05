@@ -7,12 +7,18 @@
 // Every loaf starts with these; each product lists only what it adds.
 export const BASE_INGREDIENTS = Object.freeze(["Organic Unbleached All Purpose Flour", "Water", "Sea Salt"]);
 
+/*
+  imageCenter: how far down the photo the middle of the loaf is, as a
+  percentage (50 = exactly halfway, the default). The order page crops each
+  photo to a wider shape, and uses this to keep the loaf in the middle.
+*/
 export const PRODUCTS = Object.freeze({
   bacon_cheddar: {
     name: "Bacon & Cheddar",
     description: "Smoky bacon and sharp cheddar, swirled through every layer.",
     price: 1600,
     image: "./img/menu/bacon-cheddar.jpg",
+    imageCenter: 52,
     ingredients: ["Bacon", "Sharp Cheddar Cheese"],
     maxQuantity: 6
   },
@@ -21,6 +27,7 @@ export const PRODUCTS = Object.freeze({
     description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
     price: 1600,
     image: "./img/menu/birds-eye.jpg",
+    imageCenter: 49,
     ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
     maxQuantity: 6
   },
@@ -29,6 +36,7 @@ export const PRODUCTS = Object.freeze({
     description: "Rainbow sprinkles folded into a sourdough bread.",
     price: 1600,
     image: "./img/menu/birthday.jpg",
+    imageCenter: 49,
     ingredients: ["Rainbow Sprinkles"],
     maxQuantity: 6
   },
@@ -37,6 +45,7 @@ export const PRODUCTS = Object.freeze({
     description: "A classic sourdough flavour with melty cheese and a kick of jalapeño.",
     price: 1600,
     image: "./img/menu/cheddar-jalapeno.jpg",
+    imageCenter: 52,
     ingredients: ["Sharp Cheddar Cheese", "Pickled Jalapeños"],
     maxQuantity: 6
   },
@@ -53,6 +62,7 @@ export const PRODUCTS = Object.freeze({
     description: "Scallion pancakes with chili oil inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/cong-la.jpg",
+    imageCenter: 52,
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
     maxQuantity: 6
   },
@@ -69,6 +79,7 @@ export const PRODUCTS = Object.freeze({
     description: "Every chocolate craving, answered in sourdough.",
     price: 1600,
     image: "./img/menu/double-chocolate.jpg",
+    imageCenter: 58,
     ingredients: ["Milk Chocolate Chips", "Unsweetened Cocoa Powder", "Vanilla Essence"],
     maxQuantity: 6
   },
@@ -77,6 +88,7 @@ export const PRODUCTS = Object.freeze({
     description: "The everything bagel inspired sourdough bread.",
     price: 1300,
     image: "./img/menu/everything-seasoning.jpg",
+    imageCenter: 48,
     ingredients: ["Sesame Seeds", "Black Sesame Seeds", "Poppy Seeds", "Dehydrated Garlic", "Dehydrated Onion", "Salt"],
     maxQuantity: 6
   },
@@ -85,6 +97,7 @@ export const PRODUCTS = Object.freeze({
     description: "The cozy French classic soup inspired sourdough bread.",
     price: 1600,
     image: "./img/menu/french-onion-soup.jpg",
+    imageCenter: 54,
     ingredients: ["Caramelized Onions", "Gruyère Cheese"],
     maxQuantity: 6
   },
@@ -93,6 +106,7 @@ export const PRODUCTS = Object.freeze({
     description: "Our classic sourdough: simple and made for every day.",
     price: 1200,
     image: "./img/menu/house-white.jpg",
+    imageCenter: 49,
     ingredients: [],
     maxQuantity: 6
   },
@@ -101,6 +115,7 @@ export const PRODUCTS = Object.freeze({
     description: "Margherita pizza(not the drink!), reimagined as a sourdough.",
     price: 1600,
     image: "./img/menu/margherita.jpg",
+    imageCenter: 49,
     ingredients: ["Tomato", "Mozzarella Cheese", "Italian Seasoning", "Basil"],
     maxQuantity: 6
   },
@@ -109,6 +124,7 @@ export const PRODUCTS = Object.freeze({
     description: "Autumn's favourite flavour, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/pumpkin-spice.jpg",
+    imageCenter: 51,
     ingredients: ["Pumpkin Purée", "Cinnamon", "Ginger", "Lemon Peel", "Nutmeg", "Cloves", "Cardamom"],
     maxQuantity: 6
   }

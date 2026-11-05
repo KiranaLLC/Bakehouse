@@ -119,6 +119,15 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Tomato", "Mozzarella Cheese", "Italian Seasoning", "Basil"],
     maxQuantity: 6
   },
+  pesto: {
+    name: "Pesto",
+    description: "Basil pesto mixed right into the dough, for an herby, golden-green sourdough.",
+    price: 1600,
+    image: "./img/menu/pesto.jpg",
+    imageCenter: 56,
+    ingredients: ["Organic Basil Pesto", "Olive Oil"],
+    maxQuantity: 6
+  },
   pumpkin_spice: {
     name: "Pumpkin Spice",
     description: "Autumn's favourite flavour, baked into a sourdough.",

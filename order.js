@@ -439,6 +439,9 @@ function showAppliedDiscount() {
 
   document.getElementById("discount-entry").hidden = true;
 
+  // The code box is tucked away by default; show the applied code.
+  document.getElementById("discount-details").open = true;
+
 }
 
 function removeDiscount() {
@@ -668,6 +671,8 @@ function renderDeliveryDates() {
 
   });
 
+  renderDatePicker();
+
   document.querySelectorAll(".delivery-days").forEach(element => {
     element.textContent = describeDeliveryDays();
   });
@@ -681,6 +686,85 @@ function renderDeliveryDates() {
 
   document.querySelectorAll(".daily-loaf-limit").forEach(element => {
     element.textContent = DELIVERY.dailyLoafLimit;
+  });
+
+}
+
+
+/*
+==================================================
+DATE CARDS
+
+The delivery day is chosen from cards (Wed / 11
+/ Nov). They drive the hidden #delivery-date
+select, which the rest of the page reads, and
+mirror its options: a day that can't take the
+order is greyed out.
+==================================================
+*/
+
+function renderDatePicker() {
+
+  const picker =
+    document.getElementById("date-picker");
+
+  picker.replaceChildren();
+
+  [...fields.deliveryDate.options].forEach(option => {
+
+    if (!option.value) return;
+
+    const date = new Date(`${option.value}T00:00:00Z`);
+    const part = format => date.toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", ...format });
+
+    const card = document.createElement("label");
+    card.className = "date-card";
+    card.dataset.value = option.value;
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "delivery-day";
+    input.value = option.value;
+    input.setAttribute("aria-label", option.dataset.label);
+
+    const parts = [["date-dow", { weekday: "short" }], ["date-day", { day: "numeric" }], ["date-month", { month: "short" }]].map(([className, format]) => {
+      const span = document.createElement("span");
+      span.className = className;
+      span.setAttribute("aria-hidden", "true");
+      span.textContent = part(format);
+      return span;
+    });
+
+    input.addEventListener("change", () => {
+      fields.deliveryDate.value = option.value;
+      fields.deliveryDate.dispatchEvent(new Event("change"));
+    });
+    // Ring only for keyboard focus, not taps.
+    input.addEventListener("focus", () => card.classList.toggle("is-focused", input.matches(":focus-visible")));
+    input.addEventListener("blur", () => card.classList.remove("is-focused"));
+
+    card.append(input, ...parts);
+    picker.appendChild(card);
+
+  });
+
+  syncDatePicker();
+
+}
+
+function syncDatePicker() {
+
+  const options =
+    [...fields.deliveryDate.options];
+
+  document.querySelectorAll("#date-picker .date-card").forEach(card => {
+    const option = options.find(({ value }) => value === card.dataset.value);
+    const input = card.querySelector("input");
+    const selected = fields.deliveryDate.value === card.dataset.value;
+    input.checked = selected;
+    input.disabled = Boolean(option?.disabled);
+    card.classList.toggle("is-selected", selected);
+    card.classList.toggle("is-unavailable", input.disabled);
   });
 
 }
@@ -736,6 +820,8 @@ function renderDateAvailability() {
     // customer sees why it can't be used rather than it silently changing.
     option.disabled = !dayFits(remaining, loaves) && option.value !== fields.deliveryDate.value;
   });
+
+  syncDatePicker();
 
   updateDateStatus();
 
@@ -989,6 +1075,11 @@ MESSAGES
 */
 
 function showError(message, focusElement) {
+
+  // The date select is hidden behind the date cards: point at those instead.
+  if (focusElement === fields.deliveryDate) {
+    focusElement = document.querySelector("#date-picker input:not(:disabled)") || document.getElementById("date-picker");
+  }
 
   const element =
     document.getElementById("checkout-error");

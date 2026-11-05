@@ -10,16 +10,18 @@ sites, which Safari would block).
   GET  /admin                                the page itself
   POST /admin/api/login                      { password } → session cookie
   POST /admin/api/logout                     clears the cookie
-  GET  /admin/api/orders                     paid orders not yet delivered
-  POST /admin/api/orders/<session>/delivered { delivered: true | false }
+  GET  /admin/api/orders                     paid orders and invoices not yet delivered
+  POST /admin/api/orders/<id>/delivered      { delivered: true | false }
 
 There's one password, set as a Cloudflare secret:
   npx wrangler secret put ADMIN_PASSWORD
 Changing it signs out every device.
 
-Orders come from Stripe. "Delivered" is saved on
-the order's Stripe payment (delivered_at in its
-metadata), and delivered orders drop off the list.
+Orders come from Stripe: website checkouts, and
+invoices (paid or sent). "Delivered" is saved in
+Stripe (delivered_at in the payment's or the
+invoice's metadata), and delivered orders drop off
+the list.
 ==================================================
 */
 
@@ -74,7 +76,7 @@ export async function handleAdmin(request, env, { stripe }) {
       return json(await listOpenOrders(env, stripe));
     }
 
-    const deliveredMatch = path.match(/^\/admin\/api\/orders\/(cs_[A-Za-z0-9_]+)\/delivered$/);
+    const deliveredMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+)\/delivered$/);
     if (request.method === "POST" && deliveredMatch) {
       const body = await request.json().catch(() => ({}));
       const result = await setDelivered(deliveredMatch[1], body.delivered !== false, env, stripe);
@@ -230,7 +232,12 @@ async function listOpenOrders(env, stripe) {
 
   } while (startingAfter);
 
-  orders.sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate) || a.created - b.created);
+  orders.push(...await listOpenInvoices(env, stripe, since, today));
+
+  // Dated orders first, oldest date first; invoices with no delivery date last.
+  // (Plain comparison: localeCompare would sort "~" before digits.)
+  const sortKey = order => order.deliveryDate || "~";
+  orders.sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0) || a.created - b.created);
 
   return { today, orders, prep: prepByDate(orders) };
 
@@ -255,6 +262,8 @@ async function describeOrder(session, today, env, stripe) {
 
   return {
     id: session.id,
+    kind: "checkout",
+    unpaid: false,
     created: session.created,
     deliveryDate: metadata.delivery_date,
     deliveryLabel: formatDeliveryDate(metadata.delivery_date),
@@ -296,6 +305,83 @@ async function orderItems(session, env, stripe) {
 
 }
 
+/*
+==================================================
+INVOICES
+
+Invoices made in the Stripe Dashboard, e.g. for
+catering. Paid ones, and sent ones not yet paid
+(shown as "Unpaid"); drafts and voided invoices
+are left out. To give one a delivery date, add
+metadata delivery_date = YYYY-MM-DD to it in
+Stripe; without it, it's listed under "No
+delivery date set".
+==================================================
+*/
+
+// Invoice lines that aren't loaves, so they stay out of the prep counts.
+const NON_LOAF_INVOICE_LINE = /\b(delivery|shipping|tip|gratuity|fee|discount)\b/i;
+
+async function listOpenInvoices(env, stripe, since, today) {
+
+  const invoices = [];
+
+  for (const status of ["paid", "open"]) {
+    let startingAfter;
+    do {
+      const page = await stripe(env, "GET", "/invoices", { limit: 100, status, created: { gte: since }, starting_after: startingAfter });
+      for (const invoice of page.data) {
+        if (invoice.metadata?.delivered_at) continue;
+        invoices.push(await describeInvoice(invoice, today, env, stripe));
+      }
+      startingAfter = page.has_more ? page.data.at(-1).id : undefined;
+    } while (startingAfter);
+  }
+
+  return invoices;
+
+}
+
+async function describeInvoice(invoice, today, env, stripe) {
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
+  const lines = invoice.lines?.has_more
+    ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
+    : invoice.lines?.data || [];
+  const items = lines
+    .filter(({ description }) => !NON_LOAF_LINES.has(description) && !NON_LOAF_INVOICE_LINE.test(description || ""))
+    .map(({ description, quantity }) => ({ name: description || "Item", quantity: quantity || 1 }));
+  const shipping = invoice.customer_shipping;
+  const paid = invoice.status === "paid";
+
+  return {
+    id: invoice.id,
+    kind: "invoice",
+    invoiceNumber: invoice.number || "",
+    unpaid: !paid,
+    created: invoice.created,
+    deliveryDate: date,
+    deliveryLabel: date ? formatDeliveryDate(date) : "No delivery date set",
+    pastDue: Boolean(date) && date < today,
+    name: shipping?.name || invoice.customer_name || "",
+    phone: shipping?.phone || invoice.customer_phone || "",
+    email: invoice.customer_email || "",
+    address: formatStripeAddress(shipping?.address || invoice.customer_address),
+    notes: invoice.description || "",
+    items,
+    loaves: items.reduce((total, { quantity }) => total + quantity, 0),
+    totalCents: paid ? invoice.amount_paid : invoice.amount_due,
+    tipCents: 0
+  };
+
+}
+
+function formatStripeAddress(address) {
+  if (!address) return "";
+  const cityLine = [address.city, [address.state, address.postal_code].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  return [address.line1, address.line2, cityLine].filter(Boolean).join(", ");
+}
+
 // For each delivery date: how many of each loaf to bake, most first.
 export function prepByDate(orders) {
 
@@ -320,19 +406,30 @@ export function prepByDate(orders) {
 
 /*
   Marks an order delivered (or not, to undo a
-  mistaken tick) on its Stripe payment.
+  mistaken tick) on its Stripe payment, or on
+  the invoice itself.
 */
-async function setDelivered(sessionId, delivered, env, stripe) {
+async function setDelivered(id, delivered, env, stripe) {
 
+  const value = delivered ? new Date().toISOString() : "";
+  // An empty value removes the key in Stripe.
+  const params = { metadata: { delivered_at: value } };
+
+  if (id.startsWith("in_")) {
+    const invoice = await stripe(env, "GET", `/invoices/${id}`, {});
+    if (invoice.status !== "paid" && invoice.status !== "open") {
+      return { ok: false, error: "Only paid or sent invoices can be marked delivered." };
+    }
+    await stripe(env, "POST", `/invoices/${id}`, params);
+    return { ok: true, delivered };
+  }
+
+  const sessionId = id;
   const session = await stripe(env, "GET", `/checkout/sessions/${sessionId}`, {});
 
   if (session.status !== "complete" || !session.metadata?.delivery_date) {
     return { ok: false, error: "That isn't a completed delivery order." };
   }
-
-  const value = delivered ? new Date().toISOString() : "";
-  // An empty value removes the key in Stripe.
-  const params = { metadata: { delivered_at: value } };
 
   if (session.payment_intent) {
     await stripe(env, "POST", `/payment_intents/${session.payment_intent}`, params);

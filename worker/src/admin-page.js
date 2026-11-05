@@ -75,6 +75,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .day span { color: var(--muted); font-size: .9rem; white-space: nowrap; }
   .past-due h2 { color: var(--warn); }
   .badge { display: inline-block; font-size: .75rem; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: middle; }
+  .badge.invoice { color: var(--deep-brown); }
+  .badge.unpaid { color: var(--terracotta); }
 
   /* Prep */
   .prep-list { list-style: none; margin: 0; padding: 0; }
@@ -331,15 +333,15 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   function orderCard(order) {
     var details = el("dl", {},
-      el("dt", { text: "Address" }),
-      el("dd", {}, el("a", { href: "https://maps.apple.com/?q=" + encodeURIComponent(order.address), target: "_blank", rel: "noopener", text: order.address })),
+      order.address ? el("dt", { text: "Address" }) : null,
+      order.address ? el("dd", {}, el("a", { href: "https://maps.apple.com/?q=" + encodeURIComponent(order.address), target: "_blank", rel: "noopener", text: order.address })) : null,
       order.phone ? el("dt", { text: "Phone" }) : null,
       order.phone ? el("dd", {}, el("a", { href: "tel:" + order.phone.replace(/[^0-9+]/g, ""), text: order.phone })) : null,
       order.email ? el("dt", { text: "Email" }) : null,
       order.email ? el("dd", { text: order.email }) : null,
       order.notes ? el("dt", { text: "Notes" }) : null,
       order.notes ? el("dd", { text: order.notes }) : null,
-      el("dt", { text: "Paid" }),
+      el("dt", { text: order.unpaid ? "Amount due" : "Paid" }),
       el("dd", { text: money(order.totalCents) + (order.tipCents ? " (incl. " + money(order.tipCents) + " tip)" : "") })
     );
 
@@ -349,8 +351,11 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     button.addEventListener("click", function () { markDelivered(order, button); });
 
     return el("article", { class: "card order" },
-      el("h3", { text: order.name || "(no name)" }),
-      el("p", { class: "items", text: describeItems(order.items) }),
+      el("h3", { text: order.name || "(no name)" },
+        order.kind === "invoice" ? el("span", { class: "badge invoice", text: "Invoice" + (order.invoiceNumber ? " " + order.invoiceNumber : "") }) : null,
+        order.unpaid ? el("span", { class: "badge unpaid", text: "Unpaid" }) : null
+      ),
+      el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
       details,
       el("div", { class: "order-actions" },
         order.email ? el("a", { class: "email", href: deliveredEmail(order), text: "Email " + firstName(order) }) : null,
@@ -414,8 +419,12 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   /* ---------- Delivering ---------- */
 
+  // Website orders are people ("Hi Ben"); invoices are often businesses, so
+  // they keep the whole name ("Hi Office Catering Co").
   function firstName(order) {
-    return (order.name || "").trim().split(/\s+/)[0] || "customer";
+    var name = (order.name || "").trim();
+    if (order.kind === "invoice") return name || "there";
+    return name.split(/\s+/)[0] || "there";
   }
 
   // A ready-written "your order has been delivered" email for the Mail app.

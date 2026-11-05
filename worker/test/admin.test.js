@@ -22,6 +22,7 @@ const addDays = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) + days 
 let sessions;
 let lineItems;
 let updates;
+let invoices;
 
 function addOrder({ id, date = addDays(today, 3), items, paymentStatus = "paid", status = "complete", delivered, name = "Asha Rao", payment = true, created }) {
   const metadata = { delivery_date: date, customer_name: name, customer_phone: "650-555-0100", delivery_address: "1 Oak St, Menlo Park, CA 94025", delivery_notes: "Leave by the door", tip_cents: "200" };
@@ -41,7 +42,26 @@ function addOrder({ id, date = addDays(today, 3), items, paymentStatus = "paid",
   return session;
 }
 
+function addInvoice({ id, status = "paid", deliveryDate, delivered, lines = [{ description: "House White", quantity: 4 }], moreLines, number = "KB-0001" }) {
+  const metadata = {};
+  if (deliveryDate) metadata.delivery_date = deliveryDate;
+  if (delivered) metadata.delivered_at = "2026-11-01T00:00:00Z";
+  const invoice = {
+    id, status, number, metadata,
+    created: Math.floor(Date.now() / 1000) - 7200,
+    customer_name: "Office Catering Co", customer_email: `${id}@example.com`, customer_phone: "650-555-0199",
+    customer_shipping: { name: "Front desk", phone: "650-555-0198", address: { line1: "500 El Camino Real", city: "Menlo Park", state: "CA", postal_code: "94025" } },
+    description: "Leave at reception",
+    amount_paid: status === "paid" ? 8000 : 0, amount_due: 8000,
+    lines: { data: lines, has_more: Boolean(moreLines) }
+  };
+  invoice.allLines = lines.concat(moreLines || []);
+  invoices.push(invoice);
+  return invoice;
+}
+
 beforeEach(() => {
+  invoices = [];
   sessions = [];
   lineItems = {};
   updates = [];
@@ -65,6 +85,22 @@ async function fakeStripe(input, init = {}) {
     return Response.json({ data: list.slice(0, limit), has_more: list.length > limit });
   }
 
+  if (method === "GET" && url.pathname === "/v1/invoices") {
+    const status = params.get("status");
+    assert.ok(["paid", "open"].includes(status), `asked for ${status} invoices`);
+    return Response.json({ data: invoices.filter(invoice => invoice.status === status), has_more: false });
+  }
+
+  const invoiceLinesMatch = url.pathname.match(/^\/v1\/invoices\/(\w+)\/lines$/);
+  if (method === "GET" && invoiceLinesMatch) {
+    return Response.json({ data: invoices.find(({ id }) => id === invoiceLinesMatch[1]).allLines, has_more: false });
+  }
+
+  const invoiceMatch = url.pathname.match(/^\/v1\/invoices\/(\w+)$/);
+  if (method === "GET" && invoiceMatch) {
+    return Response.json(invoices.find(({ id }) => id === invoiceMatch[1]));
+  }
+
   const lineItemsMatch = url.pathname.match(/^\/v1\/checkout\/sessions\/(\w+)\/line_items$/);
   if (method === "GET" && lineItemsMatch) {
     return Response.json({ data: lineItems[lineItemsMatch[1]] || [], has_more: false });
@@ -78,7 +114,7 @@ async function fakeStripe(input, init = {}) {
     return Response.json({ ...session, payment_intent: session.payment_intent?.id || null, customer: session.customer?.id || null });
   }
 
-  const updateMatch = url.pathname.match(/^\/v1\/(payment_intents|customers)\/(\w+)$/);
+  const updateMatch = url.pathname.match(/^\/v1\/(payment_intents|customers|invoices)\/(\w+)$/);
   if (method === "POST" && updateMatch) {
     updates.push({ object: updateMatch[1], id: updateMatch[2], deliveredAt: params.get("metadata[delivered_at]") });
     return Response.json({ id: updateMatch[2] });
@@ -261,6 +297,68 @@ test("the public checkout worker no longer serves the orders page", async () => 
     const response = await checkoutWorker.fetch(new Request(`https://kirana-checkout.example.workers.dev${path}`), env);
     assert.equal(response.status, 404, path);
   }
+});
+
+test("paid and sent invoices are listed with website orders; delivered, draft and void ones aren't", async () => {
+  const cookie = await signIn();
+  const day = addDays(today, 3);
+  addOrder({ id: "cs_web", date: day, items: "house_white:1" });
+  addInvoice({ id: "in_dated", deliveryDate: day, number: "KB-0007" });
+  addInvoice({ id: "in_undated", status: "open", number: "KB-0008" });
+  addInvoice({ id: "in_done", delivered: true });
+  addInvoice({ id: "in_draft", status: "draft" });
+  addInvoice({ id: "in_void", status: "void" });
+
+  const { body } = await call("GET", "/admin/api/orders", { cookie });
+
+  // Same day: oldest first (the invoice was created an hour before the web order).
+  assert.deepEqual(body.orders.map(({ id }) => id), ["in_dated", "cs_web", "in_undated"]);
+  const [dated, , undated] = body.orders;
+  assert.equal(dated.kind, "invoice");
+  assert.equal(dated.invoiceNumber, "KB-0007");
+  assert.equal(dated.unpaid, false);
+  assert.equal(dated.name, "Front desk");
+  assert.equal(dated.address, "500 El Camino Real, Menlo Park, CA 94025");
+  assert.equal(dated.notes, "Leave at reception");
+  assert.equal(dated.totalCents, 8000);
+  assert.equal(undated.unpaid, true);
+  assert.equal(undated.deliveryDate, "");
+  assert.equal(undated.deliveryLabel, "No delivery date set");
+  assert.deepEqual(body.prep.map(({ date, total }) => ({ date, total })), [{ date: day, total: 5 }, { date: "", total: 4 }]);
+});
+
+test("invoice delivery, tip and fee lines don't count as loaves", async () => {
+  const cookie = await signIn();
+  addInvoice({
+    id: "in_mixed",
+    lines: [{ description: "Margherita", quantity: 10 }, { description: "Delivery fee", quantity: 1 }],
+    moreLines: [{ description: "Tip", quantity: 1 }, { description: "Bacon & Cheddar", quantity: 5 }]
+  });
+
+  const { body } = await call("GET", "/admin/api/orders", { cookie });
+
+  assert.deepEqual(body.orders[0].items, [{ name: "Margherita", quantity: 10 }, { name: "Bacon & Cheddar", quantity: 5 }]);
+  assert.equal(body.orders[0].loaves, 15);
+});
+
+test("an invoice can be marked delivered and undone", async () => {
+  const cookie = await signIn();
+  addInvoice({ id: "in_a" });
+
+  assert.equal((await call("POST", "/admin/api/orders/in_a/delivered", { cookie, body: { delivered: true } })).status, 200);
+  assert.equal(updates[0].object, "invoices");
+  assert.equal(updates[0].id, "in_a");
+  assert.ok(updates[0].deliveredAt);
+
+  await call("POST", "/admin/api/orders/in_a/delivered", { cookie, body: { delivered: false } });
+  assert.deepEqual(updates[1], { object: "invoices", id: "in_a", deliveredAt: "" });
+});
+
+test("a draft or void invoice can't be marked delivered", async () => {
+  const cookie = await signIn();
+  addInvoice({ id: "in_draft", status: "draft" });
+  assert.equal((await call("POST", "/admin/api/orders/in_draft/delivered", { cookie, body: { delivered: true } })).status, 400);
+  assert.equal(updates.length, 0);
 });
 
 test("signing out clears the cookie", async () => {

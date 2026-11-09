@@ -116,3 +116,11 @@ export function utcToLocal(iso, timeZone = PICKUP.timeZone) {
 export function dayBefore(date) {
   return new Date(Date.parse(`${date}T00:00:00Z`) - 864e5).toISOString().slice(0, 10);
 }
+
+// The last given weekday strictly before a date (0 = Sunday … 3 = Wednesday).
+// "2026-11-14" (Sat), 3 → "2026-11-11" (Wed)
+export function weekdayBefore(date, weekday) {
+  let day = dayBefore(date);
+  while (new Date(`${day}T00:00:00Z`).getUTCDay() !== weekday) day = dayBefore(day);
+  return day;
+}

@@ -30,8 +30,10 @@ export const PICKUP = Object.freeze({
     windowStart: "14:00",
     windowEnd: "15:00",
     loafLimit: 20,
-    // Ordering closes at this time the day before pickup.
-    closesDayBeforeAt: "20:00"
+    // Ordering closes on the last Wednesday before pickup, at this time.
+    // closesWeekday: 0 = Sunday, 1 = Monday, ... 3 = Wednesday, 6 = Saturday.
+    closesWeekday: 3,
+    closesAt: "20:00"
   })
 });
 

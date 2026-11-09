@@ -46,7 +46,7 @@ import {
   setDropCancelled,
   updateDrop
 } from "./drops.js";
-import { dayBefore, dropStatus, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
+import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 
 const COOKIE_NAME = "kirana_admin";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
@@ -581,7 +581,7 @@ async function listAdminDrops(env, stripe) {
         opensLabel: formatMoment(drop.opensAt),
         closesLabel: formatMoment(drop.closesAt),
         // Default closing for this drop's date, used when its date changes in the form.
-        defaultCloseLocal: `${dayBefore(drop.pickupDate)}T${PICKUP.defaults.closesDayBeforeAt}`
+        defaultCloseLocal: `${weekdayBefore(drop.pickupDate, PICKUP.defaults.closesWeekday)}T${PICKUP.defaults.closesAt}`
       };
     })
   };

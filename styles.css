@@ -740,3 +740,29 @@ img {
     font-size: 1.5rem;
   }
 }
+
+/* Desktop header: logo left, Order Now exactly centred, Instagram right. */
+@media (min-width: 901px) {
+  .header-inner:has(.order-buttons) {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .header-inner:has(.order-buttons) .logo {
+    justify-self: start;
+  }
+
+  .header-inner .order-buttons {
+    justify-self: center;
+    max-width: none;
+    padding: 0 !important;
+  }
+
+  .header-inner .mobile-order-btn {
+    margin-left: 0;
+  }
+
+  .header-inner:has(.order-buttons) .desktop-nav {
+    justify-self: end;
+  }
+}

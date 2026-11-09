@@ -24,7 +24,7 @@ export const PICKUP = Object.freeze({
   // How many upcoming drops the order page shows at once.
   maxDropsShown: 4,
   defaults: Object.freeze({
-    locationName: "Verve Coffee Roasters",
+    locationName: "Outside Verve Coffee Roasters",
     locationAddress: "162 University Ave, Palo Alto, CA 94301",
     notes: "Meet us in the outdoor seating area at Verve.",
     windowStart: "14:00",

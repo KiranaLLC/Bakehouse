@@ -22,15 +22,15 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Bacon", "Sharp Cheddar Cheese"],
     maxQuantity: 6
   },
-  birds_eye: {
-    name: "Bird's Eye",
-    description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
-    price: 1600,
-    image: "./img/menu/birds-eye.jpg",
-    imageCenter: 49,
-    ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
-    maxQuantity: 6
-  },
+  // birds_eye: {
+  //   name: "Bird's Eye",
+  //   description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
+  //   price: 1600,
+  //   image: "./img/menu/birds-eye.jpg",
+  //   imageCenter: 49,
+  //   ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
+  //   maxQuantity: 6
+  // },
   birthday: {
     name: "Birthday",
     description: "Rainbow sprinkles folded into a sourdough bread.",
@@ -48,14 +48,14 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Sharp Cheddar Cheese", "Pickled Jalapeños"],
     maxQuantity: 6
   },
-  coconut_laddoo: {
-    name: "Coconut Laddoo",
-    description: "The classic Indian sweet, reimagined as a sourdough.",
-    price: 1600,
-    image: "./img/menu/coconut-laddoo.jpg",
-    ingredients: ["Dried Coconut", "Brown Sugar", "Jaggery", "Cardamom"],
-    maxQuantity: 6
-  },
+  // coconut_laddoo: {
+  //   name: "Coconut Laddoo",
+  //   description: "The classic Indian sweet, reimagined as a sourdough.",
+  //   price: 1600,
+  //   image: "./img/menu/coconut-laddoo.jpg",
+  //   ingredients: ["Dried Coconut", "Brown Sugar", "Jaggery", "Cardamom"],
+  //   maxQuantity: 6
+  // },
   cong_la: {
     name: "Cong La",
     description: "Scallion pancakes with chili oil inspired sourdough bread.",
@@ -107,15 +107,15 @@ export const PRODUCTS = Object.freeze({
     ingredients: [],
     maxQuantity: 6
   },
-  margherita: {
-    name: "Margherita",
-    description: "Margherita pizza(not the drink!), reimagined as a sourdough.",
-    price: 1600,
-    image: "./img/menu/margherita.jpg",
-    imageCenter: 49,
-    ingredients: ["Tomato", "Mozzarella Cheese", "Italian Seasoning", "Basil"],
-    maxQuantity: 6
-  },
+  // margherita: {
+  //   name: "Margherita",
+  //   description: "Margherita pizza(not the drink!), reimagined as a sourdough.",
+  //   price: 1600,
+  //   image: "./img/menu/margherita.jpg",
+  //   imageCenter: 49,
+  //   ingredients: ["Tomato", "Mozzarella Cheese", "Italian Seasoning", "Basil"],
+  //   maxQuantity: 6
+  // },
   pesto: {
     name: "Pesto",
     description: "Basil pesto mixed right into the dough, for an herby, golden-green sourdough.",
@@ -125,14 +125,14 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Organic Basil Pesto", "Olive Oil"],
     maxQuantity: 6
   },
-  pumpkin_spice: {
-    name: "Pumpkin Spice",
-    description: "Autumn's favourite flavour, baked into a sourdough.",
-    price: 1600,
-    image: "./img/menu/pumpkin-spice.jpg",
-    ingredients: ["Pumpkin Purée", "Cinnamon", "Ginger", "Lemon Peel", "Nutmeg", "Cloves", "Cardamom"],
-    maxQuantity: 6
-  }
+  // pumpkin_spice: {
+  //   name: "Pumpkin Spice",
+  //   description: "Autumn's favourite flavour, baked into a sourdough.",
+  //   price: 1600,
+  //   image: "./img/menu/pumpkin-spice.jpg",
+  //   ingredients: ["Pumpkin Purée", "Cinnamon", "Ginger", "Lemon Peel", "Nutmeg", "Cloves", "Cardamom"],
+  //   maxQuantity: 6
+  // }
 });
 
 export const DELIVERY = Object.freeze({

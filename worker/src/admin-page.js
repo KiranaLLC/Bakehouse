@@ -697,8 +697,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var pickupDate = drop ? drop.pickupDate : data.nextSaturday;
     var closesDefault = function (date) {
       var day = new Date(date + "T00:00:00Z");
-      day.setUTCDate(day.getUTCDate() - 1);
-      return day.toISOString().slice(0, 10) + "T" + d.closesDayBeforeAt;
+      do { day.setUTCDate(day.getUTCDate() - 1); } while (day.getUTCDay() !== d.closesWeekday);
+      return day.toISOString().slice(0, 10) + "T" + d.closesAt;
     };
 
     var f = {

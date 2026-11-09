@@ -169,7 +169,7 @@ next drop. A link to `order.html?pickup` opens the order page on pickup.
 **You** manage drops on the orders page, in the **Drops** tab:
 
 - **New drop** (defaults: Verve Coffee Roasters, 2–3 pm, 20 loaves, ordering
-  closes at 8 pm the day before; change them in `PICKUP.defaults` in
+  closes at 8 pm the Wednesday before pickup; change them in `PICKUP.defaults` in
   `macros.js`). All times are Pacific.
 - Each drop shows whether it's open, how many loaves are booked, and buttons
   to **Edit** or **Cancel** it.

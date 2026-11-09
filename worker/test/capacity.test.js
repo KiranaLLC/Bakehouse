@@ -131,7 +131,7 @@ test("orders placed before loaf_count existed are counted from their line items"
   const id = addSession({ status: "complete" });
   lineItems[id] = [
     { description: PRODUCTS.house_white.name, quantity: 2 },
-    { description: PRODUCTS.margherita.name, quantity: 1 },
+    { description: PRODUCTS.pesto.name, quantity: 1 },
     { description: "Local delivery", quantity: 1 },
     { description: "Tip for your baker", quantity: 1 }
   ];

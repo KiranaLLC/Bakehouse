@@ -149,7 +149,7 @@ async function makeDrop(overrides) {
 function pickupOrder(dropId, loaves, extra = {}) {
   return {
     fulfillment: "pickup", dropId,
-    items: [{ productId: "house_white", quantity: Math.min(loaves, 6) }, ...(loaves > 6 ? [{ productId: "margherita", quantity: loaves - 6 }] : [])],
+    items: [{ productId: "house_white", quantity: Math.min(loaves, 6) }, ...(loaves > 6 ? [{ productId: "pesto", quantity: loaves - 6 }] : [])],
     customer: { name: "Sam Rivera", phone: "650-555-0123" }, tipCents: 0, ...extra
   };
 }

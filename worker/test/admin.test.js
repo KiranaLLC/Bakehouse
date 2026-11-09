@@ -192,7 +192,7 @@ test("without ADMIN_PASSWORD the orders page explains how to set it up", async (
 
 test("lists paid orders that aren't delivered yet, oldest date first", async () => {
   const cookie = await signIn();
-  addOrder({ id: "cs_later", date: addDays(today, 5), items: "margherita:2" });
+  addOrder({ id: "cs_later", date: addDays(today, 5), items: "pesto:2" });
   addOrder({ id: "cs_soon", date: addDays(today, 2), items: "house_white:1,croissourdough:2", name: "Ben Ito" });
   addOrder({ id: "cs_late", date: addDays(today, -2), items: "birthday:1" });
   addOrder({ id: "cs_delivered", items: "house_white:3", delivered: true });
@@ -234,7 +234,7 @@ test("older orders without an item list are read from Stripe line items", async 
 test("prep adds up each loaf per delivery date", async () => {
   const cookie = await signIn();
   const day = addDays(today, 3);
-  addOrder({ id: "cs_1", date: day, items: "house_white:2,margherita:1" });
+  addOrder({ id: "cs_1", date: day, items: "house_white:2,pesto:1" });
   addOrder({ id: "cs_2", date: day, items: "house_white:1,croissourdough:1" });
   addOrder({ id: "cs_3", date: addDays(today, 4), items: "birthday:4" });
   addOrder({ id: "cs_done", date: day, items: "house_white:6", delivered: true });
@@ -248,7 +248,7 @@ test("prep adds up each loaf per delivery date", async () => {
   assert.deepEqual(body.prep[0].loaves, [
     { name: "House White", quantity: 3 },
     { name: "Croissourdough", quantity: 1 },
-    { name: "Margherita", quantity: 1 }
+    { name: "Pesto", quantity: 1 }
   ]);
 });
 
@@ -331,13 +331,13 @@ test("invoice delivery, tip and fee lines don't count as loaves", async () => {
   const cookie = await signIn();
   addInvoice({
     id: "in_mixed",
-    lines: [{ description: "Margherita", quantity: 10 }, { description: "Delivery fee", quantity: 1 }],
+    lines: [{ description: "Pesto", quantity: 10 }, { description: "Delivery fee", quantity: 1 }],
     moreLines: [{ description: "Tip", quantity: 1 }, { description: "Bacon & Cheddar", quantity: 5 }]
   });
 
   const { body } = await call("GET", "/admin/api/orders", { cookie });
 
-  assert.deepEqual(body.orders[0].items, [{ name: "Margherita", quantity: 10 }, { name: "Bacon & Cheddar", quantity: 5 }]);
+  assert.deepEqual(body.orders[0].items, [{ name: "Pesto", quantity: 10 }, { name: "Bacon & Cheddar", quantity: 5 }]);
   assert.equal(body.orders[0].loaves, 15);
 });
 

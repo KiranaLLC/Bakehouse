@@ -77,6 +77,33 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .badge { display: inline-block; font-size: .75rem; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: middle; }
   .badge.invoice { color: var(--deep-brown); }
   .badge.unpaid { color: var(--terracotta); }
+  .badge.pickup { color: var(--good); }
+
+  /* Drops */
+  .drops-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .drops-toolbar .primary { width: auto; padding: 10px 18px; }
+  .drops-toolbar .count { color: var(--muted); font-size: .95rem; }
+  .drop h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .drop .where { margin: 0 0 8px; color: var(--muted); font-size: .95rem; }
+  .status { display: inline-block; font-size: .78rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; margin: 0 0 10px; }
+  .status.open { background: #e3f0e3; color: var(--good); }
+  .status.upcoming { background: #fbefd9; color: var(--warn); }
+  .status.sold_out { background: #f6dcd5; color: var(--terracotta); }
+  .status.closed, .status.cancelled { background: #ece6d6; color: var(--muted); }
+  .meter { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 6px 0 4px; }
+  .meter span { display: block; height: 100%; background: var(--deep-brown); }
+  .drop-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .drop-actions > * { padding: 8px 14px; font: inherit; font-size: .9rem; font-weight: 600; border-radius: 999px; border: 1.5px solid var(--deep-brown); background: white; color: var(--deep-brown); text-decoration: none; cursor: pointer; }
+  .drop-actions .quiet { border-color: var(--line); color: var(--muted); }
+  .drop-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
+  .drop-form label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  .drop-form input, .drop-form textarea { width: 100%; min-width: 0; padding: 9px 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: white; }
+  .drop-form .wide { grid-column: 1 / -1; }
+  .drop-form .buttons { grid-column: 1 / -1; display: flex; gap: 8px; }
+  .drop-form .buttons .primary { width: auto; padding: 10px 20px; }
+  .subscribers { list-style: none; margin: 0; padding: 0; }
+  .subscribers li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  .subscribers li:last-child { border-bottom: 0; }
 
   /* Prep */
   .prep-list { list-style: none; margin: 0; padding: 0; }
@@ -126,11 +153,13 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     <div class="tabs" role="tablist">
       <button id="tab-orders" type="button" role="tab" aria-selected="true">Orders</button>
       <button id="tab-prep" type="button" role="tab" aria-selected="false">Prep</button>
+      <button id="tab-drops" type="button" role="tab" aria-selected="false">Drops</button>
     </div>
     <p id="summary" class="summary"></p>
     <p id="load-error" class="error" role="alert" hidden></p>
     <section id="orders-view"></section>
     <section id="prep-view" hidden></section>
+    <section id="drops-view" hidden></section>
   </div>
 
   <p id="loading" class="empty">Loading…</p>
@@ -140,7 +169,11 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 <script>
 (function () {
 
-  var state = { orders: [], delivered: {}, tab: "orders" };
+  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null };
+
+  // Where "a new drop is open" and reminder emails come from (they're sent to
+  // customers as BCC, so nobody sees anyone else's address).
+  var BAKERY_EMAIL = "hellokiranabakehouse@gmail.com";
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -237,7 +270,16 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   function load() {
     $("load-error").hidden = true;
     $("refresh").disabled = true;
-    return api("GET", "orders").then(function (data) {
+    // Drops load alongside orders; if they fail, orders still show.
+    var drops = api("GET", "drops").then(function (data) {
+      state.drops = data;
+      state.dropsError = "";
+    }).catch(function (error) {
+      if (error.message === "signed-out") throw error;
+      state.dropsError = error.message;
+    });
+    return Promise.all([api("GET", "orders"), drops]).then(function (results) {
+      var data = results[0];
       state.orders = data.orders;
       state.delivered = {};
       $("loading").hidden = true;
@@ -265,13 +307,16 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     state.tab = tab;
     $("tab-orders").setAttribute("aria-selected", String(tab === "orders"));
     $("tab-prep").setAttribute("aria-selected", String(tab === "prep"));
+    $("tab-drops").setAttribute("aria-selected", String(tab === "drops"));
     $("orders-view").hidden = tab !== "orders";
     $("prep-view").hidden = tab !== "prep";
+    $("drops-view").hidden = tab !== "drops";
     render();
   }
 
   $("tab-orders").addEventListener("click", function () { selectTab("orders"); });
   $("tab-prep").addEventListener("click", function () { selectTab("prep"); });
+  $("tab-drops").addEventListener("click", function () { selectTab("drops"); });
 
   /* ---------- Rendering ---------- */
 
@@ -303,7 +348,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       ? plural(open.length, "order") + " to deliver · " + plural(loafCount(open), "loaf").replace("loafs", "loaves")
       : "";
     if (state.tab === "orders") renderOrders();
-    else renderPrep(open);
+    else if (state.tab === "prep") renderPrep(open);
+    else renderDrops();
   }
 
   function dayHeading(day, count) {
@@ -333,7 +379,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   function orderCard(order) {
     var details = el("dl", {},
-      order.address ? el("dt", { text: "Address" }) : null,
+      order.pickupWhen ? el("dt", { text: "Pickup" }) : null,
+      order.pickupWhen ? el("dd", { text: order.pickupWhen }) : null,
+      order.address ? el("dt", { text: order.fulfillment === "pickup" ? "Where" : "Address" }) : null,
       order.address ? el("dd", {}, el("a", { href: "https://maps.apple.com/?q=" + encodeURIComponent(order.address), target: "_blank", rel: "noopener", text: order.address })) : null,
       order.phone ? el("dt", { text: "Phone" }) : null,
       order.phone ? el("dd", {}, el("a", { href: "tel:" + order.phone.replace(/[^0-9+]/g, ""), text: order.phone })) : null,
@@ -347,12 +395,13 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
     // Two separate actions: emailing doesn't mark the order, and marking
     // doesn't open an email.
-    var button = el("button", { class: "deliver", type: "button", text: "Mark delivered" });
+    var button = el("button", { class: "deliver", type: "button", text: doneLabel(order) });
     button.addEventListener("click", function () { markDelivered(order, button); });
 
     return el("article", { class: "card order" },
       el("h3", { text: order.name || "(no name)" },
         order.kind === "invoice" ? el("span", { class: "badge invoice", text: "Invoice" + (order.invoiceNumber ? " " + order.invoiceNumber : "") }) : null,
+        order.fulfillment === "pickup" ? el("span", { class: "badge pickup", text: "Pickup" }) : null,
         order.unpaid ? el("span", { class: "badge unpaid", text: "Unpaid" }) : null
       ),
       el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
@@ -377,7 +426,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     });
 
     return el("article", { class: "card done" },
-      el("p", { text: "✓ " + (order.name || "Order") + " delivered" }),
+      el("p", { text: "✓ " + (order.name || "Order") + (order.fulfillment === "pickup" ? " picked up" : " delivered") }),
       el("div", { class: "actions" },
         order.email ? el("a", { href: deliveredEmail(order), text: "Email " + firstName(order) }) : null,
         undo
@@ -427,8 +476,13 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return name.split(/\s+/)[0] || "there";
   }
 
-  // A ready-written "your order has been delivered" email for the Mail app.
+  function doneLabel(order) {
+    return order.fulfillment === "pickup" ? "Mark picked up" : "Mark delivered";
+  }
+
+  // A ready-written email for the Mail app: "delivered", or "ready for pickup".
   function deliveredEmail(order) {
+    if (order.fulfillment === "pickup") return pickupReadyEmail(order);
     var lines = [
       "Hi " + firstName(order) + ",",
       "",
@@ -455,9 +509,299 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }).catch(function (error) {
       if (error.message === "signed-out") return;
       button.disabled = false;
-      button.textContent = "Mark delivered";
+      button.textContent = doneLabel(order);
       button.after(el("p", { class: "error", text: error.message }));
     });
+  }
+
+  /* ---------- Pickup emails ---------- */
+
+  function mailto(to, bcc, subject, lines) {
+    return "mailto:" + encodeURIComponent(to) +
+      "?" + (bcc.length ? "bcc=" + encodeURIComponent(bcc.join(",")) + "&" : "") +
+      "subject=" + encodeURIComponent(subject) +
+      "&body=" + encodeURIComponent(lines.join("\r\n"));
+  }
+
+  function dropFor(order) {
+    return (state.drops && state.drops.drops || []).filter(function (drop) { return String(drop.id) === String(order.dropId); })[0];
+  }
+
+  function placeLines(drop, fallbackAddress) {
+    if (!drop) return ["Where: " + fallbackAddress];
+    return ["Where: " + drop.locationName + ", " + drop.locationAddress].concat(drop.notes ? [drop.notes] : []);
+  }
+
+  // One customer: "your order is ready for pickup".
+  function pickupReadyEmail(order) {
+    var drop = dropFor(order);
+    var lines = [
+      "Hi " + firstName(order) + ",",
+      "",
+      "Your Kirana Bakehouse order is ready for pickup:",
+      ""
+    ].concat(order.items.map(function (item) { return item.quantity + " × " + item.name; })).concat([
+      "",
+      "When: " + order.pickupWhen
+    ]).concat(placeLines(drop, order.address)).concat([
+      "",
+      "See you soon!",
+      "Kirana Bakehouse"
+    ]);
+    return mailto(order.email, [], "Your Kirana Bakehouse order is ready for pickup", lines);
+  }
+
+  // Everyone on the notify list: a drop is open (or opening).
+  function announceEmail(drop) {
+    var emails = state.drops.subscriberEmails || [];
+    var opening = drop.status === "upcoming"
+      ? "Ordering opens " + drop.opensLabel + " and closes " + drop.closesLabel + "."
+      : "Ordering is open now and closes " + drop.closesLabel + ".";
+    var lines = [
+      "Hi friends,",
+      "",
+      "Our next pickup drop is here!",
+      "",
+      "When: " + drop.when
+    ].concat(placeLines(drop)).concat([
+      "",
+      opening,
+      "Order here: " + state.drops.orderPageUrl,
+      "",
+      "Loaves are limited, so order early. See you there!",
+      "Kirana Bakehouse",
+      "",
+      "(Don't want these emails? Just reply and let us know.)"
+    ]);
+    return { href: mailto(BAKERY_EMAIL, emails, "Pickup drop: " + drop.when, lines), count: emails.length };
+  }
+
+  // Everyone who ordered from a drop: a reminder before pickup.
+  function reminderEmail(drop) {
+    var emails = state.orders.filter(function (order) {
+      return order.fulfillment === "pickup" && String(order.dropId) === String(drop.id) && order.email && !state.delivered[order.id];
+    }).map(function (order) { return order.email; });
+    var unique = emails.filter(function (email, index) { return emails.indexOf(email) === index; });
+    var lines = [
+      "Hi there,",
+      "",
+      "A friendly reminder that your Kirana Bakehouse order will be ready for pickup:",
+      "",
+      "When: " + drop.when
+    ].concat(placeLines(drop)).concat([
+      "",
+      "See you there!",
+      "Kirana Bakehouse"
+    ]);
+    return { href: mailto(BAKERY_EMAIL, unique, "Reminder: your pickup " + drop.when, lines), count: unique.length };
+  }
+
+  /* ---------- Drops ---------- */
+
+  var STATUS_TEXT = { open: "Open", upcoming: "Not open yet", sold_out: "Sold out", closed: "Ordering closed", cancelled: "Cancelled" };
+
+  function renderDrops() {
+    var view = $("drops-view");
+    view.replaceChildren();
+
+    if (state.dropsError) {
+      view.append(el("p", { class: "error", text: "Couldn't load drops: " + state.dropsError }));
+      return;
+    }
+    var data = state.drops;
+    if (!data) return;
+
+    if (!data.databaseReady) {
+      view.append(el("div", { class: "card" },
+        el("h3", { text: "Pickup drops aren't set up yet" }),
+        el("p", { text: "Create the pickup database once (see the README section \"Pickup drops\"), then deploy both workers. After that you can schedule drops here." })
+      ));
+      return;
+    }
+
+    var newButton = el("button", { class: "primary", type: "button", text: "New drop" });
+    newButton.addEventListener("click", function () { state.editing = "new"; render(); });
+    var listButton = el("button", { class: "linkish", type: "button", text: state.subscribers ? "Hide list" : "Show list" });
+    listButton.addEventListener("click", toggleSubscribers);
+
+    view.append(el("div", { class: "drops-toolbar" },
+      newButton,
+      el("span", { class: "count", text: plural(data.subscriberCount, "person") .replace("persons", "people") + " on the notify list" }),
+      listButton
+    ));
+
+    if (state.subscribers) view.append(subscribersCard());
+    if (state.editing === "new") view.append(dropForm(null));
+
+    var upcoming = data.drops.filter(function (drop) { return drop.pickupDate >= data.today; });
+    var past = data.drops.filter(function (drop) { return drop.pickupDate < data.today; });
+
+    if (!data.drops.length && state.editing !== "new") {
+      view.append(el("p", { class: "empty", text: "No drops yet. Tap New drop to schedule your first pickup." }));
+    }
+    upcoming.forEach(function (drop) { view.append(state.editing === drop.id ? dropForm(drop) : dropCard(drop)); });
+    if (past.length) {
+      view.append(el("div", { class: "day" }, el("h2", { text: "Recent drops" })));
+      past.slice().reverse().forEach(function (drop) { view.append(state.editing === drop.id ? dropForm(drop) : dropCard(drop)); });
+    }
+  }
+
+  function dropCard(drop) {
+    var announce = announceEmail(drop);
+    var remind = reminderEmail(drop);
+    var share = drop.loafLimit ? Math.min(100, Math.round(drop.booked / drop.loafLimit * 100)) : 0;
+
+    var edit = el("button", { class: "quiet", type: "button", text: "Edit" });
+    edit.addEventListener("click", function () { state.editing = drop.id; render(); });
+    var cancel = el("button", { class: "quiet", type: "button", text: drop.cancelled ? "Restore drop" : "Cancel drop" });
+    cancel.addEventListener("click", function () {
+      cancel.disabled = true;
+      api("POST", "drops/" + drop.id + "/cancel", { cancelled: !drop.cancelled }).then(reloadDrops).catch(function (error) {
+        if (error.message !== "signed-out") alertInCard(cancel, error.message);
+      });
+    });
+
+    var opensLine = drop.status === "upcoming"
+      ? "Ordering opens " + drop.opensLabel + " · closes " + drop.closesLabel
+      : "Ordering " + (drop.status === "closed" ? "closed " : "closes ") + drop.closesLabel;
+
+    return el("article", { class: "card drop" },
+      el("span", { class: "status " + drop.status, text: STATUS_TEXT[drop.status] || drop.status }),
+      el("h3", { text: drop.when }),
+      el("p", { class: "where", text: drop.locationName + " · " + drop.locationAddress }),
+      el("p", { class: "where", text: opensLine }),
+      drop.cancelled ? null : el("div", { class: "meter", "aria-hidden": "true" }, el("span", { style: "width:" + share + "%" })),
+      drop.cancelled ? null : el("p", { class: "where", text: drop.booked + " of " + drop.loafLimit + " loaves booked" }),
+      el("div", { class: "drop-actions" },
+        (drop.status === "open" || drop.status === "upcoming") && announce.count ? el("a", { href: announce.href, text: "Email notify list (" + announce.count + ")" }) : null,
+        !drop.cancelled && remind.count ? el("a", { href: remind.href, text: "Remind customers (" + remind.count + ")" }) : null,
+        edit,
+        cancel
+      )
+    );
+  }
+
+  function field(label, input, wide) {
+    return el("div", { class: wide ? "wide" : "" }, el("label", { for: input.id, text: label }), input);
+  }
+
+  function input(id, type, value, extra) {
+    var attrs = { id: id, type: type, value: value == null ? "" : String(value) };
+    Object.keys(extra || {}).forEach(function (key) { attrs[key] = extra[key]; });
+    return el("input", attrs);
+  }
+
+  function dropForm(drop) {
+    var data = state.drops;
+    var d = data.defaults;
+    var pickupDate = drop ? drop.pickupDate : data.nextSaturday;
+    var closesDefault = function (date) {
+      var day = new Date(date + "T00:00:00Z");
+      day.setUTCDate(day.getUTCDate() - 1);
+      return day.toISOString().slice(0, 10) + "T" + d.closesDayBeforeAt;
+    };
+
+    var f = {
+      date: input("drop-date", "date", pickupDate, { required: "required" }),
+      start: input("drop-start", "time", drop ? drop.windowStart : d.windowStart, { required: "required" }),
+      end: input("drop-end", "time", drop ? drop.windowEnd : d.windowEnd, { required: "required" }),
+      name: input("drop-name", "text", drop ? drop.locationName : d.locationName, { required: "required", maxlength: "100" }),
+      address: input("drop-address", "text", drop ? drop.locationAddress : d.locationAddress, { required: "required", maxlength: "200" }),
+      notes: input("drop-notes", "text", drop ? drop.notes : d.notes, { maxlength: "300" }),
+      opens: input("drop-opens", "datetime-local", drop ? drop.opensLocal : data.nowLocal, { required: "required" }),
+      closes: input("drop-closes", "datetime-local", drop ? drop.closesLocal : closesDefault(pickupDate), { required: "required" }),
+      limit: input("drop-limit", "number", drop ? drop.loafLimit : d.loafLimit, { required: "required", min: "1", max: "500", inputmode: "numeric" })
+    };
+
+    // A new drop's closing time follows its date until it's changed by hand.
+    var closesTouched = Boolean(drop);
+    f.closes.addEventListener("input", function () { closesTouched = true; });
+    f.date.addEventListener("change", function () { if (!closesTouched && f.date.value) f.closes.value = closesDefault(f.date.value); });
+
+    var error = el("p", { class: "error wide", role: "alert", hidden: "hidden" });
+    var save = el("button", { class: "primary", type: "submit", text: drop ? "Save changes" : "Create drop" });
+    var cancel = el("button", { class: "linkish", type: "button", text: "Cancel" });
+    cancel.addEventListener("click", function () { state.editing = null; render(); });
+
+    var form = el("form", { class: "card drop-form" },
+      el("h3", { class: "wide", text: drop ? "Edit drop" : "New pickup drop" }),
+      field("Pickup date", f.date, true),
+      field("Pickup from", f.start),
+      field("until", f.end),
+      field("Location", f.name, true),
+      field("Address", f.address, true),
+      field("Note for customers (optional)", f.notes, true),
+      field("Ordering opens (Pacific time)", f.opens, true),
+      field("Ordering closes (Pacific time)", f.closes, true),
+      field("Loaves available", f.limit),
+      error,
+      el("div", { class: "buttons" }, save, cancel)
+    );
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      save.disabled = true;
+      error.hidden = true;
+      var body = {
+        pickupDate: f.date.value, windowStart: f.start.value, windowEnd: f.end.value,
+        locationName: f.name.value, locationAddress: f.address.value, notes: f.notes.value,
+        opensLocal: f.opens.value, closesLocal: f.closes.value, loafLimit: Number(f.limit.value)
+      };
+      api("POST", drop ? "drops/" + drop.id : "drops", body).then(function () {
+        state.editing = null;
+        return reloadDrops();
+      }).catch(function (problem) {
+        if (problem.message === "signed-out") return;
+        save.disabled = false;
+        error.hidden = false;
+        error.textContent = problem.message;
+      });
+    });
+
+    return form;
+  }
+
+  function reloadDrops() {
+    return api("GET", "drops").then(function (data) {
+      state.drops = data;
+      if (state.subscribers) return loadSubscribers();
+    }).then(render);
+  }
+
+  function loadSubscribers() {
+    return api("GET", "subscribers").then(function (data) { state.subscribers = data.subscribers; });
+  }
+
+  function toggleSubscribers() {
+    if (state.subscribers) {
+      state.subscribers = null;
+      render();
+      return;
+    }
+    loadSubscribers().then(render).catch(function () {});
+  }
+
+  function subscribersCard() {
+    var list = state.subscribers;
+    var copy = el("button", { class: "quiet", type: "button", text: "Copy all emails" });
+    copy.addEventListener("click", function () {
+      navigator.clipboard.writeText(list.map(function (subscriber) { return subscriber.email; }).join(", ")).then(function () {
+        copy.textContent = "Copied ✓";
+      });
+    });
+
+    return el("div", { class: "card" },
+      el("h3", { text: "Notify list" }),
+      list.length ? el("ul", { class: "subscribers" }, ...list.map(function (subscriber) {
+        var remove = el("button", { class: "linkish", type: "button", text: "Remove" });
+        remove.addEventListener("click", function () {
+          remove.disabled = true;
+          api("POST", "subscribers/remove", { email: subscriber.email }).then(reloadDrops).catch(function () { remove.disabled = false; });
+        });
+        return el("li", {}, el("span", { text: subscriber.email + (subscriber.name ? " (" + subscriber.name + ")" : "") }), remove);
+      })) : el("p", { class: "empty", text: "Nobody yet. Customers can join from the order page." }),
+      list.length ? el("div", { class: "drop-actions" }, copy) : null
+    );
   }
 
   load();

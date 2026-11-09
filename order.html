@@ -732,6 +732,10 @@
       margin: 32px 0 10px;
     }
 
+    .checkout-main {
+      min-width: 0;
+    }
+
     .checkout-steps .section-label:first-child,
     .order-summary .section-label {
       margin-top: 0;
@@ -926,7 +930,7 @@
     @media (max-width: 900px) {
 
       .checkout-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: 28px;
       }
 
@@ -968,6 +972,208 @@
         padding: 16px 14px;
       }
 
+    }
+
+
+    /* =========================
+       DELIVERY OR PICKUP
+    ========================== */
+
+    .pickup-only,
+    .is-pickup .delivery-only {
+      display: none !important;
+    }
+
+    .is-pickup .pickup-only {
+      display: block !important;
+    }
+
+    .fulfillment-choice {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+
+    .fulfillment-choice[hidden] {
+      display: none;
+    }
+
+    .fulfillment-option {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(240, 231, 200, .35);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .fulfillment-option input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      margin: 0;
+      cursor: inherit;
+    }
+
+    .fulfillment-option .fulfillment-title {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .fulfillment-option .fulfillment-sub {
+      font-size: .85rem;
+      opacity: .8;
+    }
+
+    .fulfillment-option:hover {
+      border-color: var(--cream);
+    }
+
+    .fulfillment-option.is-selected {
+      background: var(--cream);
+      border-color: var(--cream);
+      color: var(--deep-brown);
+    }
+
+    .fulfillment-option.is-focused {
+      outline: 2px solid var(--terracotta);
+      outline-offset: 2px;
+    }
+
+    /* Pickup drop cards (same look as the delivery date cards). */
+    .drop-picker {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .drop-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(240, 231, 200, .35);
+      color: var(--cream);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .drop-card input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      margin: 0;
+      cursor: inherit;
+    }
+
+    .drop-card .drop-date {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .drop-card .drop-window,
+    .drop-card .drop-place {
+      font-size: .9rem;
+      opacity: .85;
+    }
+
+    .drop-card .drop-state {
+      margin-top: 4px;
+      font-size: .8rem;
+      font-weight: 600;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      color: #f6b39f;
+    }
+
+    .drop-card:hover {
+      border-color: var(--cream);
+    }
+
+    .drop-card.is-selected {
+      background: var(--cream);
+      border-color: var(--cream);
+      color: var(--deep-brown);
+    }
+
+    .drop-card.is-selected .drop-state {
+      color: var(--terracotta);
+    }
+
+    .drop-card.is-focused {
+      outline: 2px solid var(--terracotta);
+      outline-offset: 2px;
+    }
+
+    .drop-card.is-unavailable {
+      cursor: not-allowed;
+      opacity: .45;
+    }
+
+    .drop-card.is-unavailable:hover {
+      border-color: rgba(240, 231, 200, .35);
+    }
+
+    .drop-card.is-upcoming {
+      cursor: default;
+      opacity: .8;
+      border-style: dashed;
+    }
+
+    .drop-empty {
+      font-style: italic;
+      opacity: .85;
+    }
+
+    .notify-form {
+      margin-top: 22px;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px dashed rgba(240, 231, 200, .35);
+    }
+
+    .notify-title {
+      font-weight: 600;
+      margin: 0 0 2px;
+    }
+
+    .notify-text {
+      font-size: .88rem;
+      opacity: .8;
+      margin: 0 0 10px;
+    }
+
+    .notify-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .notify-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 9px 12px;
+      border: none;
+      border-radius: 8px;
+      font: inherit;
+      background: white;
+      color: #1c1c1c;
+    }
+
+    .notify-status {
+      margin: 8px 0 0;
+      font-size: .9rem;
+    }
+
+    .notify-status.error {
+      color: #ffb4a1;
     }
 
   </style>
@@ -1076,11 +1282,27 @@
       <!-- =========================
            STEPS 1-2: DETAILS AND DAY
       ========================== -->
+      <div class="checkout-main">
+
       <form id="order-form" class="delivery-form checkout-steps" novalidate>
 
-        <h3 class="section-label"><span class="step-number">1</span> Delivery details</h3>
+        <!-- Shown once the order page knows pickup drops are offered. -->
+        <div id="fulfillment-choice" class="fulfillment-choice" role="radiogroup" aria-label="Delivery or pickup" hidden>
+          <label class="fulfillment-option">
+            <input type="radio" name="fulfillment" value="delivery" checked />
+            <span class="fulfillment-title">Delivery</span>
+            <span class="fulfillment-sub">To your door, Wed–Fri</span>
+          </label>
+          <label class="fulfillment-option">
+            <input type="radio" name="fulfillment" value="pickup" />
+            <span class="fulfillment-title">Pickup</span>
+            <span class="fulfillment-sub">At one of our drops</span>
+          </label>
+        </div>
 
-        <p class="delivery-note">
+        <h3 class="section-label"><span class="step-number">1</span> <span id="details-title">Delivery details</span></h3>
+
+        <p class="delivery-note delivery-only">
         We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
       </p>
 
@@ -1096,27 +1318,27 @@
           <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="(650) 555-0123" required />
         </div>
 
-        <div class="field field-wide">
+        <div class="field field-wide delivery-only">
           <label for="address-line1">Street address</label>
           <input id="address-line1" name="line1" type="text" autocomplete="address-line1" maxlength="200" required />
         </div>
 
-        <div class="field field-wide">
+        <div class="field field-wide delivery-only">
           <label for="address-line2">Apt, suite, unit <span class="optional">(optional)</span></label>
           <input id="address-line2" name="line2" type="text" autocomplete="address-line2" maxlength="100" />
         </div>
 
-        <div class="field">
+        <div class="field delivery-only">
           <label for="address-city">City</label>
           <input id="address-city" name="city" type="text" autocomplete="address-level2" maxlength="100" required />
         </div>
 
-        <div class="field">
+        <div class="field delivery-only">
           <label for="address-zip">ZIP code</label>
           <input id="address-zip" name="postalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\d{5}(-\d{4})?" required />
         </div>
 
-        <div class="field field-wide">
+        <div class="field field-wide delivery-only">
           <label for="delivery-notes">Delivery instructions <span class="optional">(optional)</span></label>
           <textarea id="delivery-notes" name="notes" rows="2" maxlength="300" placeholder="Gate code, where to leave the bread, etc."></textarea>
         </div>
@@ -1125,11 +1347,13 @@
 
       <div
         id="address-status"
-        class="address-status"
+        class="address-status delivery-only"
         aria-live="polite"
       ></div>
 
-        <h3 class="section-label"><span class="step-number">2</span> Delivery day</h3>
+        <h3 class="section-label"><span class="step-number">2</span> <span id="when-title">Delivery day</span></h3>
+
+        <div class="delivery-only">
 
         <p class="delivery-note">
         We deliver <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>,
@@ -1161,7 +1385,39 @@
         aria-live="polite"
       ></p>
 
+        </div>
+
+        <!-- =========================
+             PICKUP DROPS
+        ========================== -->
+        <div id="pickup-step" class="pickup-only">
+
+          <p class="delivery-note">
+            Pick up fresh loaves at one of our drops. Ordering opens at a set time,
+            and loaves are limited, so order early.
+          </p>
+
+          <div id="drop-picker" class="drop-picker" role="radiogroup" aria-label="Pickup drop"></div>
+
+          <p id="drop-status" class="address-status date-status" aria-live="polite"></p>
+
+        </div>
+
       </form>
+
+      <!-- Its own form (outside the order form), so Enter doesn't start checkout. -->
+      <form id="notify-form" class="notify-form pickup-only" novalidate>
+        <p class="notify-title">Hear about the next drop</p>
+        <p class="notify-text">We'll email you when ordering opens. No spam, ever.</p>
+        <div class="notify-row">
+          <label class="visually-hidden" for="notify-email">Email</label>
+          <input id="notify-email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="200" required />
+          <button type="submit" class="tip-option">Notify me</button>
+        </div>
+        <p id="notify-status" class="notify-status" aria-live="polite"></p>
+      </form>
+
+      </div>
 
       <!-- =========================
            STEP 3: REVIEW AND PAY
@@ -1230,7 +1486,7 @@
     </div>
 
     <div class="cart-line">
-      <span>Delivery</span>
+      <span id="cart-delivery-label">Delivery</span>
       <span id="cart-delivery-fee">Enter your address</span>
     </div>
 
@@ -1289,17 +1545,18 @@
 <!--
   Versioned script URLs, so browsers never pair a new page with an old cached
   script. Change the number (e.g. to today's date) whenever order.js,
-  success.js, macros.js or delivery-rules.js change.
+  success.js, macros.js, delivery-rules.js or pickup-rules.js change.
 -->
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261104",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261104"
+      "./macros.js": "./macros.js?v=20261108",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261108",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261108"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261104"></script>
+<script type="module" src="./order.js?v=20261108"></script>
 
 </body>
 

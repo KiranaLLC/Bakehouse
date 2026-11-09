@@ -148,6 +148,65 @@ To sign out every device, set a new password the same way and run
 Orders come straight from Stripe, so there's nothing else to keep in sync.
 "Delivered" is saved on the order's payment in Stripe as `delivered_at`.
 
+### Pickup drops
+
+Pickup works like Hotplate: you schedule **drops** (a pickup day, a pickup
+window, a location, how many loaves, and when ordering opens and closes), and
+customers order and pay for a drop on the order page. Pickup has its own loaf
+limit per drop, separate from delivery's daily limit.
+
+**Customers** see a Delivery / Pickup choice at checkout. Pickup asks only for
+a name and phone, then shows the next drops as cards:
+
+- *Order by …* when a drop is open,
+- *Opens … in 2d 4h* (a live countdown) before it opens,
+- *Sold out* when every loaf is taken, or *Can't fit your order* when the cart
+  is bigger than what's left.
+
+Below the drops, customers can join the **notify list** to hear about the
+next drop. A link to `order.html?pickup` opens the order page on pickup.
+
+**You** manage drops on the orders page, in the **Drops** tab:
+
+- **New drop** (defaults: Verve Coffee Roasters, 2–3 pm, 20 loaves, ordering
+  closes at 8 pm the day before; change them in `PICKUP.defaults` in
+  `macros.js`). All times are Pacific.
+- Each drop shows whether it's open, how many loaves are booked, and buttons
+  to **Edit** or **Cancel** it.
+- **Email notify list** opens one email to everyone on the list (as BCC)
+  announcing the drop, with a link to order.
+- **Remind customers** opens one email (BCC) to everyone who ordered from
+  that drop.
+- **Show list** shows the notify list, with **Remove** and **Copy all
+  emails**.
+
+Pickup orders appear on the **Orders** tab marked *Pickup* (with **Mark picked
+up** and an **Email** "your order is ready" draft) and count in **Prep**.
+
+#### One-time setup
+
+Drops and the notify list live in a small Cloudflare D1 database (free). Until
+it exists, the order page simply doesn't offer pickup.
+
+From the `worker` folder:
+
+```bash
+npx wrangler d1 create kirana-pickup
+```
+
+It prints a `database_id`. In **both** `wrangler.toml` and
+`wrangler.orders.toml`, paste that id into the `[[d1_databases]]` block at the
+bottom and remove the `#` at the start of those four lines. Then:
+
+```bash
+npx wrangler d1 execute kirana-pickup --remote --file=schema.sql
+npx wrangler deploy
+npm run deploy:orders
+```
+
+When you're ready to stop using Hotplate, point the home page's pickup links
+(`index.html`) at `order.html?pickup`.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public

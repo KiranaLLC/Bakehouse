@@ -12,6 +12,12 @@ sites, which Safari would block).
   POST /admin/api/logout                     clears the cookie
   GET  /admin/api/orders                     paid orders and invoices not yet delivered
   POST /admin/api/orders/<id>/delivered      { delivered: true | false }
+  GET  /admin/api/drops                      pickup drops (recent and upcoming)
+  POST /admin/api/drops                      create a drop
+  POST /admin/api/drops/<id>                 change a drop
+  POST /admin/api/drops/<id>/cancel          { cancelled: true | false }
+  GET  /admin/api/subscribers                the "next drop" email list
+  POST /admin/api/subscribers/remove         { email }
 
 There's one password, set as a Cloudflare secret:
   npx wrangler secret put ADMIN_PASSWORD
@@ -25,10 +31,22 @@ the list.
 ==================================================
 */
 
-import { PRODUCTS } from "../../macros.js";
+import { PICKUP, PRODUCTS } from "../../macros.js";
 import { bakeryTodayValue, formatDeliveryDate } from "../../delivery-rules.js";
 import { NON_LOAF_LINES } from "./capacity.js";
 import { ADMIN_PAGE } from "./admin-page.js";
+import {
+  DropError,
+  createDrop,
+  getDropBookings,
+  hasDatabase,
+  listDrops,
+  listSubscribers,
+  removeSubscriber,
+  setDropCancelled,
+  updateDrop
+} from "./drops.js";
+import { dayBefore, dropStatus, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 
 const COOKIE_NAME = "kirana_admin";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
@@ -83,9 +101,16 @@ export async function handleAdmin(request, env, { stripe }) {
       return json(result, result.ok ? 200 : 400);
     }
 
+    const dropRoute = await handleDropRoutes(request, path, env, stripe);
+    if (dropRoute) return dropRoute;
+
     return json({ error: "Not found." }, 404);
 
   } catch (error) {
+
+    if (error instanceof DropError) {
+      return json({ error: error.message }, 400);
+    }
 
     console.error(error);
     return json({ error: error.publicMessage || "Something went wrong. Please try again." }, 500);
@@ -243,8 +268,17 @@ async function listOpenOrders(env, stripe) {
 
 }
 
+function isPickup(session) {
+  return session.metadata?.fulfillment === "pickup";
+}
+
+// The day the order goes out: its delivery date, or its pickup date.
+function orderDate(session) {
+  return session.metadata?.delivery_date || (isPickup(session) ? session.metadata?.pickup_date : "") || "";
+}
+
 function isOpenOrder(session) {
-  return Boolean(session.metadata?.delivery_date)
+  return Boolean(orderDate(session))
     && (session.payment_status === "paid" || session.payment_status === "no_payment_required")
     && !deliveredAt(session);
 }
@@ -259,19 +293,24 @@ async function describeOrder(session, today, env, stripe) {
 
   const metadata = session.metadata;
   const items = await orderItems(session, env, stripe);
+  const pickup = isPickup(session);
+  const date = orderDate(session);
 
   return {
     id: session.id,
     kind: "checkout",
+    fulfillment: pickup ? "pickup" : "delivery",
+    dropId: pickup ? metadata.drop_id : "",
+    pickupWhen: pickup ? metadata.pickup_label || "" : "",
     unpaid: false,
     created: session.created,
-    deliveryDate: metadata.delivery_date,
-    deliveryLabel: formatDeliveryDate(metadata.delivery_date),
-    pastDue: metadata.delivery_date < today,
+    deliveryDate: date,
+    deliveryLabel: formatDeliveryDate(date),
+    pastDue: date < today,
     name: metadata.customer_name || session.customer_details?.name || "",
     phone: metadata.customer_phone || "",
     email: session.customer_details?.email || "",
-    address: metadata.delivery_address || "",
+    address: (pickup ? metadata.pickup_location : metadata.delivery_address) || "",
     notes: metadata.delivery_notes || "",
     items,
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),
@@ -427,7 +466,7 @@ async function setDelivered(id, delivered, env, stripe) {
   const sessionId = id;
   const session = await stripe(env, "GET", `/checkout/sessions/${sessionId}`, {});
 
-  if (session.status !== "complete" || !session.metadata?.delivery_date) {
+  if (session.status !== "complete" || !orderDate(session)) {
     return { ok: false, error: "That isn't a completed delivery order." };
   }
 
@@ -440,5 +479,111 @@ async function setDelivered(id, delivered, env, stripe) {
   }
 
   return { ok: true, delivered };
+
+}
+
+/*
+==================================================
+PICKUP DROPS
+
+Scheduling drops and the notify list. Needs the
+pickup database (binding DB); without it, these
+say so instead of failing.
+==================================================
+*/
+
+// How far back the drops list goes, so recent drops stay visible for reminders.
+const DROPS_LOOKBACK_DAYS = 14;
+
+// Linked from "a new drop is open" emails; ?pickup opens the order page on pickup.
+const ORDER_PAGE_URL = "https://www.kiranabakehouse.com/order.html?pickup";
+
+// "2026-11-08", 6 (Saturday) → the next Saturday after that date
+function nextWeekday(date, weekday) {
+  const day = new Date(`${date}T00:00:00Z`);
+  const ahead = ((weekday - day.getUTCDay() + 7) % 7) || 7;
+  return new Date(day.getTime() + ahead * 864e5).toISOString().slice(0, 10);
+}
+
+async function handleDropRoutes(request, path, env, stripe) {
+
+  const isDropPath = path === "/admin/api/drops" || path.startsWith("/admin/api/drops/") || path.startsWith("/admin/api/subscribers");
+  if (!isDropPath) return null;
+
+  if (request.method === "GET" && path === "/admin/api/drops") {
+    return json(await listAdminDrops(env, stripe));
+  }
+
+  if (!hasDatabase(env)) {
+    return json({ error: "The pickup database isn't set up yet. See README, \"Pickup drops\"." }, 503);
+  }
+
+  const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+
+  if (request.method === "POST" && path === "/admin/api/drops") {
+    return json({ drop: await createDrop(env, body) });
+  }
+
+  const cancelMatch = path.match(/^\/admin\/api\/drops\/(\d+)\/cancel$/);
+  if (request.method === "POST" && cancelMatch) {
+    return json({ drop: await setDropCancelled(env, Number(cancelMatch[1]), body.cancelled !== false) });
+  }
+
+  const updateMatch = path.match(/^\/admin\/api\/drops\/(\d+)$/);
+  if (request.method === "POST" && updateMatch) {
+    return json({ drop: await updateDrop(env, Number(updateMatch[1]), body) });
+  }
+
+  if (request.method === "GET" && path === "/admin/api/subscribers") {
+    return json({ subscribers: await listSubscribers(env) });
+  }
+
+  if (request.method === "POST" && path === "/admin/api/subscribers/remove") {
+    return json(await removeSubscriber(env, body.email));
+  }
+
+  return json({ error: "Not found." }, 404);
+
+}
+
+async function listAdminDrops(env, stripe) {
+
+  const { date: today, time: nowTime } = utcToLocal(new Date().toISOString());
+  // For the new-drop form: today in bakery time, and the next Saturday.
+  const clock = { today, nowLocal: `${today}T${nowTime}`, nextSaturday: nextWeekday(today, 6), orderPageUrl: ORDER_PAGE_URL };
+
+  if (!hasDatabase(env)) {
+    return { databaseReady: false, drops: [], subscriberCount: 0, defaults: PICKUP.defaults, ...clock };
+  }
+
+  const fromDate = new Date(Date.parse(`${bakeryTodayValue()}T00:00:00Z`) - DROPS_LOOKBACK_DAYS * 864e5).toISOString().slice(0, 10);
+  const drops = await listDrops(env, { fromDate, includeCancelled: true });
+  const booked = await getDropBookings(env, stripe, drops.filter(({ cancelled }) => !cancelled));
+  const subscribers = await listSubscribers(env);
+  const now = Date.now();
+
+  return {
+    databaseReady: true,
+    defaults: PICKUP.defaults,
+    ...clock,
+    subscriberCount: subscribers.length,
+    // For the "a new drop is open" email (sent as BCC).
+    subscriberEmails: subscribers.map(({ email }) => email),
+    drops: drops.map(drop => {
+      const loaves = booked.get(String(drop.id)) || 0;
+      const remaining = Math.max(drop.loafLimit - loaves, 0);
+      return {
+        ...drop,
+        booked: loaves,
+        remaining,
+        status: dropStatus(drop, remaining, now),
+        when: formatPickupWhen(drop),
+        opensLabel: formatMoment(drop.opensAt),
+        closesLabel: formatMoment(drop.closesAt),
+        // Default closing for this drop's date, used when its date changes in the form.
+        defaultCloseLocal: `${dayBefore(drop.pickupDate)}T${PICKUP.defaults.closesDayBeforeAt}`
+      };
+    })
+  };
 
 }

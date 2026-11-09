@@ -18,3 +18,13 @@ preview_urls = false
 # Local preview: http://localhost:8788/admin (the checkout worker uses 8787).
 [dev]
 port = 8788
+
+# Pickup drops database (see README, "Pickup drops"). Create it once with
+#   npx wrangler d1 create kirana-pickup
+# then paste the database_id it prints below, remove the # signs, and apply
+#   npx wrangler d1 execute kirana-pickup --remote --file=schema.sql
+# Until then pickup shows no drops and delivery works as normal.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "kirana-pickup"
+# database_id = "PASTE-THE-ID-HERE"

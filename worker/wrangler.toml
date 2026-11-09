@@ -14,3 +14,13 @@ ALLOWED_ORIGINS = "https://www.kiranabakehouse.com,https://kiranabakehouse.com,h
 # STRIPE_SECRET_KEY is a secret, not a var. Set it with:
 #   npx wrangler secret put STRIPE_SECRET_KEY
 # For local testing, put it in worker/.dev.vars instead (never committed).
+
+# Pickup drops database (see README, "Pickup drops"). Create it once with
+#   npx wrangler d1 create kirana-pickup
+# then paste the database_id it prints below, remove the # signs, and apply
+#   npx wrangler d1 execute kirana-pickup --remote --file=schema.sql
+# Until then pickup shows no drops and delivery works as normal.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "kirana-pickup"
+# database_id = "PASTE-THE-ID-HERE"

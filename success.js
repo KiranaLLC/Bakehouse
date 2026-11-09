@@ -77,12 +77,18 @@ function renderOrderSummary(order) {
   const total = row("Total paid", formatMoney(order.amountTotal));
   total.classList.add("summary-total");
 
+  const pickup = order.fulfillment === "pickup";
   const delivery = document.createElement("p");
   delivery.className = "summary-delivery";
   delivery.append(
-    strong("Delivery: "), order.deliveryDate, document.createElement("br"),
-    strong("To: "), `${order.name}, ${order.address}`
+    strong(pickup ? "Pickup: " : "Delivery: "), order.deliveryDate, document.createElement("br"),
+    strong(pickup ? "Where: " : "To: "), pickup ? order.address : `${order.name}, ${order.address}`
   );
+
+  if (pickup) {
+    document.getElementById("success-note").textContent =
+      "Your sourdough will be baked fresh that morning and waiting for you at pickup. We look forward to seeing you!";
+  }
   if (order.email) {
     delivery.append(document.createElement("br"), strong("Email: "), order.email);
   }

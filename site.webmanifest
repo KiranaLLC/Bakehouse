@@ -1,0 +1,11 @@
+{
+  "name": "Kirana Bakehouse",
+  "short_name": "Kirana",
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#4d1a00",
+  "background_color": "#f0e7c8",
+  "display": "browser"
+}

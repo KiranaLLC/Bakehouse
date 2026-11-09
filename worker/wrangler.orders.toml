@@ -24,7 +24,7 @@ port = 8788
 # then paste the database_id it prints below, remove the # signs, and apply
 #   npx wrangler d1 execute kirana-pickup --remote --file=schema.sql
 # Until then pickup shows no drops and delivery works as normal.
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "kirana-pickup"
-# database_id = "PASTE-THE-ID-HERE"
+[[d1_databases]]
+binding = "DB"
+database_name = "kirana-pickup"
+database_id = "941c0f05-e9f3-4a94-9453-75e17352491f"

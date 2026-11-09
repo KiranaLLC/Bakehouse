@@ -1306,6 +1306,155 @@
 
     }
 
+    /* =========================
+       STEP 1, COMPACT
+    ========================== */
+
+    .step-panel {
+      padding: 22px 28px 24px;
+    }
+
+    .step-panel-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 20px;
+      margin-bottom: 14px;
+    }
+
+    .step-panel-header h2.step-heading {
+      margin: 0;
+    }
+
+    .skip-to-menu {
+      color: var(--cream);
+      font-size: .92rem;
+      opacity: .85;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .skip-to-menu:hover {
+      opacity: 1;
+    }
+
+    .step-panel .fulfillment-choice {
+      display: inline-grid;
+      grid-template-columns: auto auto;
+      gap: 0;
+      margin-bottom: 16px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(240, 231, 200, .35);
+    }
+
+    .step-panel .fulfillment-choice[hidden] {
+      display: none;
+    }
+
+    .step-panel .fulfillment-option {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 6px;
+      padding: 7px 18px;
+      border: none;
+      border-radius: 999px;
+    }
+
+    .step-panel .fulfillment-option .fulfillment-title {
+      font-size: 1rem;
+    }
+
+    .step-panel .fulfillment-option .fulfillment-sub {
+      font-size: .82rem;
+    }
+
+    .step-panel .delivery-note {
+      font-size: .88rem;
+      font-style: normal;
+      margin-bottom: 12px;
+    }
+
+    .step-panel .drop-picker {
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 8px;
+    }
+
+    .step-panel .drop-card {
+      gap: 1px;
+      padding: 10px 14px;
+    }
+
+    .step-panel .drop-card .drop-date {
+      font-size: 1rem;
+    }
+
+    .step-panel .drop-card .drop-place {
+      font-size: .85rem;
+    }
+
+    .step-panel .drop-card .drop-state {
+      margin-top: 3px;
+      font-size: .72rem;
+    }
+
+    .drop-notes {
+      margin: 10px 0 0;
+      font-size: .88rem;
+      opacity: .85;
+    }
+
+    .drop-notes[hidden] {
+      display: none;
+    }
+
+    .notify-details {
+      margin-top: 14px;
+      font-size: .9rem;
+    }
+
+    .notify-details summary {
+      cursor: pointer;
+      opacity: .85;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      width: fit-content;
+    }
+
+    .notify-details .notify-form {
+      margin-top: 10px;
+      padding: 0;
+      border: none;
+      max-width: 460px;
+    }
+
+    @media (max-width: 800px) {
+
+      .step-panel {
+        padding: 18px 16px 20px;
+      }
+
+      .step-panel .fulfillment-choice {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .step-panel .fulfillment-option {
+        justify-content: center;
+        padding: 8px 10px;
+      }
+
+      .step-panel .fulfillment-option .fulfillment-sub {
+        display: none;
+      }
+
+      .step-panel .drop-picker {
+        grid-template-columns: 1fr 1fr;
+      }
+
+    }
+
   </style>
 </head>
 
@@ -1391,19 +1540,22 @@
 
   <section class="checkout-section step-panel" id="when-section" aria-labelledby="when-title">
 
-    <h2 class="section-label step-heading"><span class="step-number">1</span> <span id="when-title">Choose a delivery day</span></h2>
+    <div class="step-panel-header">
+      <h2 class="section-label step-heading"><span class="step-number">1</span> <span id="when-title">Choose a delivery day</span></h2>
+      <a href="#menu-section" class="skip-to-menu">Just browsing? See the menu &darr;</a>
+    </div>
 
     <!-- Shown once the order page knows pickup drops are offered. -->
     <div id="fulfillment-choice" class="fulfillment-choice" role="radiogroup" aria-label="Delivery or pickup" hidden>
       <label class="fulfillment-option">
         <input type="radio" name="fulfillment" value="pickup" />
         <span class="fulfillment-title">Pickup</span>
-        <span class="fulfillment-sub">At one of our drops</span>
+        <span class="fulfillment-sub">at a drop</span>
       </label>
       <label class="fulfillment-option">
         <input type="radio" name="fulfillment" value="delivery" checked />
         <span class="fulfillment-title">Delivery</span>
-        <span class="fulfillment-sub">To your door, <span class="delivery-days-short">Wed–Fri</span></span>
+        <span class="fulfillment-sub">to your door</span>
       </label>
     </div>
 
@@ -1445,17 +1597,15 @@
     ========================== -->
     <div id="pickup-step" class="pickup-only">
 
-      <p class="delivery-note">
-        Pick up fresh loaves at one of our drops. Loaves are limited, so order early.
-      </p>
-
       <div id="drop-picker" class="drop-picker" role="radiogroup" aria-label="Pickup drop"></div>
+
+      <p id="drop-notes" class="drop-notes" hidden></p>
 
       <p id="drop-status" class="address-status date-status" aria-live="polite"></p>
 
+      <details id="notify-details" class="notify-details">
+      <summary>Get an email when the next drop opens</summary>
       <form id="notify-form" class="notify-form" novalidate>
-        <p class="notify-title">Hear about the next drop</p>
-        <p class="notify-text">We'll email you when ordering opens. No spam, ever.</p>
         <div class="notify-row">
           <label class="visually-hidden" for="notify-email">Email</label>
           <input id="notify-email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="200" required />
@@ -1463,6 +1613,7 @@
         </div>
         <p id="notify-status" class="notify-status" aria-live="polite"></p>
       </form>
+      </details>
 
     </div>
 
@@ -1698,13 +1849,13 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261111",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261111",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261111"
+      "./macros.js": "./macros.js?v=20261112",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261112",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261112"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261111"></script>
+<script type="module" src="./order.js?v=20261112"></script>
 
 </body>
 

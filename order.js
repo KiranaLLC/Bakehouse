@@ -231,6 +231,11 @@ function handleProductClick(event) {
   }
 
   if (button.dataset.action === "plus" && cart[productId] < product.maxQuantity) {
+    const limit = getDayLimit();
+    if (limit !== null && getLoafCount() >= limit) {
+      showMenuLimit(limit);
+      return;
+    }
     cart[productId]++;
   }
 
@@ -322,6 +327,11 @@ function updateCart() {
   renderDateAvailability();
 
   syncDropPicker();
+
+  const limit = getDayLimit();
+  if (limit === null || getLoafCount() < limit) {
+    document.getElementById("menu-limit").hidden = true;
+  }
 
 }
 
@@ -777,6 +787,8 @@ function syncDatePicker() {
     card.classList.toggle("is-unavailable", input.disabled);
   });
 
+  updateChosenDay();
+
 }
 
 
@@ -1043,7 +1055,7 @@ function showWelcomeBack(last) {
     updateCart();
     saveOrder();
     section.hidden = true;
-    document.getElementById("checkout").scrollIntoView({ behavior: "smooth" });
+    document.getElementById("when-section").scrollIntoView({ behavior: "smooth" });
   });
 
   document.getElementById("forget-button").addEventListener("click", () => {
@@ -1138,6 +1150,15 @@ VALIDATION
 function validateForm() {
 
   Object.values(fields).forEach(field => field.removeAttribute("aria-invalid"));
+
+  // Step 1 comes first: pickup drop or delivery day.
+  if (isPickup() && !selectedDropId) {
+    return { message: "Please choose a pickup drop.", field: document.getElementById("drop-picker") };
+  }
+
+  if (!isPickup() && !fields.deliveryDate.value && !isLargeOrder()) {
+    return { message: "Please choose a delivery day.", field: document.getElementById("date-picker") };
+  }
 
   if (getCartItems().length === 0) {
     return { message: "Your cart is empty. Add some sourdough above to get started.", field: document.getElementById("product-grid") };
@@ -1393,6 +1414,8 @@ async function loadDrops() {
   }
 
   document.getElementById("fulfillment-choice").hidden = false;
+  document.getElementById("pickup-line").hidden = false;
+  updateWhenTitle();
 
   if (selectedDropId && !drops.some(({ id }) => String(id) === selectedDropId)) {
     selectedDropId = "";
@@ -1411,7 +1434,7 @@ function setFulfillment(value) {
   fulfillment = value === "pickup" && drops ? "pickup" : "delivery";
   wantedFulfillment = fulfillment;
 
-  document.getElementById("checkout").classList.toggle("is-pickup", isPickup());
+  document.getElementById("shop").classList.toggle("is-pickup", isPickup());
 
   document.querySelectorAll('input[name="fulfillment"]').forEach(input => {
     input.checked = input.value === fulfillment;
@@ -1419,12 +1442,13 @@ function setFulfillment(value) {
   });
 
   document.getElementById("details-title").textContent = isPickup() ? "Your details" : "Delivery details";
-  document.getElementById("when-title").textContent = isPickup() ? "Pickup drop" : "Delivery day";
+  updateWhenTitle();
 
   hideError();
   updateTotals();
   renderDateAvailability();
   syncDropPicker();
+  updateChosenDay();
   saveOrder();
 
 }
@@ -1538,6 +1562,8 @@ function syncDropPicker() {
 
   updateDropStatus();
 
+  updateChosenDay();
+
 }
 
 // Why the chosen drop can't take this order, or null if it can.
@@ -1590,6 +1616,92 @@ document.querySelectorAll('input[name="fulfillment"]').forEach(input => {
   input.addEventListener("focus", () => option.classList.toggle("is-focused", input.matches(":focus-visible")));
   input.addEventListener("blur", () => option.classList.remove("is-focused"));
 });
+
+/*
+==================================================
+THE CHOSEN DAY
+
+Step 1 (pickup drop or delivery day) drives the
+line above the menu, the top of the order
+summary, and how many loaves can be added.
+==================================================
+*/
+
+function updateWhenTitle() {
+  document.getElementById("when-title").textContent =
+    drops ? "Pickup or delivery?" : "Choose a delivery day";
+}
+
+// { kind: "Pickup" | "Delivery", text } for what's chosen in step 1, or null.
+function getChosenDay() {
+
+  if (isPickup()) {
+    const drop = selectedDropId && findDrop(selectedDropId);
+    if (!drop) return null;
+    return { kind: "Pickup", short: formatDropDate(drop.pickupDate), text: `${formatDropDate(drop.pickupDate)}, ${formatPickupWindow(drop)} · ${drop.locationName}` };
+  }
+
+  const option = fields.deliveryDate.selectedOptions[0];
+  if (!option?.value) return null;
+  return { kind: "Delivery", short: formatDropDate(option.value), text: `${formatDropDate(option.value)}, ${DELIVERY.windowLabel}` };
+
+}
+
+function updateChosenDay() {
+
+  const chosen = getChosenDay();
+  const kind = isPickup() ? "Pickup" : "Delivery";
+
+  const summary = document.getElementById("summary-when");
+  summary.classList.toggle("is-missing", !chosen);
+  document.getElementById("summary-when-label").textContent = kind;
+  document.getElementById("summary-when-text").textContent =
+    chosen ? chosen.text : (isPickup() ? "Choose a pickup drop" : "Choose a delivery day");
+  summary.querySelector(".summary-when-change").textContent = chosen ? "Change" : "Choose";
+
+  const menuFor = document.getElementById("menu-for");
+  menuFor.replaceChildren();
+  if (chosen) {
+    const strong = document.createElement("strong");
+    strong.textContent = `${kind} · ${chosen.short}`;
+    menuFor.append("For ", strong);
+  } else {
+    const link = document.createElement("a");
+    link.href = "#when-section";
+    link.textContent = isPickup() ? "choose a pickup drop" : drops ? "choose a pickup drop or delivery day" : "choose a delivery day";
+    menuFor.append("First, ", link, " above.");
+  }
+
+}
+
+// Most loaves the chosen day can still take, or null if no day is chosen (or we don't know yet).
+function getDayLimit() {
+
+  if (isPickup()) {
+    const drop = selectedDropId && findDrop(selectedDropId);
+    return drop && liveDropStatus(drop) === "open" ? Math.max(0, drop.remaining) : null;
+  }
+
+  const remaining = fields.deliveryDate.value ? capacity?.[fields.deliveryDate.value] : undefined;
+  return remaining === undefined ? null : Math.max(0, Math.min(remaining, DELIVERY.dailyLoafLimit));
+
+}
+
+function showMenuLimit(limit) {
+
+  const element = document.getElementById("menu-limit");
+  const chosen = getChosenDay();
+  const email = '<a href="mailto:hellokiranabakehouse@gmail.com">hellokiranabakehouse@gmail.com</a>';
+
+  element.innerHTML = !isPickup() && limit >= DELIVERY.dailyLoafLimit
+    ? `Planning a bigger bake? We'd love to help. For more than ${DELIVERY.dailyLoafLimit} loaves on one day, please email us at ${email} and we'll arrange it with you.`
+    : limit === 0
+      ? `${chosen?.short || "This day"} is fully booked. Please <a href="#when-section">choose another day</a>.`
+      : `That's all the loaves we have left for ${chosen?.short || "this day"}. <a href="#when-section">Choose another day</a> for more.`;
+
+  element.hidden = false;
+
+}
 
 document.getElementById("notify-form").addEventListener("submit", async event => {
 

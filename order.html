@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   />
 
-  <title>Order Delivery | Kirana Bakehouse</title>
+  <title>Order Pickup or Delivery | Kirana Bakehouse</title>
 
   <link
     rel="stylesheet"
@@ -1186,6 +1186,126 @@
       color: #ffb4a1;
     }
 
+    /* =========================
+       FOUR STEPS: WHEN → LOAVES → DETAILS → PAY
+    ========================== */
+
+    .step-panel {
+      margin-top: 0;
+    }
+
+    #checkout .delivery-form {
+      margin-top: 0;
+    }
+
+    .step-panel .delivery-note {
+      display: block;
+    }
+
+    h2.step-heading,
+    .checkout-section h2.step-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 16px;
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--terracotta);
+    }
+
+    .menu-step {
+      margin-top: 50px;
+    }
+
+    .menu-step-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px 20px;
+      margin-bottom: 20px;
+    }
+
+    .menu-step-header h2.step-heading {
+      margin: 0;
+    }
+
+    .menu-for {
+      color: var(--deep-brown);
+      font-size: .98rem;
+    }
+
+    .menu-for a {
+      color: var(--terracotta);
+      font-weight: 600;
+    }
+
+    .menu-limit {
+      margin: 0 0 20px;
+      padding: 12px 16px;
+      background: #f7f0d9;
+      border: 1px solid rgba(77, 26, 0, 0.2);
+      border-left: 4px solid var(--terracotta);
+      border-radius: 10px;
+      color: var(--deep-brown);
+      font-size: .95rem;
+    }
+
+    .menu-limit a {
+      color: var(--terracotta);
+      font-weight: 600;
+    }
+
+    .summary-when {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(240, 231, 200, .1);
+    }
+
+    .summary-when-label {
+      display: block;
+      font-size: .75rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      opacity: .75;
+    }
+
+    .summary-when-text {
+      display: block;
+      font-weight: 600;
+    }
+
+    .summary-when.is-missing .summary-when-text {
+      color: #f5b49b;
+    }
+
+    .summary-when-change {
+      flex: none;
+      color: var(--cream);
+      font-size: .9rem;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 800px) {
+
+      h2.step-heading,
+      .checkout-section h2.step-heading {
+        font-size: 1.3rem;
+      }
+
+      .menu-step {
+        margin-top: 36px;
+      }
+
+    }
+
   </style>
 </head>
 
@@ -1223,7 +1343,7 @@
 </header>
 
 
-<main class="shop-page">
+<main class="shop-page" id="shop">
 
 
   <!-- =========================
@@ -1233,7 +1353,7 @@
   <section class="shop-header">
 
     <h1 class="shop-title">
-      Order Delivery
+      Order Sourdough
     </h1>
 
     <p class="shop-subtitle">
@@ -1241,7 +1361,7 @@
     </p>
 
     <p class="shop-subtitle">
-      Local delivery <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>
+      <span id="pickup-line" hidden>Pickup at our drops &middot; </span>Local delivery <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>
     </p>
 
     <p class="menu-note">
@@ -1266,24 +1386,115 @@
 
 
   <!-- =========================
-       PRODUCTS
+       STEP 1: PICKUP OR DELIVERY, AND WHEN
   ========================== -->
 
-  <section
-    id="product-grid"
-    class="shop-grid"
-  ></section>
+  <section class="checkout-section step-panel" id="when-section" aria-labelledby="when-title">
+
+    <h2 class="section-label step-heading"><span class="step-number">1</span> <span id="when-title">Choose a delivery day</span></h2>
+
+    <!-- Shown once the order page knows pickup drops are offered. -->
+    <div id="fulfillment-choice" class="fulfillment-choice" role="radiogroup" aria-label="Delivery or pickup" hidden>
+      <label class="fulfillment-option">
+        <input type="radio" name="fulfillment" value="pickup" />
+        <span class="fulfillment-title">Pickup</span>
+        <span class="fulfillment-sub">At one of our drops</span>
+      </label>
+      <label class="fulfillment-option">
+        <input type="radio" name="fulfillment" value="delivery" checked />
+        <span class="fulfillment-title">Delivery</span>
+        <span class="fulfillment-sub">To your door, <span class="delivery-days-short">Wed–Fri</span></span>
+      </label>
+    </div>
+
+    <div class="delivery-only">
+
+      <p class="delivery-note">
+        We deliver <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>,
+        <span class="delivery-window">between 2 pm and 4 pm</span>, within
+        <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
+        Your order is baked fresh that morning.
+      </p>
+
+      <!-- The real field, kept in sync with the date cards below. -->
+      <select
+        id="delivery-date"
+        name="deliveryDate"
+        class="delivery-date-select visually-hidden"
+        aria-hidden="true"
+        tabindex="-1"
+        required
+      >
+        <option value="">
+          Select a delivery date
+        </option>
+      </select>
+
+      <div id="date-picker" class="date-picker" role="radiogroup" aria-label="Delivery day"></div>
+
+      <p
+        id="date-status"
+        class="address-status date-status"
+        aria-live="polite"
+      ></p>
+
+    </div>
+
+    <!-- =========================
+         PICKUP DROPS
+    ========================== -->
+    <div id="pickup-step" class="pickup-only">
+
+      <p class="delivery-note">
+        Pick up fresh loaves at one of our drops. Loaves are limited, so order early.
+      </p>
+
+      <div id="drop-picker" class="drop-picker" role="radiogroup" aria-label="Pickup drop"></div>
+
+      <p id="drop-status" class="address-status date-status" aria-live="polite"></p>
+
+      <form id="notify-form" class="notify-form" novalidate>
+        <p class="notify-title">Hear about the next drop</p>
+        <p class="notify-text">We'll email you when ordering opens. No spam, ever.</p>
+        <div class="notify-row">
+          <label class="visually-hidden" for="notify-email">Email</label>
+          <input id="notify-email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="200" required />
+          <button type="submit" class="tip-option">Notify me</button>
+        </div>
+        <p id="notify-status" class="notify-status" aria-live="polite"></p>
+      </form>
+
+    </div>
+
+  </section>
 
 
   <!-- =========================
-       CHECKOUT
+       STEP 2: THE MENU
+  ========================== -->
+
+  <section class="menu-step" id="menu-section" aria-labelledby="menu-title">
+
+    <div class="menu-step-header">
+      <h2 class="section-label step-heading" id="menu-title"><span class="step-number">2</span> Choose your loaves</h2>
+      <p id="menu-for" class="menu-for" aria-live="polite"></p>
+    </div>
+
+    <p id="menu-limit" class="menu-limit" role="status" hidden></p>
+
+    <div
+      id="product-grid"
+      class="shop-grid"
+    ></div>
+
+  </section>
+
+
+  <!-- =========================
+       STEPS 3-4: DETAILS, REVIEW AND PAY
   ========================== -->
 
   <section class="checkout-section" id="checkout">
-
-    <h2>
-      Your Order
-    </h2>
 
     <div
       id="checkout-notice"
@@ -1293,32 +1504,11 @@
 
     <div class="checkout-layout">
 
-      <!-- =========================
-           STEPS 1-2: DETAILS AND DAY
-      ========================== -->
       <div class="checkout-main">
 
       <form id="order-form" class="delivery-form checkout-steps" novalidate>
 
-        <!-- Shown once the order page knows pickup drops are offered. -->
-        <div id="fulfillment-choice" class="fulfillment-choice" role="radiogroup" aria-label="Delivery or pickup" hidden>
-          <label class="fulfillment-option">
-            <input type="radio" name="fulfillment" value="delivery" checked />
-            <span class="fulfillment-title">Delivery</span>
-            <span class="fulfillment-sub">To your door, Wed–Fri</span>
-          </label>
-          <label class="fulfillment-option">
-            <input type="radio" name="fulfillment" value="pickup" />
-            <span class="fulfillment-title">Pickup</span>
-            <span class="fulfillment-sub">At one of our drops</span>
-          </label>
-        </div>
-
-        <h3 class="section-label"><span class="step-number">1</span> <span id="details-title">Delivery details</span></h3>
-
-        <p class="delivery-note delivery-only">
-        We deliver within <span id="delivery-radius">4</span> miles of our Menlo Park kitchen.
-      </p>
+        <h3 class="section-label"><span class="step-number">3</span> <span id="details-title">Delivery details</span></h3>
 
         <div class="field-grid">
 
@@ -1365,81 +1555,25 @@
         aria-live="polite"
       ></div>
 
-        <h3 class="section-label"><span class="step-number">2</span> <span id="when-title">Delivery day</span></h3>
-
-        <div class="delivery-only">
-
-        <p class="delivery-note">
-        We deliver <span class="delivery-days">Wednesdays, Thursdays, Fridays</span>,
-        <span class="delivery-window">between 2 pm and 4 pm</span>.
-        Your order will be baked fresh that morning.
-      </p>
-
-        <!-- The real field, kept in sync with the date cards below. -->
-        <select
-        id="delivery-date"
-        name="deliveryDate"
-        class="delivery-date-select visually-hidden"
-        aria-hidden="true"
-        tabindex="-1"
-        required
-      >
-
-        <option value="">
-          Select a delivery date
-        </option>
-
-      </select>
-
-        <div id="date-picker" class="date-picker" role="radiogroup" aria-label="Delivery day"></div>
-
-        <p
-        id="date-status"
-        class="address-status date-status"
-        aria-live="polite"
-      ></p>
-
-        </div>
-
-        <!-- =========================
-             PICKUP DROPS
-        ========================== -->
-        <div id="pickup-step" class="pickup-only">
-
-          <p class="delivery-note">
-            Pick up fresh loaves at one of our drops. Ordering opens at a set time,
-            and loaves are limited, so order early.
-          </p>
-
-          <div id="drop-picker" class="drop-picker" role="radiogroup" aria-label="Pickup drop"></div>
-
-          <p id="drop-status" class="address-status date-status" aria-live="polite"></p>
-
-        </div>
-
-      </form>
-
-      <!-- Its own form (outside the order form), so Enter doesn't start checkout. -->
-      <form id="notify-form" class="notify-form pickup-only" novalidate>
-        <p class="notify-title">Hear about the next drop</p>
-        <p class="notify-text">We'll email you when ordering opens. No spam, ever.</p>
-        <div class="notify-row">
-          <label class="visually-hidden" for="notify-email">Email</label>
-          <input id="notify-email" type="email" autocomplete="email" placeholder="you@example.com" maxlength="200" required />
-          <button type="submit" class="tip-option">Notify me</button>
-        </div>
-        <p id="notify-status" class="notify-status" aria-live="polite"></p>
       </form>
 
       </div>
 
       <!-- =========================
-           STEP 3: REVIEW AND PAY
+           STEP 4: REVIEW AND PAY
            (stays in view beside the form on wide screens)
       ========================== -->
       <aside class="order-summary" aria-label="Order summary">
 
-        <h3 class="section-label"><span class="step-number">3</span> Review &amp; pay</h3>
+        <h3 class="section-label"><span class="step-number">4</span> Review &amp; pay</h3>
+
+        <div id="summary-when" class="summary-when">
+          <span>
+            <span id="summary-when-label" class="summary-when-label">Delivery</span>
+            <span id="summary-when-text" class="summary-when-text">Choose a day</span>
+          </span>
+          <a href="#when-section" class="summary-when-change">Change</a>
+        </div>
 
         <div id="cart-items">
 
@@ -1564,13 +1698,13 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261110",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261110",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261110"
+      "./macros.js": "./macros.js?v=20261111",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261111",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261111"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261110"></script>
+<script type="module" src="./order.js?v=20261111"></script>
 
 </body>
 

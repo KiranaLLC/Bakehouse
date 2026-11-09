@@ -1469,6 +1469,11 @@ function findDrop(id) {
   return drops?.find(drop => String(drop.id) === id);
 }
 
+// "Sat, Nov 14"
+function formatShortDate(date) {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+}
+
 // "Saturday, Nov 14"
 function formatDropDate(date) {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", weekday: "long", month: "short", day: "numeric" });
@@ -1484,8 +1489,9 @@ function renderDropPicker() {
   if (!drops?.length) {
     const empty = document.createElement("p");
     empty.className = "drop-empty";
-    empty.textContent = "No pickup drops are scheduled right now. Join the list below and we'll email you when the next one opens.";
+    empty.textContent = "No pickup drops are scheduled right now. Leave your email below and we'll let you know when the next one opens.";
     picker.appendChild(empty);
+    document.getElementById("notify-details").open = true;
     updateDropStatus();
     return;
   }
@@ -1503,9 +1509,8 @@ function renderDropPicker() {
     input.setAttribute("aria-label", `${formatDropDate(drop.pickupDate)}, ${formatPickupWindow(drop)}, at ${drop.locationName}`);
 
     const parts = [
-      ["drop-date", formatDropDate(drop.pickupDate)],
-      ["drop-window", formatPickupWindow(drop)],
-      ["drop-place", drop.notes ? `${drop.locationName} · ${drop.notes}` : drop.locationName],
+      ["drop-date", formatShortDate(drop.pickupDate)],
+      ["drop-place", `${formatPickupWindow(drop)} · ${drop.locationName}`],
       ["drop-state", ""]
     ].map(([className, text]) => {
       const span = document.createElement("span");
@@ -1580,6 +1585,10 @@ function getDropProblem() {
 }
 
 function updateDropStatus() {
+  const notes = document.getElementById("drop-notes");
+  const chosen = selectedDropId && findDrop(selectedDropId);
+  notes.textContent = chosen?.notes || "";
+  notes.hidden = !chosen?.notes;
   const element = document.getElementById("drop-status");
   const problem = isPickup() ? getDropProblem() : null;
   element.className = `address-status date-status${problem ? " invalid" : ""}`;
@@ -1669,7 +1678,7 @@ function updateChosenDay() {
     const link = document.createElement("a");
     link.href = "#when-section";
     link.textContent = isPickup() ? "choose a pickup drop" : drops ? "choose a pickup drop or delivery day" : "choose a delivery day";
-    menuFor.append("First, ", link, " above.");
+    menuFor.append("Browse anytime, then ", link, " before you pay.");
   }
 
 }

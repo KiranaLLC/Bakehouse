@@ -9,6 +9,8 @@ Runs on Cloudflare Workers. The website calls it to:
   POST /api/check-discount          is this discount code valid?
   POST /api/create-checkout-session start a Stripe payment for an order
   GET  /api/capacity                loaves still available on each delivery date
+  GET  /api/drops                   upcoming pickup drops and whether they're open
+  POST /api/subscribe               join the "next drop" email list
   GET  /api/order-summary           details of a paid order, for the thank-you page
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
@@ -22,7 +24,7 @@ browser. The Stripe secret key lives here too.
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "../../macros.js";
+import { API, DELIVERY, DELIVERY_SERVICE, PICKUP, PRODUCTS, TIP } from "../../macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
@@ -31,10 +33,13 @@ import {
   findDeliveryZone,
   formatDeliveryDate,
   formatDeliverySlot,
+  bakeryTodayValue,
   getDeliveryDates,
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
 import { stripe } from "./stripe.js";
+import { DropError, addSubscriber, getDrop, getDropBookings, hasDatabase, listDrops } from "./drops.js";
+import { dropStatus, formatMoment, formatPickupWhen } from "../../pickup-rules.js";
 import {
   CHECKOUT_HOLD_SECONDS,
   countLoaves,
@@ -76,6 +81,10 @@ export default {
         result = findDiscount((await readJson(request)).code, env);
       } else if (request.method === "POST" && url.pathname === API.createCheckoutSession) {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
+      } else if (request.method === "GET" && url.pathname === API.drops) {
+        result = await getPublicDrops(url.searchParams.get("exclude"), env);
+      } else if (request.method === "POST" && url.pathname === API.subscribe) {
+        result = await subscribe(await readJson(request), env);
       } else if (request.method === "GET" && url.pathname === API.capacity) {
         result = await getCapacity(url.searchParams.get("exclude"), env);
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
@@ -90,7 +99,7 @@ export default {
 
     } catch (error) {
 
-      if (error instanceof OrderValidationError || error instanceof AddressNotFoundError) {
+      if (error instanceof OrderValidationError || error instanceof AddressNotFoundError || error instanceof DropError) {
         return json({ error: error.message }, 400, corsHeaders);
       }
 
@@ -174,6 +183,10 @@ CREATE STRIPE CHECKOUT SESSION
 */
 
 async function createCheckoutSession(body, env, siteUrl) {
+
+  if (body.fulfillment === "pickup") {
+    return createPickupCheckoutSession(body, env, siteUrl);
+  }
 
   const items = parseItems(body.items);
   const deliveryDate = parseDeliveryDate(body.deliveryDate);
@@ -277,18 +290,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   ==========================================
   */
 
-  let discounts;
-
-  if (discountCents > 0) {
-    const coupon = await stripe(env, "POST", "/coupons", {
-      amount_off: discountCents,
-      currency: "usd",
-      duration: "once",
-      max_redemptions: 1,
-      name: `${discount.code} (${discount.percent}% off)`.slice(0, 40)
-    });
-    discounts = [{ coupon: coupon.id }];
-  }
+  const discounts = await createDiscountCoupon(env, discount, discountCents);
 
   /*
   ==========================================
@@ -336,6 +338,167 @@ async function createCheckoutSession(body, env, siteUrl) {
 
   return { url: session.url, id: session.id };
 
+}
+
+async function createDiscountCoupon(env, discount, discountCents) {
+  if (!discountCents) return undefined;
+  const coupon = await stripe(env, "POST", "/coupons", {
+    amount_off: discountCents,
+    currency: "usd",
+    duration: "once",
+    max_redemptions: 1,
+    name: `${discount.code} (${discount.percent}% off)`.slice(0, 40)
+  });
+  return [{ coupon: coupon.id }];
+}
+
+/*
+==================================================
+PICKUP CHECKOUT
+
+Like delivery, minus the address and delivery
+fee: the customer picks an open drop, and the
+drop's own loaf limit is checked instead of the
+daily delivery limit.
+==================================================
+*/
+
+async function createPickupCheckoutSession(body, env, siteUrl) {
+
+  const items = parseItems(body.items);
+  const customer = parseCustomer(body.customer);
+  const tipCents = parseTip(body.tipCents);
+  const discount = body.discountCode ? findDiscount(body.discountCode, env) : null;
+  const loafCount = countLoaves(items);
+
+  const drop = await getDrop(env, Number(body.dropId));
+
+  if (!drop || drop.cancelled) {
+    throw new OrderValidationError("Sorry, that pickup isn't available any more. Please choose another.");
+  }
+
+  const pickupWhen = formatPickupWhen(drop);
+  const now = Date.now();
+
+  if (now < Date.parse(drop.opensAt)) {
+    throw new OrderValidationError(`Ordering for this pickup opens ${formatMoment(drop.opensAt)}.`);
+  }
+
+  if (now >= Date.parse(drop.closesAt)) {
+    throw new OrderValidationError("Sorry, ordering for this pickup has closed. Please choose another.");
+  }
+
+  const released = await releaseCheckoutSession(body.previousSessionId, env);
+  const booked = await getDropBookings(env, stripe, [drop], { ignoreSessionId: released });
+  const remaining = Math.max(drop.loafLimit - booked.get(String(drop.id)), 0);
+
+  if (loafCount > remaining) {
+    throw new OrderValidationError(remaining === 0
+      ? `Sorry, the ${pickupWhen} pickup is sold out. Please choose another.`
+      : `Sorry, the ${pickupWhen} pickup can't fit your order of ${loafCount} loaves. Please choose another pickup, or remove a few loaves.`);
+  }
+
+  const subtotal = calculateSubtotal(items);
+  const discountCents = discount ? calculateDiscount(discount.percent, subtotal, 0) : 0;
+
+  const lineItems = items.map(({ productId, quantity }) => ({
+    price_data: { currency: "usd", product_data: { name: PRODUCTS[productId].name }, unit_amount: PRODUCTS[productId].price },
+    quantity
+  }));
+
+  if (tipCents > 0) {
+    lineItems.push({ price_data: { currency: "usd", product_data: { name: "Tip for your baker" }, unit_amount: tipCents }, quantity: 1 });
+  }
+
+  const location = `${drop.locationName}, ${drop.locationAddress}`;
+
+  const metadata = {
+    fulfillment: "pickup",
+    drop_id: String(drop.id),
+    pickup_date: drop.pickupDate,
+    pickup_label: pickupWhen,
+    pickup_location: location,
+    loaf_count: String(loafCount),
+    items: items.map(({ productId, quantity }) => `${productId}:${quantity}`).join(","),
+    customer_name: customer.name,
+    customer_phone: customer.phone,
+    tip_cents: String(tipCents),
+    discount_code: discount?.code || "",
+    discount_cents: String(discountCents)
+  };
+
+  const session = await stripe(env, "POST", "/checkout/sessions", {
+    mode: "payment",
+    // Holds this order's loaves only while the customer is paying.
+    expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_HOLD_SECONDS,
+    line_items: lineItems,
+    discounts: await createDiscountCoupon(env, discount, discountCents),
+    customer_creation: "always",
+    payment_intent_data: {
+      description: `Kirana Bakehouse pickup — ${pickupWhen}`,
+      metadata
+    },
+    metadata,
+    custom_text: {
+      submit: { message: `Pickup at ${location}, ${pickupWhen}. Your sourdough will be baked fresh that morning.` }
+    },
+    success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${siteUrl}/order.html?cancelled=true`
+  });
+
+  return { url: session.url, id: session.id };
+
+}
+
+/*
+==================================================
+DROPS (order page)
+
+Upcoming pickup drops, soonest first, with
+whether each is open, not open yet, sold out or
+closed. "remaining" lets the page grey out drops
+that can't fit the cart; it isn't shown.
+==================================================
+*/
+
+async function getPublicDrops(excludeSessionId, env) {
+
+  if (!hasDatabase(env)) return { available: false, drops: [] };
+
+  const now = Date.now();
+  const drops = (await listDrops(env, { fromDate: bakeryTodayValue() }))
+    .filter(({ closesAt }) => Date.parse(closesAt) > now)
+    .slice(0, PICKUP.maxDropsShown);
+  const booked = await getDropBookings(env, stripe, drops, { ignoreOpenSessionId: excludeSessionId });
+
+  return {
+    available: true,
+    now: new Date(now).toISOString(),
+    drops: drops.map(drop => {
+      const remaining = Math.max(drop.loafLimit - booked.get(String(drop.id)), 0);
+      return {
+        id: drop.id,
+        pickupDate: drop.pickupDate,
+        windowStart: drop.windowStart,
+        windowEnd: drop.windowEnd,
+        locationName: drop.locationName,
+        locationAddress: drop.locationAddress,
+        notes: drop.notes,
+        opensAt: drop.opensAt,
+        closesAt: drop.closesAt,
+        remaining,
+        status: dropStatus(drop, remaining, now)
+      };
+    })
+  };
+
+}
+
+async function subscribe(body, env) {
+  if (!hasDatabase(env)) {
+    throw new OrderValidationError("Sorry, sign-ups aren't open yet. Please email hellokiranabakehouse@gmail.com.");
+  }
+  return addSubscriber(env, body);
 }
 
 /*
@@ -440,11 +603,14 @@ async function getOrderSummary(sessionId, env) {
     throw new OrderValidationError("We couldn't find a completed payment for this order.");
   }
 
+  const pickup = session.metadata.fulfillment === "pickup";
+
   return {
     email: session.customer_details?.email || "",
     name: session.metadata.customer_name,
-    deliveryDate: session.metadata.delivery_date_label,
-    address: session.metadata.delivery_address,
+    fulfillment: pickup ? "pickup" : "delivery",
+    deliveryDate: pickup ? session.metadata.pickup_label : session.metadata.delivery_date_label,
+    address: pickup ? session.metadata.pickup_location : session.metadata.delivery_address,
     items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_subtotal ?? item.amount_total })),
     discountCode: session.metadata.discount_code || "",
     amountDiscount: session.total_details?.amount_discount || 0,

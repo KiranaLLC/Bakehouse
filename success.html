@@ -360,7 +360,7 @@
     ></section>
 
 
-    <p class="success-note">
+    <p id="success-note" class="success-note">
       Your sourdough will be baked fresh on the
       morning of your delivery date and delivered
       <span class="delivery-window">between 2 pm and 4 pm</span>.
@@ -391,17 +391,18 @@
 <!--
   Versioned script URLs, so browsers never pair a new page with an old cached
   script. Change the number (e.g. to today's date) whenever order.js,
-  success.js, macros.js or delivery-rules.js change.
+  success.js, macros.js, delivery-rules.js or pickup-rules.js change.
 -->
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261104",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261104"
+      "./macros.js": "./macros.js?v=20261108",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261108",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261108"
     }
   }
 </script>
-<script type="module" src="./success.js?v=20261104"></script>
+<script type="module" src="./success.js?v=20261108"></script>
 
 </body>
 

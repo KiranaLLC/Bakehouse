@@ -14,6 +14,7 @@ import {
   formatMoney,
   getDeliveryDates
 } from "./delivery-rules.js";
+import { formatCountdown, formatMoment, formatPickupWindow } from "./pickup-rules.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
 // The Stripe payment this browser last started, so going back to change the
@@ -320,6 +321,8 @@ function updateCart() {
 
   renderDateAvailability();
 
+  syncDropPicker();
+
 }
 
 
@@ -345,7 +348,14 @@ function updateTotals() {
 
   let deliveryFee = 0;
 
-  if (addressCheck?.status === "valid") {
+  document.getElementById("cart-delivery-label").textContent =
+    isPickup() ? "Pickup" : "Delivery";
+
+  if (isPickup()) {
+
+    feeElement.textContent = "Free";
+
+  } else if (addressCheck?.status === "valid") {
 
     deliveryFee =
       calculateDeliveryFee(addressCheck.zone, subtotal);
@@ -835,8 +845,9 @@ function getLoafCount() {
   return getCartItems().reduce((total, { quantity }) => total + quantity, 0);
 }
 
+// Delivery's daily limit; pickup drops have their own.
 function isLargeOrder() {
-  return getLoafCount() > DELIVERY.dailyLoafLimit;
+  return !isPickup() && getLoafCount() > DELIVERY.dailyLoafLimit;
 }
 
 // Why the chosen date can't take this order, or null if it can (or we don't know yet).
@@ -896,7 +907,7 @@ const SAVED_FIELDS = ["name", "phone", "line1", "line2", "city", "postalCode", "
 function saveOrder() {
   try {
     const values = Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]));
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount, fulfillment, dropId: selectedDropId }));
   } catch {
     // Storage can be unavailable (e.g. private browsing). Nothing to do.
   }
@@ -915,6 +926,10 @@ function restoreOrder() {
   if (!saved) return;
 
   applySavedOrder(saved, { cart: true, tip: true, details: true });
+
+  // Applied once the drops load (pickup is only offered if they do).
+  if (saved.fulfillment === "pickup") wantedFulfillment = "pickup";
+  if (typeof saved.dropId === "string") selectedDropId = saved.dropId;
 
   // The worker re-checks the code at checkout, so a stale one is caught there.
   if (typeof saved.discount?.code === "string" && Number.isInteger(saved.discount.percent)) {
@@ -1076,6 +1091,10 @@ MESSAGES
 
 function showError(message, focusElement) {
 
+  if (focusElement?.id === "drop-picker") {
+    focusElement = document.querySelector("#drop-picker input:not(:disabled)") || focusElement;
+  }
+
   // The date select is hidden behind the date cards: point at those instead.
   if (focusElement === fields.deliveryDate) {
     focusElement = document.querySelector("#date-picker input:not(:disabled)") || document.getElementById("date-picker");
@@ -1124,13 +1143,18 @@ function validateForm() {
     return { message: "Your cart is empty. Add some sourdough above to get started.", field: document.getElementById("product-grid") };
   }
 
-  const required = [
-    ["name", "Please enter your name."],
-    ["phone", "Please enter your phone number so we can reach you on delivery day."],
-    ["line1", "Please enter your street address."],
-    ["city", "Please enter your city."],
-    ["postalCode", "Please enter a valid 5-digit ZIP code."]
-  ];
+  const required = isPickup()
+    ? [
+      ["name", "Please enter your name."],
+      ["phone", "Please enter your phone number so we can reach you about your pickup."]
+    ]
+    : [
+      ["name", "Please enter your name."],
+      ["phone", "Please enter your phone number so we can reach you on delivery day."],
+      ["line1", "Please enter your street address."],
+      ["city", "Please enter your city."],
+      ["postalCode", "Please enter a valid 5-digit ZIP code."]
+    ];
 
   for (const [name, message] of required) {
     if (!fields[name].value.trim() || !fields[name].checkValidity()) {
@@ -1144,6 +1168,13 @@ function validateForm() {
   if (phoneDigits.length < 10 || phoneDigits.length > 15) {
     fields.phone.setAttribute("aria-invalid", "true");
     return { message: "Please enter a valid phone number, including area code.", field: fields.phone };
+  }
+
+  if (isPickup()) {
+    const picker = document.getElementById("drop-picker");
+    if (!selectedDropId) return { message: "Please choose a pickup drop.", field: picker };
+    const problem = getDropProblem();
+    return problem ? { message: problem, field: picker } : null;
   }
 
   // Checked before the date: no date can take an order this big.
@@ -1209,11 +1240,15 @@ async function checkout(event) {
     ------------------------------------------
     */
 
-    const check =
-      await checkAddress();
+    if (!isPickup()) {
 
-    if (check.status !== "valid") {
-      throw Object.assign(new Error(check.message), { field: fields.line1 });
+      const check =
+        await checkAddress();
+
+      if (check.status !== "valid") {
+        throw Object.assign(new Error(check.message), { field: fields.line1 });
+      }
+
     }
 
     /*
@@ -1222,8 +1257,17 @@ async function checkout(event) {
     ------------------------------------------
     */
 
-    const data =
-      await postJson(API.createCheckoutSession, {
+    const data = isPickup()
+      ? await postJson(API.createCheckoutSession, {
+        fulfillment: "pickup",
+        dropId: Number(selectedDropId),
+        items: getCartItems(),
+        customer: { name: fields.name.value, phone: fields.phone.value },
+        tipCents: getTipCents(calculateSubtotal(getCartItems())),
+        discountCode: discount?.code,
+        previousSessionId: getPendingSessionId() || undefined
+      })
+      : await postJson(API.createCheckoutSession, {
         items: getCartItems(),
         deliveryDate: fields.deliveryDate.value,
         customer: { name: fields.name.value, phone: fields.phone.value },
@@ -1261,8 +1305,9 @@ async function checkout(event) {
       error.field
     );
 
-    // Someone else may have just booked the last loaves for this day.
+    // Someone else may have just booked the last loaves for this day or drop.
     loadCapacity();
+    loadDrops();
 
     button.disabled =
       false;
@@ -1303,6 +1348,282 @@ async function postJson(path, body) {
 
 /*
 ==================================================
+PICKUP DROPS
+
+Pickup is offered only once the worker returns
+the drop list (it needs the pickup database).
+Each drop opens and closes at set times and has
+its own loaf limit; the cards show a countdown
+until it opens and grey out when it can't take
+the cart.
+==================================================
+*/
+
+let fulfillment = "delivery";
+// What the customer last chose, applied once drops load.
+let wantedFulfillment = "delivery";
+let drops = null;
+let selectedDropId = "";
+// The worker's clock minus this device's, so countdowns don't depend on the phone's clock.
+let serverOffsetMs = 0;
+let countdownTimer;
+
+function isPickup() {
+  return fulfillment === "pickup";
+}
+
+function dropNow() {
+  return Date.now() + serverOffsetMs;
+}
+
+async function loadDrops() {
+
+  if (!API.isConfigured) return;
+
+  try {
+    const exclude = getPendingSessionId();
+    const response = await fetch(`${API.origin}${API.drops}${exclude ? `?exclude=${encodeURIComponent(exclude)}` : ""}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data.available) return;
+    drops = data.drops;
+    serverOffsetMs = Date.parse(data.now) - Date.now();
+  } catch {
+    return;
+  }
+
+  document.getElementById("fulfillment-choice").hidden = false;
+
+  if (selectedDropId && !drops.some(({ id }) => String(id) === selectedDropId)) {
+    selectedDropId = "";
+  }
+
+  renderDropPicker();
+
+  if (wantedFulfillment !== fulfillment) {
+    setFulfillment(wantedFulfillment);
+  }
+
+}
+
+function setFulfillment(value) {
+
+  fulfillment = value === "pickup" && drops ? "pickup" : "delivery";
+  wantedFulfillment = fulfillment;
+
+  document.getElementById("checkout").classList.toggle("is-pickup", isPickup());
+
+  document.querySelectorAll('input[name="fulfillment"]').forEach(input => {
+    input.checked = input.value === fulfillment;
+    input.closest(".fulfillment-option").classList.toggle("is-selected", input.checked);
+  });
+
+  document.getElementById("details-title").textContent = isPickup() ? "Your details" : "Delivery details";
+  document.getElementById("when-title").textContent = isPickup() ? "Pickup drop" : "Delivery day";
+
+  hideError();
+  updateTotals();
+  renderDateAvailability();
+  syncDropPicker();
+  saveOrder();
+
+}
+
+// Recomputed here as well as on the worker, so a drop opens on screen on time.
+function liveDropStatus(drop) {
+  const now = dropNow();
+  if (now >= Date.parse(drop.closesAt)) return "closed";
+  if (now < Date.parse(drop.opensAt)) return "upcoming";
+  return drop.remaining <= 0 ? "sold_out" : "open";
+}
+
+function dropFits(drop) {
+  return liveDropStatus(drop) === "open" && getLoafCount() <= drop.remaining;
+}
+
+function findDrop(id) {
+  return drops?.find(drop => String(drop.id) === id);
+}
+
+// "Saturday, Nov 14"
+function formatDropDate(date) {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(DELIVERY.locale, { timeZone: "UTC", weekday: "long", month: "short", day: "numeric" });
+}
+
+function renderDropPicker() {
+
+  const picker =
+    document.getElementById("drop-picker");
+
+  picker.replaceChildren();
+
+  if (!drops?.length) {
+    const empty = document.createElement("p");
+    empty.className = "drop-empty";
+    empty.textContent = "No pickup drops are scheduled right now. Join the list below and we'll email you when the next one opens.";
+    picker.appendChild(empty);
+    updateDropStatus();
+    return;
+  }
+
+  drops.forEach(drop => {
+
+    const card = document.createElement("label");
+    card.className = "drop-card";
+    card.dataset.id = String(drop.id);
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "pickup-drop";
+    input.value = String(drop.id);
+    input.setAttribute("aria-label", `${formatDropDate(drop.pickupDate)}, ${formatPickupWindow(drop)}, at ${drop.locationName}`);
+
+    const parts = [
+      ["drop-date", formatDropDate(drop.pickupDate)],
+      ["drop-window", formatPickupWindow(drop)],
+      ["drop-place", drop.notes ? `${drop.locationName} · ${drop.notes}` : drop.locationName],
+      ["drop-state", ""]
+    ].map(([className, text]) => {
+      const span = document.createElement("span");
+      span.className = className;
+      span.textContent = text;
+      return span;
+    });
+
+    input.addEventListener("change", () => {
+      selectedDropId = String(drop.id);
+      hideError();
+      syncDropPicker();
+      saveOrder();
+    });
+    input.addEventListener("focus", () => card.classList.toggle("is-focused", input.matches(":focus-visible")));
+    input.addEventListener("blur", () => card.classList.remove("is-focused"));
+
+    card.append(input, ...parts);
+    picker.appendChild(card);
+
+  });
+
+  syncDropPicker();
+  startDropCountdown();
+
+}
+
+function syncDropPicker() {
+
+  if (!drops) return;
+
+  document.querySelectorAll("#drop-picker .drop-card").forEach(card => {
+
+    const drop = findDrop(card.dataset.id);
+    const status = liveDropStatus(drop);
+    const fits = dropFits(drop);
+    const selected = selectedDropId === card.dataset.id;
+    const input = card.querySelector("input");
+
+    input.checked = selected;
+    input.disabled = !fits && !selected;
+    card.classList.toggle("is-selected", selected);
+    card.classList.toggle("is-upcoming", status === "upcoming");
+    card.classList.toggle("is-unavailable", status !== "upcoming" && !fits && !selected);
+
+    card.querySelector(".drop-state").textContent =
+      status === "upcoming" ? `Opens ${formatMoment(drop.opensAt)} · in ${formatCountdown(Date.parse(drop.opensAt) - dropNow())}`
+        : status === "sold_out" ? "Sold out"
+          : status === "closed" ? "Ordering closed"
+            : !fits ? "Can't fit your order"
+              : `Order by ${formatMoment(drop.closesAt)}`;
+
+  });
+
+  updateDropStatus();
+
+}
+
+// Why the chosen drop can't take this order, or null if it can.
+function getDropProblem() {
+  if (!selectedDropId) return null;
+  const drop = findDrop(selectedDropId);
+  if (!drop) return "That pickup isn't available any more. Please choose another.";
+  const status = liveDropStatus(drop);
+  if (status === "upcoming") return `Ordering for this pickup opens ${formatMoment(drop.opensAt)}.`;
+  if (status === "closed") return "Ordering for this pickup has closed. Please choose another.";
+  if (status === "sold_out") return "This pickup is sold out. Please choose another.";
+  if (getLoafCount() > drop.remaining) return "This pickup can't fit your order. Please choose another, or remove a few loaves.";
+  return null;
+}
+
+function updateDropStatus() {
+  const element = document.getElementById("drop-status");
+  const problem = isPickup() ? getDropProblem() : null;
+  element.className = `address-status date-status${problem ? " invalid" : ""}`;
+  element.textContent = problem || "";
+}
+
+// Ticks the "opens in …" countdowns, and fetches fresh drops when one opens or closes.
+function startDropCountdown() {
+
+  clearInterval(countdownTimer);
+
+  const changes = (drops || [])
+    .flatMap(({ opensAt, closesAt }) => [Date.parse(opensAt), Date.parse(closesAt)])
+    .filter(time => time > dropNow());
+
+  if (!changes.length) return;
+
+  const nextChange = Math.min(...changes);
+
+  countdownTimer = setInterval(() => {
+    if (dropNow() >= nextChange) {
+      clearInterval(countdownTimer);
+      loadDrops();
+      return;
+    }
+    syncDropPicker();
+  }, 1000);
+
+}
+
+document.querySelectorAll('input[name="fulfillment"]').forEach(input => {
+  const option = input.closest(".fulfillment-option");
+  input.addEventListener("change", () => setFulfillment(input.value));
+  input.addEventListener("focus", () => option.classList.toggle("is-focused", input.matches(":focus-visible")));
+  input.addEventListener("blur", () => option.classList.remove("is-focused"));
+});
+
+document.getElementById("notify-form").addEventListener("submit", async event => {
+
+  event.preventDefault();
+
+  const input = document.getElementById("notify-email");
+  const status = document.getElementById("notify-status");
+  const button = event.target.querySelector("button");
+
+  if (!input.value.trim() || !input.checkValidity()) {
+    status.className = "notify-status error";
+    status.textContent = "Please enter a valid email address.";
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    await postJson(API.subscribe, { email: input.value.trim(), name: fields.name.value.trim() });
+    status.className = "notify-status";
+    status.textContent = "You're on the list! We'll email you when the next drop opens.";
+    input.value = "";
+  } catch (error) {
+    status.className = "notify-status error";
+    status.textContent = error.message;
+  }
+
+  button.disabled = false;
+
+});
+
+
+/*
+==================================================
 INITIALIZE
 ==================================================
 */
@@ -1331,6 +1652,11 @@ if (params.has("cancelled")) {
   restoreOrder();
 } else if (lastOrder) {
   showWelcomeBack(lastOrder);
+}
+
+// order.html?pickup (e.g. from a "new drop" email) opens on pickup.
+if (params.has("pickup")) {
+  wantedFulfillment = "pickup";
 }
 
 if (params.has("cancelled") || params.has("reorder")) {
@@ -1364,6 +1690,8 @@ fields.deliveryDate.addEventListener("change", () => {
 });
 
 loadCapacity();
+
+loadDrops();
 
 form.addEventListener(
   "submit",

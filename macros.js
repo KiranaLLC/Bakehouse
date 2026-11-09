@@ -8,6 +8,34 @@
 export const BASE_INGREDIENTS = Object.freeze(["Organic Unbleached All Purpose Flour", "Water", "Sea Salt"]);
 
 /*
+==================================================
+PICKUP DROPS
+
+Pickup is sold in "drops": each pickup day is
+scheduled on the orders page with its own loaf
+limit and the moment ordering opens and closes.
+These are the defaults filled in when you create
+a new drop; every drop can change them.
+==================================================
+*/
+
+export const PICKUP = Object.freeze({
+  timeZone: "America/Los_Angeles",
+  // How many upcoming drops the order page shows at once.
+  maxDropsShown: 4,
+  defaults: Object.freeze({
+    locationName: "Verve Coffee Roasters",
+    locationAddress: "162 University Ave, Palo Alto, CA 94301",
+    notes: "Meet us in the outdoor seating area at Verve.",
+    windowStart: "14:00",
+    windowEnd: "15:00",
+    loafLimit: 20,
+    // Ordering closes at this time the day before pickup.
+    closesDayBeforeAt: "20:00"
+  })
+});
+
+/*
   imageCenter: how far down the photo the middle of the loaf is, as a
   percentage (50 = exactly halfway, the default). The order page crops each
   photo to a wider shape, and uses this to keep the loaf in the middle.
@@ -180,6 +208,8 @@ export const API = Object.freeze({
   checkDelivery: "/api/check-delivery",
   checkDiscount: "/api/check-discount",
   capacity: "/api/capacity",
+  drops: "/api/drops",
+  subscribe: "/api/subscribe",
   orderSummary: "/api/order-summary"
 });
 

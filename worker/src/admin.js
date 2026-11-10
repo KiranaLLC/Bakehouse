@@ -598,8 +598,16 @@ async function handleDropRoutes(request, path, env, stripe) {
     if (!canEmail(env)) throw new EmailError("Email isn't set up yet, so use the draft instead.");
     const drop = await getDrop(env, Number(sendMatch[1]));
     if (!drop) return json({ error: "That drop doesn't exist." }, 404);
-    const sent = sendMatch[2] === "announce" ? await announceDrop(env, drop) : await remindDrop(env, stripe, drop);
-    return json({ ok: true, sent });
+    try {
+      const sent = sendMatch[2] === "announce" ? await announceDrop(env, drop, { force: true }) : await remindDrop(env, stripe, drop, { force: true });
+      return json({ ok: true, sent });
+    } catch (error) {
+      if (/no such table/i.test(error.message || "")) {
+        throw new EmailError("The email tables aren't in the pickup database yet. Run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql");
+      }
+      if (error.sent) throw new EmailError(`Sent to ${error.sent}, then stopped: ${error.message}`);
+      throw error;
+    }
   }
 
   if (request.method === "GET" && path === "/admin/api/subscribers") {

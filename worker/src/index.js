@@ -562,7 +562,9 @@ async function subscribe(body, env, workerOrigin) {
     console.error(error);
     return addSubscriber(env, body);
   }
-  if (pending.alreadySubscribed) return { ok: true, subscribed: true };
+  // The same answer either way, so the form can't be used to find out who's on the list,
+  // and no email if they're already on it or were sent a confirm link a few minutes ago.
+  if (pending.alreadySubscribed || pending.recentlySent) return { ok: true, confirm: true };
 
   try {
     await sendEmail(env, confirmSubscriptionEmail({ to: pending.email, confirmUrl: `${workerOrigin}/api/subscribe/confirm?token=${pending.token}` }));
@@ -596,13 +598,30 @@ async function handleConfirmLink(url, env) {
     : page("That link has expired", "Please sign up again on the order page, and use the newest email we send.", 404);
 }
 
-// GET: someone tapped the link. POST: their mail app's one-click unsubscribe.
+/*
+  GET (someone tapped the link) only asks; the
+  button POSTs. Some workplace mail systems open
+  every link in an email to scan it, and that
+  mustn't unsubscribe anyone. A mail app's one-click
+  unsubscribe POSTs straight away.
+*/
 async function handleUnsubscribeLink(url, request, env) {
-  const email = hasDatabase(env) ? await unsubscribeByToken(env, url.searchParams.get("token")) : null;
-  if (request.method === "POST") return new Response(null, { status: email ? 200 : 404 });
+
+  const token = url.searchParams.get("token") || "";
+
+  if (request.method === "GET") {
+    const action = `/api/unsubscribe?token=${encodeURIComponent(token)}`;
+    return page("Unsubscribe?", `You'll stop getting emails when a new pickup drop opens.</p>
+<form method="post" action="${action.replace(/"/g, "&quot;")}"><button type="submit" style="font:inherit;font-weight:600;padding:12px 24px;border-radius:999px;border:0;background:#a63a1f;color:#fff;cursor:pointer">Unsubscribe</button></form><p>`);
+  }
+
+  const email = hasDatabase(env) ? await unsubscribeByToken(env, token) : null;
+  const oneClick = (request.headers.get("Content-Type") || "").includes("form") && (await request.clone().text()).includes("List-Unsubscribe=One-Click");
+  if (oneClick) return new Response(null, { status: email ? 200 : 404 });
   return email
     ? page("You're unsubscribed", "You won't get any more pickup drop emails. You can sign up again any time on the order page.")
     : page("You're unsubscribed", "That address isn't on our list any more.");
+
 }
 
 /*

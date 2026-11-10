@@ -226,14 +226,18 @@ Once it's on:
   "delivered" or "ready for pickup" email itself (it asks first), and shows when
   it was sent.
 - **New drop open**: everyone on the next-drop list gets an email within an
-  hour of a drop opening for orders. **Email notify list** on the Drops tab
-  sends it straight away instead.
+  hour of a drop opening for orders (and anyone who joins that day gets it on
+  the next hourly run). **Email notify list** on the Drops tab sends it to
+  everyone straight away.
 - **Pickup reminders**: everyone with a paid order for a drop gets a reminder
-  after 5 pm the day before. **Remind customers** sends it straight away
-  instead. Nothing is sent twice by the schedule.
-- **Next-drop list**: signing up sends a confirm link, and people only join the
-  list once they tap it. Every drop email has an unsubscribe link (and a
-  one-click unsubscribe for mail apps). People already on the list stay on it.
+  from 5 pm the day before (later orders get one up until pickup ends).
+  **Remind customers** sends it to everyone straight away. The schedule never
+  sends anyone the same email twice.
+- **Next-drop list**: signing up sends a confirm link (at most one every 10
+  minutes per address, valid 14 days), and people only join the list once they
+  tap it. Every drop email has an unsubscribe link, which asks before
+  unsubscribing, plus one-click unsubscribe for mail apps. People already on
+  the list stay on it.
 
 Emails come from `hello@kiranabakehouse.com` (`EMAIL_FROM` in both wrangler
 files); replies go to the Gmail. To set it up:

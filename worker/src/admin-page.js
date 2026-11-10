@@ -661,7 +661,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     ));
 
     if (data.emailReady) {
-      view.append(el("p", { class: "sent-note", text: "Emails go out by themselves: the new-drop email within an hour of ordering opening, and pickup reminders after 5 pm the day before. The buttons send them now." }));
+      view.append(el("p", { class: "sent-note", text: "Emails go out by themselves: the new-drop email within an hour of ordering opening (and to anyone who joins the list that day), and pickup reminders from 5 pm the day before (and to anyone who orders after that). The buttons send to everyone now." }));
     }
 
     if (state.subscribers) view.append(subscribersCard());

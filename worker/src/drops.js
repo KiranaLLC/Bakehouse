@@ -194,15 +194,22 @@ been sent, so nothing goes out twice.
 ==================================================
 */
 
+// A confirm link works for this long; a new one is sent at most this often per address.
+const CONFIRM_LINK_DAYS = 14;
+const CONFIRM_RESEND_MINUTES = 10;
+
 export async function addPendingSubscriber(env, input) {
   const email = cleanText(input?.email, 200).toLowerCase();
   const name = cleanText(input?.name, 100);
   if (!EMAIL.test(email)) throw new DropError("Please enter a valid email address.");
   const existing = await env.DB.prepare("SELECT email FROM subscribers WHERE email = ?1").bind(email).first();
   if (existing) return { email, alreadySubscribed: true };
+  const recent = await env.DB.prepare("SELECT token FROM pending_subscribers WHERE email = ?1 AND created_at > ?2")
+    .bind(email, new Date(Date.now() - CONFIRM_RESEND_MINUTES * 6e4).toISOString()).first();
+  if (recent) return { email, recentlySent: true };
   const token = crypto.randomUUID();
   await env.DB.prepare("DELETE FROM pending_subscribers WHERE email = ?1 OR created_at < ?2")
-    .bind(email, new Date(Date.now() - 14 * 864e5).toISOString()).run();
+    .bind(email, new Date(Date.now() - CONFIRM_LINK_DAYS * 864e5).toISOString()).run();
   await env.DB.prepare("INSERT INTO pending_subscribers (token, email, name, created_at) VALUES (?1, ?2, ?3, ?4)")
     .bind(token, email, name, new Date().toISOString()).run();
   return { email, token };
@@ -211,7 +218,8 @@ export async function addPendingSubscriber(env, input) {
 // The confirm link: moves the person onto the list. Returns their email, or null.
 export async function confirmSubscriber(env, token) {
   if (!isToken(token)) return null;
-  const pending = await env.DB.prepare("SELECT email, name FROM pending_subscribers WHERE token = ?1").bind(token).first();
+  const pending = await env.DB.prepare("SELECT email, name FROM pending_subscribers WHERE token = ?1 AND created_at > ?2")
+    .bind(token, new Date(Date.now() - CONFIRM_LINK_DAYS * 864e5).toISOString()).first();
   if (!pending) return null;
   await addSubscriber(env, pending);
   await env.DB.prepare("DELETE FROM pending_subscribers WHERE email = ?1").bind(pending.email).run();

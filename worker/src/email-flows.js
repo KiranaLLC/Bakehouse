@@ -42,30 +42,78 @@ export function orderPageUrl(env) {
   return `${env.SITE_URL || SITE}/order.html?pickup`;
 }
 
-// Everyone confirmed on the list, each with their own unsubscribe link.
-export async function announceDrop(env, drop, now = Date.now()) {
+/*
+  Each email is claimed in the email log under
+  "<kind>:<drop id>:<address>" before it's sent, so
+  no one gets the same email twice from the
+  schedule, even when runs overlap or a send fails
+  halfway (only the ones that didn't go out are let
+  go, and the next run sends just those). The
+  orders page's buttons pass force, which sends to
+  everyone again. "<kind>:<drop id>" keeps a
+  summary for the orders page: when, and how many.
+*/
+async function sendToEach(env, prefix, recipients, makeMessage, { force = false } = {}) {
 
-  const people = await listSubscribers(env);
+  const claimed = [];
+  const newClaims = new Set();
+  for (const email of recipients) {
+    const key = `${prefix}:${email}`;
+    if (await claimEmail(env, key)) {
+      claimed.push(email);
+      newClaims.add(email);
+    } else if (force) {
+      claimed.push(email);
+    }
+  }
+
+  let sent = 0;
+  for (let i = 0; i < claimed.length; i += 100) {
+    const batch = claimed.slice(i, i + 100);
+    try {
+      await sendEmails(env, await Promise.all(batch.map(makeMessage)));
+    } catch (error) {
+      for (const email of claimed.slice(i).filter(email => newClaims.has(email))) {
+        await forgetEmail(env, `${prefix}:${email}`).catch(() => {});
+      }
+      if (sent) await summarize(env, prefix);
+      error.sent = sent;
+      throw error;
+    }
+    sent += batch.length;
+  }
+
+  if (sent) await summarize(env, prefix);
+  return sent;
+
+}
+
+// "<kind>:<drop id>" = when it last went out, and to how many people in all.
+async function summarize(env, prefix) {
+  try {
+    const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM email_log WHERE key LIKE ?1").bind(`${prefix}:%`).first();
+    await logEmail(env, prefix, Number(row?.n) || 0);
+  } catch (error) {
+    console.error("couldn't update the email log summary", error);
+  }
+}
+
+// Everyone confirmed on the list, each with their own unsubscribe link.
+export async function announceDrop(env, drop, { now = Date.now(), force = false } = {}) {
+
+  const people = (await listSubscribers(env)).map(({ email }) => email);
   const opening = now < Date.parse(drop.opensAt)
     ? `Ordering opens ${formatMoment(drop.opensAt)} and closes ${formatMoment(drop.closesAt)}.`
     : `Ordering is open now and closes ${formatMoment(drop.closesAt)}.`;
 
-  const messages = [];
-  for (const { email } of people) {
-    const token = await unsubscribeToken(env, email);
-    messages.push(dropOpenEmail({
-      to: email,
-      when: formatPickupWhen(drop),
-      place: placeLines(drop),
-      opening,
-      orderUrl: orderPageUrl(env),
-      unsubscribeUrl: `${API.origin}/api/unsubscribe?token=${token}`
-    }));
-  }
-
-  await sendEmails(env, messages);
-  await logEmail(env, announceKey(drop), messages.length);
-  return messages.length;
+  return sendToEach(env, announceKey(drop), people, async email => dropOpenEmail({
+    to: email,
+    when: formatPickupWhen(drop),
+    place: placeLines(drop),
+    opening,
+    orderUrl: orderPageUrl(env),
+    unsubscribeUrl: `${API.origin}/api/unsubscribe?token=${await unsubscribeToken(env, email)}`
+  }), { force });
 
 }
 
@@ -81,23 +129,24 @@ export async function dropCustomerEmails(env, stripe, drop) {
   return [...emails];
 }
 
-export async function remindDrop(env, stripe, drop) {
+export async function remindDrop(env, stripe, drop, { force = false } = {}) {
   const emails = await dropCustomerEmails(env, stripe, drop);
-  const messages = emails.map(to => pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) }));
-  await sendEmails(env, messages);
-  await logEmail(env, remindKey(drop), messages.length);
-  return messages.length;
+  return sendToEach(env, remindKey(drop), emails,
+    to => pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) }), { force });
 }
 
 /*
 ==================================================
 SCHEDULE
 
-Runs every hour on the checkout worker. Each email
-is claimed in the log before it's sent, so an
-overlapping run (or the orders page's button)
-can't send it twice. If sending fails, the claim
-is let go and the next run tries again.
+Runs every hour on the checkout worker:
+
+  - "A new drop is open" for drops that opened in
+    the last day, to anyone on the list who hasn't
+    had it (people who join that day get it too).
+  - Reminders from 5 pm the day before pickup until
+    the pickup window ends, to any customer who
+    hasn't had one (late orders get one too).
 ==================================================
 */
 
@@ -106,6 +155,7 @@ export async function runScheduledEmails(env, stripe, now = Date.now()) {
   if (!canEmail(env) || !hasDatabase(env)) return { announced: 0, reminded: 0 };
 
   const local = utcToLocal(new Date(now).toISOString(), PICKUP.timeZone);
+  const hour = Number(local.time.slice(0, 2));
   const drops = await listDrops(env, { fromDate: local.date });
   let announced = 0;
   let reminded = 0;
@@ -115,26 +165,17 @@ export async function runScheduledEmails(env, stripe, now = Date.now()) {
     const opened = Date.parse(drop.opensAt);
     const isOpen = opened <= now && now < Date.parse(drop.closesAt);
     if (isOpen && now - opened < SCHEDULE.announceWithinHours * 36e5) {
-      announced += await sendOnce(env, announceKey(drop), () => announceDrop(env, drop, now));
+      announced += await announceDrop(env, drop, { now });
     }
 
-    const hour = Number(local.time.slice(0, 2));
-    if (dayBefore(drop.pickupDate) === local.date && hour >= SCHEDULE.reminderFromHour) {
-      reminded += await sendOnce(env, remindKey(drop), () => remindDrop(env, stripe, drop));
+    const eveningBefore = dayBefore(drop.pickupDate) === local.date && hour >= SCHEDULE.reminderFromHour;
+    const pickupDayBeforeEnd = drop.pickupDate === local.date && local.time < drop.windowEnd;
+    if (eveningBefore || pickupDayBeforeEnd) {
+      reminded += await remindDrop(env, stripe, drop);
     }
 
   }
 
   return { announced, reminded };
 
-}
-
-async function sendOnce(env, key, send) {
-  if (!await claimEmail(env, key)) return 0;
-  try {
-    return await send();
-  } catch (error) {
-    await forgetEmail(env, key);
-    throw error;
-  }
 }

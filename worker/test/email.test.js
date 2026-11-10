@@ -176,12 +176,24 @@ test("without email set up, signing up joins the list straight away", async () =
   assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 1);
 });
 
-test("someone already on the list isn't sent another confirm email", async () => {
+test("no extra email for someone already on the list, or asked again within minutes, and the answer doesn't tell", async () => {
   await signUpAndConfirm("cy@example.com");
   emails = [];
   const again = await callCheckout("POST", "/api/subscribe", { email: "cy@example.com" });
-  assert.deepEqual(again.body, { ok: true, subscribed: true });
+  assert.deepEqual(again.body, { ok: true, confirm: true });
   assert.equal(emails.length, 0);
+
+  await callCheckout("POST", "/api/subscribe", { email: "new@example.com" });
+  await callCheckout("POST", "/api/subscribe", { email: "new@example.com" });
+  await callCheckout("POST", "/api/subscribe", { email: "new@example.com" });
+  assert.equal(emails.length, 1);
+});
+
+test("confirm links stop working after 14 days", async () => {
+  await callCheckout("POST", "/api/subscribe", { email: "old@example.com" });
+  const link = emails[0].text.match(/https:\/\/\S+\/api\/subscribe\/confirm\?token=\S+/)[0];
+  await env.DB.prepare("UPDATE pending_subscribers SET created_at = ?1").bind(new Date(Date.now() - 15 * 864e5).toISOString()).run();
+  assert.equal((await checkoutWorker.fetch(new Request(link), env)).status, 404);
 });
 
 test("each drop email has a working one-click unsubscribe link", async () => {
@@ -197,13 +209,27 @@ test("each drop email has a working one-click unsubscribe link", async () => {
   const link = email.headers["List-Unsubscribe"].slice(1, -1);
   assert.ok(email.text.includes(link));
 
-  // A mail app's one-click unsubscribe is a POST to the same link.
-  const unsubscribe = await checkoutWorker.fetch(new Request(link.replace(/^https:\/\/[^/]+/, CHECKOUT), { method: "POST" }), env);
-  assert.equal(unsubscribe.status, 200);
-  assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 0);
+  const local = link.replace(/^https:\/\/[^/]+/, CHECKOUT);
 
-  const page = await checkoutWorker.fetch(new Request(link.replace(/^https:\/\/[^/]+/, CHECKOUT)), env);
-  assert.match(await page.text(), /unsubscribed/);
+  // Opening the link (as a mail scanner would) only asks.
+  const ask = await checkoutWorker.fetch(new Request(local), env);
+  assert.match(await ask.text(), /<form method="post"/);
+  assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 1);
+
+  // A mail app's one-click unsubscribe POSTs to the same link.
+  const oneClick = await checkoutWorker.fetch(new Request(local, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click" }), env);
+  assert.equal(oneClick.status, 200);
+  assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 0);
+});
+
+test("the Unsubscribe button on the page takes someone off the list", async () => {
+  await signUpAndConfirm("eli@example.com");
+  const drop = await makeDrop();
+  await callOrders("POST", `/admin/api/drops/${drop.id}/announce`);
+  const local = emails.at(-1).headers["List-Unsubscribe"].slice(1, -1).replace(/^https:\/\/[^/]+/, CHECKOUT);
+  const done = await checkoutWorker.fetch(new Request(local, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "" }), env);
+  assert.match(await done.text(), /You're unsubscribed/);
+  assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 0);
 });
 
 /* ---------- New-order alert (Stripe webhook) ---------- */
@@ -335,4 +361,48 @@ test("without email set up, the orders page's send buttons say to use the draft"
   assert.equal(result.status, 400);
   assert.match(result.body.error, /draft/);
   assert.equal((await callOrders("GET", "/admin/api/orders")).body.emailReady, false);
+});
+
+test("people who join the list after a drop's email went out still get it on the next hourly run", async () => {
+  await signUpAndConfirm("first@example.com");
+  await makeDrop();
+  emails = [];
+  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
+  await signUpAndConfirm("later@example.com");
+  emails = [];
+  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
+  assert.deepEqual(emails[0].to, ["later@example.com"]);
+});
+
+test("customers who order after the reminders went out get one too, until pickup ends", async () => {
+  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
+  paidOrder({ dropId: drop.id, email: "early@example.com" });
+  emails = [];
+  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(dayBefore(drop.pickupDate), "18:00")))).reminded, 1);
+  paidOrder({ dropId: drop.id, email: "late@example.com" });
+  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(drop.pickupDate, "09:00")))).reminded, 1);
+  assert.deepEqual(emails.map(({ to }) => to[0]), ["early@example.com", "late@example.com"]);
+  paidOrder({ dropId: drop.id, email: "after@example.com" });
+  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(drop.pickupDate, "15:30")))).reminded, 0);
+});
+
+test("if sending fails, nothing is marked sent and the next run sends it", async () => {
+  await signUpAndConfirm("try@example.com");
+  await makeDrop();
+  emails = [];
+  resendFails = true;
+  await assert.rejects(runScheduledEmails(env, stripe));
+  resendFails = false;
+  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
+  assert.equal((await runScheduledEmails(env, stripe)).announced, 0);
+});
+
+test("before schema.sql is re-run, the send buttons say what to do instead of failing", async () => {
+  const drop = await makeDrop();
+  paidOrder({ dropId: drop.id });
+  await env.DB.prepare("DROP TABLE email_log").run();
+  const result = await callOrders("POST", `/admin/api/drops/${drop.id}/remind`);
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /schema\.sql/);
+  assert.equal(emails.length, 0);
 });

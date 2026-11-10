@@ -33,7 +33,7 @@ the list.
 
 import { PICKUP, PRODUCTS } from "../../macros.js";
 import { bakeryTodayValue, formatDeliveryDate } from "../../delivery-rules.js";
-import { NON_LOAF_LINES } from "./capacity.js";
+import { NON_LOAF_LINES, invoiceLoafItems } from "./capacity.js";
 import { ADMIN_PAGE } from "./admin-page.js";
 import {
   DropError,
@@ -358,9 +358,6 @@ delivery date set".
 ==================================================
 */
 
-// Invoice lines that aren't loaves, so they stay out of the prep counts.
-const NON_LOAF_INVOICE_LINE = /\b(delivery|shipping|tip|gratuity|fee|discount)\b/i;
-
 async function listOpenInvoices(env, stripe, since, today) {
 
   const invoices = [];
@@ -387,9 +384,7 @@ async function describeInvoice(invoice, today, env, stripe) {
   const lines = invoice.lines?.has_more
     ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
     : invoice.lines?.data || [];
-  const items = lines
-    .filter(({ description }) => !NON_LOAF_LINES.has(description) && !NON_LOAF_INVOICE_LINE.test(description || ""))
-    .map(({ description, quantity }) => ({ name: description || "Item", quantity: quantity || 1 }));
+  const items = invoiceLoafItems(lines);
   const shipping = invoice.customer_shipping;
   const paid = invoice.status === "paid";
 

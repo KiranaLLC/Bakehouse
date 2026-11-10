@@ -45,6 +45,7 @@ import {
   countLoaves,
   describeShortfall,
   holdsCapacity,
+  listCapacityInvoices,
   loavesFromLineItems,
   loavesFromMetadata,
   lookbackSeconds,
@@ -550,6 +551,12 @@ async function getBookedLoaves(env, dates, ignoreSessionId, ignoreOpenSessionId)
     startingAfter = page.has_more ? page.data.at(-1).id : undefined;
 
   } while (startingAfter);
+
+  // Catering and other invoices on these days take loaves too.
+  for (const invoice of await listCapacityInvoices(env, stripe)) {
+    if (!wanted.has(invoice.deliveryDate)) continue;
+    booked.set(invoice.deliveryDate, (booked.get(invoice.deliveryDate) || 0) + invoice.loaves);
+  }
 
   return booked;
 

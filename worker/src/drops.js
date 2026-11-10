@@ -199,26 +199,41 @@ ignoreOpenSessionId only while it is unpaid.
 export async function getDropBookings(env, stripe, drops, { ignoreSessionId, ignoreOpenSessionId, fresh = true } = {}) {
 
   const booked = new Map(drops.map(({ id }) => [String(id), 0]));
-  if (!drops.length) return booked;
+
+  for (const booking of await listDropBookings(env, stripe, drops, { fresh })) {
+    if (booking.id === ignoreSessionId) continue;
+    if (booking.id === ignoreOpenSessionId && booking.status === "open") continue;
+    booked.set(booking.dropId, booked.get(booking.dropId) + booking.loaves);
+  }
+
+  return booked;
+
+}
+
+// Every booking on these drops, as { id, dropId, created, loaves, status, invoice? }.
+export async function listDropBookings(env, stripe, drops, { fresh = true } = {}) {
+
+  const wanted = new Set(drops.map(({ id }) => String(id)));
+  const bookings = [];
+  if (!drops.length) return bookings;
 
   const earliestOpen = Math.min(...drops.map(({ opensAt }) => Date.parse(opensAt)));
   const since = Math.floor(Math.min(earliestOpen, Date.now()) / 1000) - CHECKOUT_HOLD_SECONDS;
+
   for (const session of await listSessionsSince(env, stripe, since, { fresh })) {
     const dropId = session.metadata?.drop_id;
-    if (session.metadata?.fulfillment !== "pickup" || !booked.has(dropId)) continue;
+    if (session.metadata?.fulfillment !== "pickup" || !wanted.has(dropId)) continue;
     if (session.status !== "open" && session.status !== "complete") continue;
-    if (session.id === ignoreSessionId) continue;
-    if (session.id === ignoreOpenSessionId && session.status === "open") continue;
-    booked.set(dropId, booked.get(dropId) + (loavesFromMetadata(session) ?? 0));
+    bookings.push({ id: session.id, dropId, created: session.created, loaves: loavesFromMetadata(session) ?? 0, status: session.status });
   }
 
   // Invoices with metadata drop_id take loaves from that drop.
   for (const invoice of await listCapacityInvoices(env, stripe, { fresh })) {
-    if (!booked.has(invoice.dropId)) continue;
-    booked.set(invoice.dropId, booked.get(invoice.dropId) + invoice.loaves);
+    if (!wanted.has(invoice.dropId)) continue;
+    bookings.push({ id: invoice.id, dropId: invoice.dropId, created: 0, loaves: invoice.loaves, status: "invoice", invoice: true });
   }
 
-  return booked;
+  return bookings;
 
 }
 

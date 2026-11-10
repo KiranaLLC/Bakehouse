@@ -7,6 +7,7 @@
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { forgetStripeLists } from "../src/stripe-cache.js";
 
 import worker from "../src/index.js";
 import { DELIVERY, PRODUCTS } from "../../macros.js";
@@ -31,6 +32,7 @@ function addSession({ date = firstDate, status = "complete", loaves, created = M
 }
 
 beforeEach(() => {
+  forgetStripeLists();
   sessions = [];
   invoices = [];
   lineItems = {};
@@ -240,4 +242,28 @@ test("sent and paid invoices on a delivery day use up its loaves; drafts don't",
 
   const accepted = await call("POST", "/api/create-checkout-session", order(3));
   assert.equal(accepted.status, 200);
+});
+
+test("the order page's counts are remembered briefly, but checkout always asks Stripe fresh", async () => {
+  addSession({ status: "complete", loaves: 4 });
+  const sessionLists = () => stripeCalls.filter(({ method, path }) => method === "GET" && path === "/v1/checkout/sessions").length;
+
+  await call("GET", "/api/capacity");
+  await call("GET", "/api/capacity");
+  assert.equal(sessionLists(), 1);
+
+  // Someone else books 6 more loaves; the remembered count doesn't know yet...
+  addSession({ status: "complete", loaves: 6 });
+  assert.equal(remainingOn((await call("GET", "/api/capacity")).body, firstDate), 6);
+
+  // ...but checkout counts fresh and refuses.
+  const refused = await call("POST", "/api/create-checkout-session", order(1));
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.error, /fully booked/);
+});
+
+test("starting a payment makes the next count fresh", async () => {
+  await call("GET", "/api/capacity");
+  assert.equal((await call("POST", "/api/create-checkout-session", order(3))).status, 200);
+  assert.equal(remainingOn((await call("GET", "/api/capacity")).body, firstDate), 7);
 });

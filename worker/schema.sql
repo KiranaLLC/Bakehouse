@@ -58,3 +58,14 @@ CREATE TABLE IF NOT EXISTS drop_settings (
   drop_id INTEGER PRIMARY KEY,
   announce INTEGER NOT NULL DEFAULT 1
 );
+
+-- Phone numbers and text preferences (e.g. imported from Hotplate), kept for
+-- when the site can send texts. Nothing reads this yet.
+CREATE TABLE IF NOT EXISTS contacts (
+  phone TEXT PRIMARY KEY,                 -- +1XXXXXXXXXX
+  email TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  sms_promotions INTEGER NOT NULL DEFAULT 0,  -- 1 = said yes to promotional texts
+  source TEXT NOT NULL DEFAULT '',        -- e.g. "hotplate"
+  created_at TEXT NOT NULL
+);

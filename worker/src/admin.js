@@ -38,6 +38,7 @@ import { ADMIN_PAGE } from "./admin-page.js";
 import {
   DropError,
   createDrop,
+  getDrop,
   getDropBookings,
   hasDatabase,
   listDrops,
@@ -380,7 +381,11 @@ async function listOpenInvoices(env, stripe, since, today) {
 
 async function describeInvoice(invoice, today, env, stripe) {
 
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
+  // An invoice with drop_id is a pickup order for that drop.
+  const dropId = /^\d+$/.test(invoice.metadata?.drop_id || "") ? invoice.metadata.drop_id : "";
+  const drop = dropId && hasDatabase(env) ? await getDrop(env, Number(dropId)) : null;
+  const date = drop ? drop.pickupDate
+    : /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
   const lines = invoice.lines?.has_more
     ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
     : invoice.lines?.data || [];
@@ -391,6 +396,9 @@ async function describeInvoice(invoice, today, env, stripe) {
   return {
     id: invoice.id,
     kind: "invoice",
+    fulfillment: dropId ? "pickup" : "delivery",
+    dropId,
+    pickupWhen: drop ? formatPickupWhen(drop) : "",
     invoiceNumber: invoice.number || "",
     unpaid: !paid,
     created: invoice.created,
@@ -400,7 +408,7 @@ async function describeInvoice(invoice, today, env, stripe) {
     name: shipping?.name || invoice.customer_name || "",
     phone: shipping?.phone || invoice.customer_phone || "",
     email: invoice.customer_email || "",
-    address: formatStripeAddress(shipping?.address || invoice.customer_address),
+    address: drop ? `${drop.locationName}, ${drop.locationAddress}` : formatStripeAddress(shipping?.address || invoice.customer_address),
     notes: invoice.description || "",
     items,
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),

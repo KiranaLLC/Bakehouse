@@ -297,6 +297,18 @@ test("an invoice with a drop_id takes loaves from that drop", async () => {
   assert.equal((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1))).status, 200);
 });
 
+test("an invoice for a drop shows on the orders page as a pickup on that drop's day", async () => {
+  const drop = await makeDrop({ loafLimit: 20 });
+  invoices.push({ id: "in_party", status: "open", number: "INV-7", created: Math.floor(Date.now() / 1000), metadata: { drop_id: String(drop.id) }, customer_name: "Office Co", customer_email: "office@example.com", amount_due: 4800, lines: { data: [{ description: "Sourdough", quantity: 3 }] } });
+
+  const order = (await callOrders("GET", "/admin/api/orders")).body.orders.find(({ id }) => id === "in_party");
+  assert.equal(order.fulfillment, "pickup");
+  assert.equal(order.dropId, String(drop.id));
+  assert.equal(order.deliveryDate, drop.pickupDate);
+  assert.match(order.pickupWhen, /2 pm/);
+  assert.match(order.address, /Verve/);
+});
+
 test("coming back to change a pickup order releases the customer's own hold", async () => {
   const drop = await makeDrop({ loafLimit: 3 });
   const first = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 3));

@@ -17,6 +17,7 @@ const env = { STRIPE_SECRET_KEY: "sk_test_fake", SITE_URL: ORIGIN, ALLOWED_ORIGI
 const [firstDate, secondDate] = getDeliveryDates().map(({ value }) => value);
 
 let sessions;
+let invoices;
 let lineItems;
 let nextId;
 let stripeCalls;
@@ -31,6 +32,7 @@ function addSession({ date = firstDate, status = "complete", loaves, created = M
 
 beforeEach(() => {
   sessions = [];
+  invoices = [];
   lineItems = {};
   nextId = 1;
   stripeCalls = [];
@@ -58,6 +60,10 @@ async function fakeFetch(input, init = {}) {
     let matching = sessions.filter(session => session.created >= since).reverse(); // newest first, like Stripe
     if (after) matching = matching.slice(matching.findIndex(({ id }) => id === after) + 1);
     return Response.json({ data: matching.slice(0, limit), has_more: matching.length > limit });
+  }
+
+  if (method === "GET" && url.pathname === "/v1/invoices") {
+    return Response.json({ data: invoices.filter(({ status }) => status === params.get("status")), has_more: false });
   }
 
   const lineItemsMatch = url.pathname.match(/^\/v1\/checkout\/sessions\/(cs_\w+)\/line_items$/);
@@ -216,4 +222,22 @@ test("a paid order passed as previousSessionId still counts", async () => {
   const { status } = await call("POST", "/api/create-checkout-session", order(6, { previousSessionId: paid }));
 
   assert.equal(status, 400);
+});
+
+test("sent and paid invoices on a delivery day use up its loaves; drafts don't", async () => {
+  invoices.push(
+    { id: "in_paid", status: "paid", metadata: { delivery_date: firstDate }, lines: { data: [{ description: "Catering loaves", quantity: 4 }, { description: "Delivery fee", quantity: 1 }] } },
+    { id: "in_sent", status: "open", metadata: { delivery_date: firstDate, loaf_count: "3" }, lines: { data: [{ description: "Party order", quantity: 1 }] } },
+    { id: "in_draft", status: "draft", metadata: { delivery_date: firstDate }, lines: { data: [{ description: "Loaves", quantity: 5 }] } },
+    { id: "in_undated", status: "paid", metadata: {}, lines: { data: [{ description: "Loaves", quantity: 5 }] } }
+  );
+
+  const { body } = await call("GET", "/api/capacity");
+  assert.equal(remainingOn(body, firstDate), 3);
+
+  const refused = await call("POST", "/api/create-checkout-session", order(4));
+  assert.equal(refused.status, 400);
+
+  const accepted = await call("POST", "/api/create-checkout-session", order(3));
+  assert.equal(accepted.status, 200);
 });

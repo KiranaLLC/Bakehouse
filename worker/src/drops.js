@@ -15,7 +15,7 @@ working.
 ==================================================
 */
 
-import { CHECKOUT_HOLD_SECONDS, loavesFromMetadata } from "./capacity.js";
+import { CHECKOUT_HOLD_SECONDS, listCapacityInvoices, loavesFromMetadata } from "./capacity.js";
 import { localToUtc, utcToLocal } from "../../pickup-rules.js";
 
 export class DropError extends Error {}
@@ -220,6 +220,12 @@ export async function getDropBookings(env, stripe, drops, { ignoreSessionId, ign
     startingAfter = page.has_more ? page.data.at(-1).id : undefined;
 
   } while (startingAfter);
+
+  // Invoices with metadata drop_id take loaves from that drop.
+  for (const invoice of await listCapacityInvoices(env, stripe)) {
+    if (!booked.has(invoice.dropId)) continue;
+    booked.set(invoice.dropId, booked.get(invoice.dropId) + invoice.loaves);
+  }
 
   return booked;
 

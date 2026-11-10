@@ -25,12 +25,14 @@ const hoursFromNow = hours => new Date(Date.now() + hours * 36e5).toISOString();
 
 let env;
 let sessions;
+let invoices;
 let updates;
 let nextId;
 
 beforeEach(() => {
   env = { STRIPE_SECRET_KEY: "sk_test_fake", SITE_URL: SITE, ALLOWED_ORIGINS: SITE, ADMIN_PASSWORD: PASSWORD, DB: createFakeD1() };
   sessions = [];
+  invoices = [];
   updates = [];
   nextId = 1;
   globalThis.fetch = fakeStripe;
@@ -85,7 +87,7 @@ async function fakeStripe(input, init = {}) {
   }
 
   if (method === "GET" && url.pathname === "/v1/invoices") {
-    return Response.json({ data: [], has_more: false });
+    return Response.json({ data: invoices.filter(({ status }) => status === params.get("status")), has_more: false });
   }
 
   if (url.hostname === "api.stripe.com") {
@@ -283,6 +285,28 @@ test("a drop's loaf limit counts paid orders and customers paying right now", as
 
   assert.equal((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1))).status, 200);
   assert.match((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1))).body.error, /sold out/);
+});
+
+test("an invoice with a drop_id takes loaves from that drop", async () => {
+  const drop = await makeDrop({ loafLimit: 5 });
+  invoices.push({ id: "in_party", status: "paid", metadata: { drop_id: String(drop.id), loaf_count: "4" }, lines: { data: [] } });
+
+  const listed = (await callCheckout("GET", "/api/drops")).body.drops.find(({ id }) => id === drop.id);
+  assert.equal(listed.remaining, 1);
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 2))).body.error, /can't fit/);
+  assert.equal((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1))).status, 200);
+});
+
+test("an invoice for a drop shows on the orders page as a pickup on that drop's day", async () => {
+  const drop = await makeDrop({ loafLimit: 20 });
+  invoices.push({ id: "in_party", status: "open", number: "INV-7", created: Math.floor(Date.now() / 1000), metadata: { drop_id: String(drop.id) }, customer_name: "Office Co", customer_email: "office@example.com", amount_due: 4800, lines: { data: [{ description: "Sourdough", quantity: 3 }] } });
+
+  const order = (await callOrders("GET", "/admin/api/orders")).body.orders.find(({ id }) => id === "in_party");
+  assert.equal(order.fulfillment, "pickup");
+  assert.equal(order.dropId, String(drop.id));
+  assert.equal(order.deliveryDate, drop.pickupDate);
+  assert.match(order.pickupWhen, /2 pm/);
+  assert.match(order.address, /Verve/);
 });
 
 test("coming back to change a pickup order releases the customer's own hold", async () => {

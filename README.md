@@ -103,6 +103,12 @@ add metadata to it in Stripe with the key `delivery_date` and a value like
 invoice line counts as loaves in the prep view, except lines mentioning
 delivery, shipping, tips, fees or discounts.
 
+Sent and paid invoices with a `delivery_date` also **use up that day's
+loaves**, so the website won't oversell a day you've taken a catering order
+for. To put an invoice on a pickup drop instead, add `drop_id` with the drop's
+number. If the line quantities aren't loaves, add `loaf_count` (e.g. `12`) and
+that number is used instead.
+
 Each order has two separate buttons:
 
 - **Email \<name\>** opens a ready-written "your order has been delivered"

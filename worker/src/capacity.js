@@ -13,6 +13,14 @@ from Stripe Checkout Sessions:
     the session expires (CHECKOUT_HOLD_SECONDS)
 
 Expired sessions free their loaves again.
+
+Invoices made in the Stripe Dashboard (e.g. for
+catering) count too, once they're sent or paid:
+metadata delivery_date = YYYY-MM-DD puts one on a
+delivery day, drop_id = <drop number> on a pickup
+drop. Its loaves are its line quantities, minus
+delivery/fee/tip lines, unless metadata
+loaf_count says otherwise.
 ==================================================
 */
 
@@ -49,6 +57,56 @@ export function loavesFromLineItems(lineItems) {
   return lineItems
     .filter(({ description }) => !NON_LOAF_LINES.has(description))
     .reduce((total, { quantity }) => total + quantity, 0);
+}
+
+// Invoice lines that aren't loaves: kept out of capacity and prep counts.
+export const NON_LOAF_INVOICE_LINE = /\b(delivery|shipping|tip|gratuity|fee|discount)\b/i;
+
+// How far back a sent or paid invoice can have been created and still count.
+export const INVOICE_LOOKBACK_SECONDS = 90 * 24 * 60 * 60;
+
+// An invoice's loaf lines as { name, quantity }.
+export function invoiceLoafItems(lines) {
+  return lines
+    .filter(({ description }) => !NON_LOAF_LINES.has(description) && !NON_LOAF_INVOICE_LINE.test(description || ""))
+    .map(({ description, quantity }) => ({ name: description || "Item", quantity: quantity || 1 }));
+}
+
+export function loavesFromInvoice(invoice, lines) {
+  const count = Number(invoice?.metadata?.loaf_count);
+  if (invoice?.metadata?.loaf_count !== undefined && invoice.metadata.loaf_count !== "" && Number.isInteger(count) && count >= 0) return count;
+  return invoiceLoafItems(lines).reduce((total, { quantity }) => total + quantity, 0);
+}
+
+/*
+  Sent and paid invoices that are on a delivery day
+  or a pickup drop, as { id, deliveryDate, dropId,
+  loaves }. Drafts and voided invoices don't count.
+*/
+export async function listCapacityInvoices(env, stripe) {
+
+  const since = Math.floor(Date.now() / 1000) - INVOICE_LOOKBACK_SECONDS;
+  const found = [];
+
+  for (const status of ["paid", "open"]) {
+    let startingAfter;
+    do {
+      const page = await stripe(env, "GET", "/invoices", { limit: 100, status, created: { gte: since }, starting_after: startingAfter });
+      for (const invoice of page.data) {
+        const deliveryDate = /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
+        const dropId = /^\d+$/.test(invoice.metadata?.drop_id || "") ? invoice.metadata.drop_id : "";
+        if (!deliveryDate && !dropId) continue;
+        const lines = invoice.lines?.has_more
+          ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
+          : invoice.lines?.data || [];
+        found.push({ id: invoice.id, deliveryDate, dropId, loaves: loavesFromInvoice(invoice, lines) });
+      }
+      startingAfter = page.has_more ? page.data.at(-1).id : undefined;
+    } while (startingAfter);
+  }
+
+  return found;
+
 }
 
 export function remainingLoaves(booked) {

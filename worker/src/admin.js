@@ -33,11 +33,12 @@ the list.
 
 import { PICKUP, PRODUCTS } from "../../macros.js";
 import { bakeryTodayValue, formatDeliveryDate } from "../../delivery-rules.js";
-import { NON_LOAF_LINES } from "./capacity.js";
+import { NON_LOAF_LINES, invoiceLoafItems } from "./capacity.js";
 import { ADMIN_PAGE } from "./admin-page.js";
 import {
   DropError,
   createDrop,
+  getDrop,
   getDropBookings,
   hasDatabase,
   listDrops,
@@ -358,9 +359,6 @@ delivery date set".
 ==================================================
 */
 
-// Invoice lines that aren't loaves, so they stay out of the prep counts.
-const NON_LOAF_INVOICE_LINE = /\b(delivery|shipping|tip|gratuity|fee|discount)\b/i;
-
 async function listOpenInvoices(env, stripe, since, today) {
 
   const invoices = [];
@@ -383,19 +381,24 @@ async function listOpenInvoices(env, stripe, since, today) {
 
 async function describeInvoice(invoice, today, env, stripe) {
 
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
+  // An invoice with drop_id is a pickup order for that drop.
+  const dropId = /^\d+$/.test(invoice.metadata?.drop_id || "") ? invoice.metadata.drop_id : "";
+  const drop = dropId && hasDatabase(env) ? await getDrop(env, Number(dropId)) : null;
+  const date = drop ? drop.pickupDate
+    : /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
   const lines = invoice.lines?.has_more
     ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
     : invoice.lines?.data || [];
-  const items = lines
-    .filter(({ description }) => !NON_LOAF_LINES.has(description) && !NON_LOAF_INVOICE_LINE.test(description || ""))
-    .map(({ description, quantity }) => ({ name: description || "Item", quantity: quantity || 1 }));
+  const items = invoiceLoafItems(lines);
   const shipping = invoice.customer_shipping;
   const paid = invoice.status === "paid";
 
   return {
     id: invoice.id,
     kind: "invoice",
+    fulfillment: dropId ? "pickup" : "delivery",
+    dropId,
+    pickupWhen: drop ? formatPickupWhen(drop) : "",
     invoiceNumber: invoice.number || "",
     unpaid: !paid,
     created: invoice.created,
@@ -405,7 +408,7 @@ async function describeInvoice(invoice, today, env, stripe) {
     name: shipping?.name || invoice.customer_name || "",
     phone: shipping?.phone || invoice.customer_phone || "",
     email: invoice.customer_email || "",
-    address: formatStripeAddress(shipping?.address || invoice.customer_address),
+    address: drop ? `${drop.locationName}, ${drop.locationAddress}` : formatStripeAddress(shipping?.address || invoice.customer_address),
     notes: invoice.description || "",
     items,
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),

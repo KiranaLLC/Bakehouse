@@ -114,28 +114,32 @@ same moment, before either payment page exists.
 So once a payment page is created, checkout counts
 again, fresh, and lines up every booking for that
 day or drop: invoices first, then payment pages
-oldest first (ties by id). A new page that lands
-past the limit is ended straight away and the
-customer is told it's full. Each checkout sees the
-same line, so only the later one is turned away.
+oldest first. A new page that lands past the limit
+is ended straight away and the customer is told
+it's full, so a later page never gets in ahead of
+an earlier one.
+
+Stripe times pages to the second, so pages made in
+the same second can't be told apart. Each treats
+the other as ahead of it: in the rare case both
+see each other, both are turned away rather than
+both let in.
 ==================================================
 */
 
-// bookings: [{ id, created, loaves, invoice? }]. Loaves booked ahead of `id`,
-// and whether `id` itself still fits under `limit`.
+// bookings: [{ id, created, loaves, invoice? }]. Loaves booked ahead of `id`
+// (invoices, and pages made before it or in the same second), and whether `id`
+// itself still fits under `limit`.
 export function placeInLine(bookings, id, limit) {
 
-  const line = [...bookings].sort((a, b) =>
-    (b.invoice ? 1 : 0) - (a.invoice ? 1 : 0) ||
-    (a.created || 0) - (b.created || 0) ||
-    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const mine = bookings.find(booking => booking.id === id);
+  if (!mine) return { ahead: 0, fits: true };
 
-  let ahead = 0;
-  for (const booking of line) {
-    if (booking.id === id) return { ahead, fits: ahead + booking.loaves <= limit };
-    ahead += booking.loaves;
-  }
-  return { ahead, fits: true };
+  const ahead = bookings
+    .filter(booking => booking.id !== id && (booking.invoice || (booking.created || 0) <= (mine.created || 0)))
+    .reduce((total, { loaves }) => total + loaves, 0);
+
+  return { ahead, fits: ahead + mine.loaves <= limit };
 
 }
 

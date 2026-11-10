@@ -11,6 +11,7 @@ import { forgetStripeLists } from "../src/stripe-cache.js";
 
 import worker from "../src/index.js";
 import { DELIVERY, PRODUCTS } from "../../macros.js";
+import { placeInLine } from "../src/capacity.js";
 import { getDeliveryDates } from "../../delivery-rules.js";
 
 const ORIGIN = "https://www.kiranabakehouse.com";
@@ -295,4 +296,29 @@ test("a customer who started paying first isn't turned away by someone racing in
   const first = await call("POST", "/api/create-checkout-session", order(4));
   assert.equal(first.status, 200);
   assert.equal(sessions.find(({ id }) => id === first.body.id).status, "open");
+});
+
+test("pages made in the same second each count the other as ahead, so they can't both overfill a day", () => {
+  const bookings = [{ id: "cs_paid", created: 90, loaves: 0 }, { id: "cs_b", created: 100, loaves: 6 }, { id: "cs_a", created: 100, loaves: 6 }];
+  assert.equal(placeInLine(bookings, "cs_a", 10).fits, false);
+  assert.equal(placeInLine(bookings, "cs_b", 10).fits, false);
+  // A page made a second later never counts against an earlier one.
+  assert.equal(placeInLine([{ id: "cs_b", created: 100, loaves: 6 }, { id: "cs_a", created: 101, loaves: 6 }], "cs_b", 10).fits, true);
+  // Invoices always count.
+  assert.deepEqual(placeInLine([{ id: "in_1", created: 0, loaves: 5, invoice: true }, { id: "cs_a", created: 100, loaves: 6 }], "cs_a", 10), { ahead: 5, fits: false });
+});
+
+test("a customer's own just-ended page doesn't count against their new one, even if Stripe still lists it", async () => {
+  const first = await call("POST", "/api/create-checkout-session", order(6));
+  assert.equal(first.status, 200);
+  // Stripe hasn't caught up: ending the old page "works" but the list still shows it open.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input);
+    if ((init.method || "GET") === "POST" && url.pathname.endsWith("/expire")) return Response.json({ id: first.body.id, status: "expired" });
+    return realFetch(input, init);
+  };
+  const again = await call("POST", "/api/create-checkout-session", order(6, { previousSessionId: first.body.id }));
+  globalThis.fetch = realFetch;
+  assert.equal(again.status, 200, JSON.stringify(again.body));
 });

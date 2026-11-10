@@ -370,7 +370,8 @@ async function createCheckoutSession(body, env, siteUrl) {
   await confirmPlaceInLine(env, session, loafCount,
     await listDeliveryBookings(env, [deliveryDate]),
     DELIVERY.dailyLoafLimit,
-    left => describeShortfall(left, loafCount, formatDeliveryDate(deliveryDate)));
+    left => describeShortfall(left, loafCount, formatDeliveryDate(deliveryDate)),
+    released);
 
   return { url: session.url, id: session.id };
 
@@ -487,7 +488,8 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
     drop.loafLimit,
     left => left === 0
       ? `Sorry, the ${pickupWhen} pickup is sold out. Please choose another.`
-      : `Sorry, the ${pickupWhen} pickup can't fit your order of ${loafCount} loaves. Please choose another pickup, or remove a few loaves.`);
+      : `Sorry, the ${pickupWhen} pickup can't fit your order of ${loafCount} loaves. Please choose another pickup, or remove a few loaves.`,
+    released);
 
   return { url: session.url, id: session.id };
 
@@ -732,9 +734,12 @@ async function listDeliveryBookings(env, dates, { fresh = true } = {}) {
   over its limit, end this page and say so (see
   FIRST COME, FIRST SERVED in capacity.js).
 */
-async function confirmPlaceInLine(env, session, loafCount, bookings, limit, describeFull) {
+async function confirmPlaceInLine(env, session, loafCount, bookings, limit, describeFull, released) {
 
   forgetStripeLists();
+
+  // The customer's own earlier page was just ended; Stripe may still list it as open.
+  bookings = bookings.filter(({ id }) => id !== released);
 
   if (!bookings.some(({ id }) => id === session.id)) {
     // Not listed yet: line it up with what we know about it.

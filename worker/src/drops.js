@@ -16,6 +16,7 @@ working.
 */
 
 import { CHECKOUT_HOLD_SECONDS, listCapacityInvoices, loavesFromMetadata } from "./capacity.js";
+import { listSessionsSince } from "./stripe-cache.js";
 import { localToUtc, utcToLocal } from "../../pickup-rules.js";
 
 export class DropError extends Error {}
@@ -195,34 +196,24 @@ ignoreOpenSessionId only while it is unpaid.
 ==================================================
 */
 
-export async function getDropBookings(env, stripe, drops, { ignoreSessionId, ignoreOpenSessionId } = {}) {
+export async function getDropBookings(env, stripe, drops, { ignoreSessionId, ignoreOpenSessionId, fresh = true } = {}) {
 
   const booked = new Map(drops.map(({ id }) => [String(id), 0]));
   if (!drops.length) return booked;
 
   const earliestOpen = Math.min(...drops.map(({ opensAt }) => Date.parse(opensAt)));
   const since = Math.floor(Math.min(earliestOpen, Date.now()) / 1000) - CHECKOUT_HOLD_SECONDS;
-  let startingAfter;
-
-  do {
-
-    const page = await stripe(env, "GET", "/checkout/sessions", { limit: 100, created: { gte: since }, starting_after: startingAfter });
-
-    for (const session of page.data) {
-      const dropId = session.metadata?.drop_id;
-      if (session.metadata?.fulfillment !== "pickup" || !booked.has(dropId)) continue;
-      if (session.status !== "open" && session.status !== "complete") continue;
-      if (session.id === ignoreSessionId) continue;
-      if (session.id === ignoreOpenSessionId && session.status === "open") continue;
-      booked.set(dropId, booked.get(dropId) + (loavesFromMetadata(session) ?? 0));
-    }
-
-    startingAfter = page.has_more ? page.data.at(-1).id : undefined;
-
-  } while (startingAfter);
+  for (const session of await listSessionsSince(env, stripe, since, { fresh })) {
+    const dropId = session.metadata?.drop_id;
+    if (session.metadata?.fulfillment !== "pickup" || !booked.has(dropId)) continue;
+    if (session.status !== "open" && session.status !== "complete") continue;
+    if (session.id === ignoreSessionId) continue;
+    if (session.id === ignoreOpenSessionId && session.status === "open") continue;
+    booked.set(dropId, booked.get(dropId) + (loavesFromMetadata(session) ?? 0));
+  }
 
   // Invoices with metadata drop_id take loaves from that drop.
-  for (const invoice of await listCapacityInvoices(env, stripe)) {
+  for (const invoice of await listCapacityInvoices(env, stripe, { fresh })) {
     if (!booked.has(invoice.dropId)) continue;
     booked.set(invoice.dropId, booked.get(invoice.dropId) + invoice.loaves);
   }

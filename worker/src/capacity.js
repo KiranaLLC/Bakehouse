@@ -25,6 +25,7 @@ loaf_count says otherwise.
 */
 
 import { DELIVERY } from "../../macros.js";
+import { listInvoicesSince } from "./stripe-cache.js";
 
 // Stripe only allows a Checkout Session to expire 30 minutes to 24 hours after
 // it's created. The extra minute keeps us clear of that lower limit.
@@ -83,26 +84,21 @@ export function loavesFromInvoice(invoice, lines) {
   or a pickup drop, as { id, deliveryDate, dropId,
   loaves }. Drafts and voided invoices don't count.
 */
-export async function listCapacityInvoices(env, stripe) {
+export async function listCapacityInvoices(env, stripe, { fresh = true } = {}) {
 
   const since = Math.floor(Date.now() / 1000) - INVOICE_LOOKBACK_SECONDS;
   const found = [];
 
   for (const status of ["paid", "open"]) {
-    let startingAfter;
-    do {
-      const page = await stripe(env, "GET", "/invoices", { limit: 100, status, created: { gte: since }, starting_after: startingAfter });
-      for (const invoice of page.data) {
-        const deliveryDate = /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
-        const dropId = /^\d+$/.test(invoice.metadata?.drop_id || "") ? invoice.metadata.drop_id : "";
-        if (!deliveryDate && !dropId) continue;
-        const lines = invoice.lines?.has_more
-          ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
-          : invoice.lines?.data || [];
-        found.push({ id: invoice.id, deliveryDate, dropId, loaves: loavesFromInvoice(invoice, lines) });
-      }
-      startingAfter = page.has_more ? page.data.at(-1).id : undefined;
-    } while (startingAfter);
+    for (const invoice of await listInvoicesSince(env, stripe, status, since, { fresh })) {
+      const deliveryDate = /^\d{4}-\d{2}-\d{2}$/.test(invoice.metadata?.delivery_date || "") ? invoice.metadata.delivery_date : "";
+      const dropId = /^\d+$/.test(invoice.metadata?.drop_id || "") ? invoice.metadata.drop_id : "";
+      if (!deliveryDate && !dropId) continue;
+      const lines = invoice.lines?.has_more
+        ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
+        : invoice.lines?.data || [];
+      found.push({ id: invoice.id, deliveryDate, dropId, loaves: loavesFromInvoice(invoice, lines) });
+    }
   }
 
   return found;

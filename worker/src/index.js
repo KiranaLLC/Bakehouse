@@ -38,6 +38,7 @@ import {
   isDeliveryDateAvailable
 } from "../../delivery-rules.js";
 import { stripe } from "./stripe.js";
+import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
 import { DropError, addSubscriber, getDrop, getDropBookings, hasDatabase, listDrops } from "./drops.js";
 import { dropStatus, formatMoment, formatPickupWhen } from "../../pickup-rules.js";
 import {
@@ -337,6 +338,8 @@ async function createCheckoutSession(body, env, siteUrl) {
     cancel_url: `${siteUrl}/order.html?cancelled=true`
   });
 
+  forgetStripeLists();
+
   return { url: session.url, id: session.id };
 
 }
@@ -447,6 +450,8 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
     cancel_url: `${siteUrl}/order.html?cancelled=true`
   });
 
+  forgetStripeLists();
+
   return { url: session.url, id: session.id };
 
 }
@@ -470,7 +475,7 @@ async function getPublicDrops(excludeSessionId, env) {
   const drops = (await listDrops(env, { fromDate: bakeryTodayValue() }))
     .filter(({ closesAt }) => Date.parse(closesAt) > now)
     .slice(0, PICKUP.maxDropsShown);
-  const booked = await getDropBookings(env, stripe, drops, { ignoreOpenSessionId: excludeSessionId });
+  const booked = await getDropBookings(env, stripe, drops, { ignoreOpenSessionId: excludeSessionId, fresh: false });
 
   return {
     available: true,
@@ -515,7 +520,8 @@ unfinished payment, if they came back from it.
 async function getCapacity(excludeSessionId, env) {
 
   const dates = getDeliveryDates().map(({ value }) => value);
-  const booked = await getBookedLoaves(env, dates, null, excludeSessionId);
+  // A count up to STRIPE_CACHE_SECONDS old is fine here; checkout re-counts fresh.
+  const booked = await getBookedLoaves(env, dates, null, excludeSessionId, { fresh: false });
 
   return {
     limit: DELIVERY.dailyLoafLimit,
@@ -530,30 +536,21 @@ async function getCapacity(excludeSessionId, env) {
   ignoreSessionId is skipped whatever its state;
   ignoreOpenSessionId only while it is unpaid.
 */
-async function getBookedLoaves(env, dates, ignoreSessionId, ignoreOpenSessionId) {
+async function getBookedLoaves(env, dates, ignoreSessionId, ignoreOpenSessionId, { fresh = true } = {}) {
 
   const wanted = new Set(dates);
   const booked = new Map();
   const since = Math.floor(Date.now() / 1000) - lookbackSeconds();
-  let startingAfter;
 
-  do {
-
-    const page = await stripe(env, "GET", "/checkout/sessions", { limit: 100, created: { gte: since }, starting_after: startingAfter });
-
-    for (const session of page.data) {
-      const date = session.metadata?.delivery_date;
-      if (!holdsCapacity(session) || !wanted.has(date) || session.id === ignoreSessionId) continue;
-      if (session.id === ignoreOpenSessionId && session.status === "open") continue;
-      booked.set(date, (booked.get(date) || 0) + await countSessionLoaves(session, env));
-    }
-
-    startingAfter = page.has_more ? page.data.at(-1).id : undefined;
-
-  } while (startingAfter);
+  for (const session of await listSessionsSince(env, stripe, since, { fresh })) {
+    const date = session.metadata?.delivery_date;
+    if (!holdsCapacity(session) || !wanted.has(date) || session.id === ignoreSessionId) continue;
+    if (session.id === ignoreOpenSessionId && session.status === "open") continue;
+    booked.set(date, (booked.get(date) || 0) + await countSessionLoaves(session, env));
+  }
 
   // Catering and other invoices on these days take loaves too.
-  for (const invoice of await listCapacityInvoices(env, stripe)) {
+  for (const invoice of await listCapacityInvoices(env, stripe, { fresh })) {
     if (!wanted.has(invoice.deliveryDate)) continue;
     booked.set(invoice.deliveryDate, (booked.get(invoice.deliveryDate) || 0) + invoice.loaves);
   }
@@ -581,6 +578,7 @@ async function releaseCheckoutSession(sessionId, env) {
 
   try {
     await stripe(env, "POST", `/checkout/sessions/${sessionId}/expire`, {});
+    forgetStripeLists();
     return sessionId;
   } catch {
     return null;

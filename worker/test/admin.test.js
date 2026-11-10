@@ -7,6 +7,7 @@
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { forgetStripeLists } from "../src/stripe-cache.js";
 
 import worker from "../src/orders.js";
 import checkoutWorker from "../src/index.js";
@@ -61,6 +62,7 @@ function addInvoice({ id, status = "paid", deliveryDate, delivered, lines = [{ d
 }
 
 beforeEach(() => {
+  forgetStripeLists();
   invoices = [];
   sessions = [];
   lineItems = {};

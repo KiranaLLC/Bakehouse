@@ -9,6 +9,7 @@
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { forgetStripeLists } from "../src/stripe-cache.js";
 
 import checkoutWorker from "../src/index.js";
 import ordersWorker from "../src/orders.js";
@@ -30,6 +31,7 @@ let updates;
 let nextId;
 
 beforeEach(() => {
+  forgetStripeLists();
   env = { STRIPE_SECRET_KEY: "sk_test_fake", SITE_URL: SITE, ALLOWED_ORIGINS: SITE, ADMIN_PASSWORD: PASSWORD, DB: createFakeD1() };
   sessions = [];
   invoices = [];

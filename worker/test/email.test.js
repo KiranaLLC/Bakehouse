@@ -234,14 +234,20 @@ test("the Unsubscribe button on the page takes someone off the list", async () =
 
 /* ---------- New-order alert (Stripe webhook) ---------- */
 
-test("a paid order emails the bakery once, even if Stripe sends the event twice", async () => {
-  const id = paidOrder({ dropId: 3, name: "Sam Rivera" });
+test("a paid order emails the bakery and the customer once each, even if Stripe sends the event twice", async () => {
+  const id = paidOrder({ dropId: 3, name: "Sam Rivera", email: "sam@example.com" });
   const event = { type: "checkout.session.completed", data: { object: sessions.find(session => session.id === id) } };
 
   assert.equal((await signedWebhook(event)).status, 200);
   assert.equal((await signedWebhook(event)).status, 200);
 
-  assert.equal(emails.length, 1);
+  assert.equal(emails.length, 2);
+  const confirmation = emails[1];
+  assert.deepEqual(confirmation.to, ["sam@example.com"]);
+  assert.match(confirmation.subject, /Your Kirana Bakehouse order: pickup Saturday, Nov 14/);
+  assert.match(confirmation.text, /^Hi Sam,/);
+  assert.match(confirmation.text, /Where: Verve, 162 University Ave/);
+  assert.match(confirmation.text, /Can't find us at pickup\? Call or text \(408\) 548-7856\./);
   assert.deepEqual(emails[0].to, ["hellokiranabakehouse@gmail.com"]);
   assert.match(emails[0].subject, /New pickup order: Sam Rivera, Saturday, Nov 14, 2 pm – 3 pm \(2 loaves\)/);
   assert.match(emails[0].text, /1 × House White/);
@@ -264,8 +270,10 @@ test("if the alert email fails, Stripe is asked to try again and the retry sends
   assert.equal((await signedWebhook(event)).status, 500);
   resendFails = false;
   assert.equal((await signedWebhook(event)).status, 200);
-  assert.equal(emails.length, 1);
+  assert.equal(emails.length, 2);
   assert.match(emails[0].subject, /New delivery order/);
+  assert.match(emails[1].subject, /delivery Friday, November 13/);
+  assert.doesNotMatch(emails[1].text, /Can't find us/);
 });
 
 /* ---------- Hourly drop emails ---------- */
@@ -348,6 +356,7 @@ test("the orders page emails a customer directly and remembers when", async () =
   assert.match(emails[1].subject, /ready for pickup/);
   assert.match(emails[1].text, /Where: Verve Coffee Roasters, 162 University Ave, Palo Alto, CA 94301/);
   assert.match(emails[1].text, /Outdoor seating/);
+  assert.match(emails[1].text, /Call or text \(408\) 548-7856/);
 
   const listed = await callOrders("GET", "/admin/api/orders");
   assert.equal(listed.body.emailReady, true);

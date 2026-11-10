@@ -31,7 +31,7 @@ the list.
 ==================================================
 */
 
-import { PICKUP, PRODUCTS } from "../../macros.js";
+import { CONTACT, PICKUP, PRODUCTS } from "../../macros.js";
 import { bakeryTodayValue, formatDeliveryDate } from "../../delivery-rules.js";
 import { NON_LOAF_LINES, invoiceLoafItems } from "./capacity.js";
 import { ADMIN_PAGE } from "./admin-page.js";
@@ -282,7 +282,7 @@ async function listOpenOrders(env, stripe) {
     for (const order of orders) order.emailedAt = log.get(`order:${order.id}`)?.sentAt || "";
   }
 
-  return { today, emailReady, orders, prep: prepByDate(orders) };
+  return { today, emailReady, contact: CONTACT, orders, prep: prepByDate(orders) };
 
 }
 

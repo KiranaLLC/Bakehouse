@@ -1,4 +1,4 @@
-import { API, DELIVERY } from "./macros.js";
+import { API, CONTACT, DELIVERY } from "./macros.js";
 import { formatMoney } from "./delivery-rules.js";
 
 const STORAGE_KEY = "kirana-delivery-order";
@@ -65,6 +65,42 @@ async function loadOrderSummary() {
   }
 }
 
+/*
+  How to reach us: always shown. Pickup orders also get a "can't find us?"
+  line, since that's when people need it fast.
+*/
+function link(href, text) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.textContent = text;
+  return a;
+}
+
+function showContact() {
+  const instagram = link(`https://www.instagram.com/${CONTACT.instagram}/`, `@${CONTACT.instagram}`);
+  instagram.target = "_blank";
+  instagram.rel = "noopener noreferrer";
+  document.getElementById("help-contact").replaceChildren(
+    "Email ", link(`mailto:${CONTACT.email}`, CONTACT.email),
+    ", or DM us on Instagram ", instagram, "."
+  );
+}
+
+function showPickupHelp() {
+  const line = document.getElementById("help-pickup");
+  if (CONTACT.pickupPhone) {
+    const digits = CONTACT.pickupPhone.replace(/[^\d+]/g, "");
+    const phone = link(`tel:${digits}`, CONTACT.pickupPhone);
+    phone.style.whiteSpace = "nowrap";
+    line.replaceChildren("Can't find us at pickup? Call or text ", phone, ".");
+  } else {
+    line.textContent = `Can't find us at pickup? DM @${CONTACT.instagram} on Instagram; we check it during pickup.`;
+  }
+  line.hidden = false;
+}
+
+showContact();
+
 function renderOrderSummary(order) {
   const heading = document.createElement("h2");
   heading.textContent = "Order summary";
@@ -86,6 +122,7 @@ function renderOrderSummary(order) {
   );
 
   if (pickup) {
+    showPickupHelp();
     document.getElementById("success-note").textContent =
       "Your sourdough will be baked fresh that morning and waiting for you at pickup. We look forward to seeing you!";
   }

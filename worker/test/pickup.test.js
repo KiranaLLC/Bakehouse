@@ -28,6 +28,7 @@ let env;
 let sessions;
 let invoices;
 let updates;
+let beforeCreate;
 let nextId;
 
 beforeEach(() => {
@@ -36,6 +37,7 @@ beforeEach(() => {
   sessions = [];
   invoices = [];
   updates = [];
+  beforeCreate = null;
   nextId = 1;
   globalThis.fetch = fakeStripe;
 });
@@ -54,6 +56,8 @@ async function fakeStripe(input, init = {}) {
   }
 
   if (method === "POST" && url.pathname === "/v1/checkout/sessions") {
+    beforeCreate?.();
+    beforeCreate = null;
     const metadata = {};
     for (const [key, value] of params) {
       const match = key.match(/^metadata\[(\w+)\]$/);
@@ -297,6 +301,16 @@ test("an invoice with a drop_id takes loaves from that drop", async () => {
   assert.equal(listed.remaining, 1);
   assert.match((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 2))).body.error, /can't fit/);
   assert.equal((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1))).status, 200);
+});
+
+test("two customers racing for a drop's last loaves: the one who started paying first keeps them", async () => {
+  const drop = await makeDrop({ loafLimit: 5 });
+  beforeCreate = () => sessions.push({ id: "cs_test_rival", status: "open", created: Math.floor(Date.now() / 1000) - 60, metadata: { fulfillment: "pickup", drop_id: String(drop.id), loaf_count: "3" } });
+
+  const late = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 3));
+  assert.equal(late.status, 400);
+  assert.match(late.body.error, /can't fit your order of 3 loaves/);
+  assert.equal(sessions.filter(({ status }) => status === "open").map(({ id }) => id).join(), "cs_test_rival");
 });
 
 test("coming back to change a pickup order releases the customer's own hold", async () => {

@@ -105,6 +105,40 @@ export async function listCapacityInvoices(env, stripe, { fresh = true } = {}) {
 
 }
 
+/*
+==================================================
+FIRST COME, FIRST SERVED
+
+Two customers can pass the capacity check at the
+same moment, before either payment page exists.
+So once a payment page is created, checkout counts
+again, fresh, and lines up every booking for that
+day or drop: invoices first, then payment pages
+oldest first (ties by id). A new page that lands
+past the limit is ended straight away and the
+customer is told it's full. Each checkout sees the
+same line, so only the later one is turned away.
+==================================================
+*/
+
+// bookings: [{ id, created, loaves, invoice? }]. Loaves booked ahead of `id`,
+// and whether `id` itself still fits under `limit`.
+export function placeInLine(bookings, id, limit) {
+
+  const line = [...bookings].sort((a, b) =>
+    (b.invoice ? 1 : 0) - (a.invoice ? 1 : 0) ||
+    (a.created || 0) - (b.created || 0) ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  let ahead = 0;
+  for (const booking of line) {
+    if (booking.id === id) return { ahead, fits: ahead + booking.loaves <= limit };
+    ahead += booking.loaves;
+  }
+  return { ahead, fits: true };
+
+}
+
 export function remainingLoaves(booked) {
   return Math.max(DELIVERY.dailyLoafLimit - booked, 0);
 }

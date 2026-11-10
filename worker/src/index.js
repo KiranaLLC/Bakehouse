@@ -39,7 +39,7 @@ import {
 } from "../../delivery-rules.js";
 import { stripe } from "./stripe.js";
 import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
-import { DropError, addSubscriber, getDrop, getDropBookings, hasDatabase, listDrops } from "./drops.js";
+import { DropError, addSubscriber, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops } from "./drops.js";
 import { dropStatus, formatMoment, formatPickupWhen } from "../../pickup-rules.js";
 import {
   CHECKOUT_HOLD_SECONDS,
@@ -47,6 +47,7 @@ import {
   describeShortfall,
   holdsCapacity,
   listCapacityInvoices,
+  placeInLine,
   loavesFromLineItems,
   loavesFromMetadata,
   lookbackSeconds,
@@ -338,7 +339,10 @@ async function createCheckoutSession(body, env, siteUrl) {
     cancel_url: `${siteUrl}/order.html?cancelled=true`
   });
 
-  forgetStripeLists();
+  await confirmPlaceInLine(env, session, loafCount,
+    await listDeliveryBookings(env, [deliveryDate]),
+    DELIVERY.dailyLoafLimit,
+    left => describeShortfall(left, loafCount, formatDeliveryDate(deliveryDate)));
 
   return { url: session.url, id: session.id };
 
@@ -450,7 +454,12 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
     cancel_url: `${siteUrl}/order.html?cancelled=true`
   });
 
-  forgetStripeLists();
+  await confirmPlaceInLine(env, session, loafCount,
+    await listDropBookings(env, stripe, [drop]),
+    drop.loafLimit,
+    left => left === 0
+      ? `Sorry, the ${pickupWhen} pickup is sold out. Please choose another.`
+      : `Sorry, the ${pickupWhen} pickup can't fit your order of ${loafCount} loaves. Please choose another pickup, or remove a few loaves.`);
 
   return { url: session.url, id: session.id };
 
@@ -538,24 +547,61 @@ async function getCapacity(excludeSessionId, env) {
 */
 async function getBookedLoaves(env, dates, ignoreSessionId, ignoreOpenSessionId, { fresh = true } = {}) {
 
-  const wanted = new Set(dates);
   const booked = new Map();
+
+  for (const booking of await listDeliveryBookings(env, dates, { fresh })) {
+    if (booking.id === ignoreSessionId) continue;
+    if (booking.id === ignoreOpenSessionId && booking.status === "open") continue;
+    booked.set(booking.date, (booked.get(booking.date) || 0) + booking.loaves);
+  }
+
+  return booked;
+
+}
+
+// Every booking on these delivery dates, as { id, date, created, loaves, status, invoice? }.
+async function listDeliveryBookings(env, dates, { fresh = true } = {}) {
+
+  const wanted = new Set(dates);
+  const bookings = [];
   const since = Math.floor(Date.now() / 1000) - lookbackSeconds();
 
   for (const session of await listSessionsSince(env, stripe, since, { fresh })) {
     const date = session.metadata?.delivery_date;
-    if (!holdsCapacity(session) || !wanted.has(date) || session.id === ignoreSessionId) continue;
-    if (session.id === ignoreOpenSessionId && session.status === "open") continue;
-    booked.set(date, (booked.get(date) || 0) + await countSessionLoaves(session, env));
+    if (!holdsCapacity(session) || !wanted.has(date)) continue;
+    bookings.push({ id: session.id, date, created: session.created, loaves: await countSessionLoaves(session, env), status: session.status });
   }
 
   // Catering and other invoices on these days take loaves too.
   for (const invoice of await listCapacityInvoices(env, stripe, { fresh })) {
     if (!wanted.has(invoice.deliveryDate)) continue;
-    booked.set(invoice.deliveryDate, (booked.get(invoice.deliveryDate) || 0) + invoice.loaves);
+    bookings.push({ id: invoice.id, date: invoice.deliveryDate, created: 0, loaves: invoice.loaves, status: "invoice", invoice: true });
   }
 
-  return booked;
+  return bookings;
+
+}
+
+/*
+  After a payment page is created: if another
+  customer got in first and the day or drop is now
+  over its limit, end this page and say so (see
+  FIRST COME, FIRST SERVED in capacity.js).
+*/
+async function confirmPlaceInLine(env, session, loafCount, bookings, limit, describeFull) {
+
+  forgetStripeLists();
+
+  if (!bookings.some(({ id }) => id === session.id)) {
+    // Not listed yet: line it up with what we know about it.
+    bookings = [...bookings, { id: session.id, created: session.created ?? Math.floor(Date.now() / 1000), loaves: loafCount }];
+  }
+
+  const { ahead, fits } = placeInLine(bookings, session.id, limit);
+  if (fits) return;
+
+  await releaseCheckoutSession(session.id, env);
+  throw new OrderValidationError(describeFull(Math.max(limit - ahead, 0)));
 
 }
 

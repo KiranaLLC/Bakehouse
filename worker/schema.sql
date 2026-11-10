@@ -51,3 +51,10 @@ CREATE TABLE IF NOT EXISTS email_log (
   sent_at TEXT NOT NULL,
   recipients INTEGER NOT NULL DEFAULT 0
 );
+
+-- Per-drop choices. announce = 0: don't email the notify list when this drop
+-- opens (the orders page's button can still send it).
+CREATE TABLE IF NOT EXISTS drop_settings (
+  drop_id INTEGER PRIMARY KEY,
+  announce INTEGER NOT NULL DEFAULT 1
+);

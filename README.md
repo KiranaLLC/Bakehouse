@@ -228,7 +228,8 @@ Once it's on:
 - **New drop open**: everyone on the next-drop list gets an email within an
   hour of a drop opening for orders (and anyone who joins that day gets it on
   the next hourly run). **Email notify list** on the Drops tab sends it to
-  everyone straight away.
+  everyone straight away. To open a drop without emailing the list, untick
+  **Email the notify list when ordering opens** when creating or editing it.
 - **Pickup reminders**: everyone with a paid order for a drop gets a reminder
   from 5 pm the day before (later orders get one up until pickup ends).
   **Remind customers** sends it to everyone straight away. The schedule never

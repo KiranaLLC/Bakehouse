@@ -17,7 +17,7 @@ that's already gone out.
 import { API, PICKUP } from "../../macros.js";
 import { dayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 import { canEmail, dropOpenEmail, pickupReminderEmail, sendEmails } from "./email.js";
-import { claimEmail, forgetEmail, hasDatabase, listDrops, listSubscribers, logEmail, unsubscribeToken } from "./drops.js";
+import { claimEmail, forgetEmail, getQuietDropIds, hasDatabase, listDrops, listSubscribers, logEmail, unsubscribeToken } from "./drops.js";
 import { listSessionsSince } from "./stripe-cache.js";
 import { CHECKOUT_HOLD_SECONDS } from "./capacity.js";
 
@@ -143,7 +143,8 @@ Runs every hour on the checkout worker:
 
   - "A new drop is open" for drops that opened in
     the last day, to anyone on the list who hasn't
-    had it (people who join that day get it too).
+    had it (people who join that day get it too),
+    unless the drop is set not to email the list.
   - Reminders from 5 pm the day before pickup until
     the pickup window ends, to any customer who
     hasn't had one (late orders get one too).
@@ -157,6 +158,7 @@ export async function runScheduledEmails(env, stripe, now = Date.now()) {
   const local = utcToLocal(new Date(now).toISOString(), PICKUP.timeZone);
   const hour = Number(local.time.slice(0, 2));
   const drops = await listDrops(env, { fromDate: local.date });
+  const quiet = await getQuietDropIds(env);
   let announced = 0;
   let reminded = 0;
 
@@ -164,7 +166,7 @@ export async function runScheduledEmails(env, stripe, now = Date.now()) {
 
     const opened = Date.parse(drop.opensAt);
     const isOpen = opened <= now && now < Date.parse(drop.closesAt);
-    if (isOpen && now - opened < SCHEDULE.announceWithinHours * 36e5) {
+    if (isOpen && now - opened < SCHEDULE.announceWithinHours * 36e5 && !quiet.has(drop.id)) {
       announced += await announceDrop(env, drop, { now });
     }
 

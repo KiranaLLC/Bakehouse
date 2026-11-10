@@ -131,6 +131,7 @@ export async function createDrop(env, input) {
     RETURNING *`)
     .bind(drop.pickupDate, drop.windowStart, drop.windowEnd, drop.locationName, drop.locationAddress, drop.notes, drop.opensAt, drop.closesAt, drop.loafLimit, new Date().toISOString())
     .first();
+  await saveAnnounceChoice(env, row.id, input);
   return toDrop(row);
 }
 
@@ -144,7 +145,34 @@ export async function updateDrop(env, id, input) {
     .bind(id, drop.pickupDate, drop.windowStart, drop.windowEnd, drop.locationName, drop.locationAddress, drop.notes, drop.opensAt, drop.closesAt, drop.loafLimit)
     .first();
   if (!row) throw new DropError("That drop doesn't exist.");
+  await saveAnnounceChoice(env, id, input);
   return toDrop(row);
+}
+
+/*
+  Whether the notify list is emailed automatically
+  when a drop opens. On unless the bakery turns it
+  off for that drop.
+*/
+export async function getQuietDropIds(env) {
+  if (!hasDatabase(env)) return new Set();
+  try {
+    const { results } = await env.DB.prepare("SELECT drop_id FROM drop_settings WHERE announce = 0").all();
+    return new Set(results.map(({ drop_id }) => Number(drop_id)));
+  } catch {
+    return new Set();   // table not added yet: every drop is announced
+  }
+}
+
+async function saveAnnounceChoice(env, id, input) {
+  if (typeof input?.announce !== "boolean") return;
+  try {
+    await env.DB.prepare(`INSERT INTO drop_settings (drop_id, announce) VALUES (?1, ?2)
+      ON CONFLICT (drop_id) DO UPDATE SET announce = excluded.announce`).bind(id, input.announce ? 1 : 0).run();
+  } catch (error) {
+    if (input.announce) return;   // on is the default anyway
+    throw new DropError("The drop is saved, but turning off its email needs the newer database tables. Run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql");
+  }
 }
 
 export async function setDropCancelled(env, id, cancelled) {

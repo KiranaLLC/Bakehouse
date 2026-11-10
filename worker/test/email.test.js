@@ -406,3 +406,30 @@ test("before schema.sql is re-run, the send buttons say what to do instead of fa
   assert.match(result.body.error, /schema\.sql/);
   assert.equal(emails.length, 0);
 });
+
+test("a drop set not to email the list opens quietly, and can still be sent by hand", async () => {
+  await signUpAndConfirm("quiet@example.com");
+  const drop = await makeDrop({ announce: false });
+  emails = [];
+  assert.equal((await runScheduledEmails(env, stripe)).announced, 0);
+  assert.equal((await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === drop.id).announce, false);
+
+  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/announce`)).body.sent, 1);
+
+  // Turning it back on: anyone who hasn't had it yet gets it on the next run.
+  await signUpAndConfirm("later@example.com");
+  const edit = await callOrders("POST", `/admin/api/drops/${drop.id}`, { ...drop, announce: true });
+  assert.equal(edit.status, 200, JSON.stringify(edit.body));
+  emails = [];
+  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
+  assert.deepEqual(emails[0].to, ["later@example.com"]);
+});
+
+test("drops are announced unless told otherwise, and saving without the choice keeps it", async () => {
+  await signUpAndConfirm("default@example.com");
+  const drop = await makeDrop({ announce: false });
+  await callOrders("POST", `/admin/api/drops/${drop.id}`, { ...drop });
+  assert.equal((await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === drop.id).announce, false);
+  const other = await makeDrop({ pickupDate: addDays(today, 6) });
+  assert.equal((await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === other.id).announce, true);
+});

@@ -41,6 +41,7 @@ import {
   getDrop,
   getDropBookings,
   getEmailLog,
+  getQuietDropIds,
   hasDatabase,
   listDrops,
   listSubscribers,
@@ -639,6 +640,7 @@ async function listAdminDrops(env, stripe) {
   const now = Date.now();
   const emailReady = canEmail(env);
   const log = emailReady ? await getEmailLog(env, drops.flatMap(drop => [announceKey(drop), remindKey(drop)])) : new Map();
+  const quiet = await getQuietDropIds(env);
   // With email on, reminders go to customers found in Stripe (paid pickup orders).
   const customerCounts = new Map();
   if (emailReady) {
@@ -666,6 +668,7 @@ async function listAdminDrops(env, stripe) {
         when: formatPickupWhen(drop),
         opensLabel: formatMoment(drop.opensAt),
         closesLabel: formatMoment(drop.closesAt),
+        announce: !quiet.has(drop.id),
         announced: log.get(announceKey(drop)) || null,
         reminded: log.get(remindKey(drop)) || null,
         customerCount: customerCounts.get(drop.id) ?? null,

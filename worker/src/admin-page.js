@@ -101,6 +101,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .drop-form .wide { grid-column: 1 / -1; }
   .drop-form .buttons { grid-column: 1 / -1; display: flex; gap: 8px; }
   .drop-form .buttons .primary { width: auto; padding: 10px 20px; }
+  .drop-form .check { grid-column: 1 / -1; display: flex; gap: 10px; align-items: flex-start; font-size: .95rem; color: var(--ink); margin: 2px 0 4px; }
+  .drop-form .check input { width: 20px; height: 20px; flex: none; margin: 1px 0 0; accent-color: var(--terracotta); }
+  .drop-form .check small { display: block; color: var(--muted); font-size: .82rem; margin-top: 2px; }
   .subscribers { list-style: none; margin: 0; padding: 0; }
   .subscribers li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
   .subscribers li:last-child { border-bottom: 0; }
@@ -699,6 +702,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   function sentLine(drop) {
     var parts = [];
+    if (drop.announce === false && !drop.announced) parts.push("Opens quietly: no automatic email to the list");
     if (drop.announced) parts.push("New-drop email sent to " + plural(drop.announced.recipients, "person").replace("persons", "people") + " " + shortTime(drop.announced.sentAt));
     if (drop.reminded) parts.push("Reminder sent to " + plural(drop.reminded.recipients, "customer") + " " + shortTime(drop.reminded.sentAt));
     return parts.length ? el("p", { class: "sent-note", text: parts.join(" \u00b7 ") }) : null;
@@ -772,8 +776,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       notes: input("drop-notes", "text", drop ? drop.notes : d.notes, { maxlength: "300" }),
       opens: input("drop-opens", "datetime-local", drop ? drop.opensLocal : data.nowLocal, { required: "required" }),
       closes: input("drop-closes", "datetime-local", drop ? drop.closesLocal : closesDefault(pickupDate), { required: "required" }),
-      limit: input("drop-limit", "number", drop ? drop.loafLimit : d.loafLimit, { required: "required", min: "1", max: "500", inputmode: "numeric" })
+      limit: input("drop-limit", "number", drop ? drop.loafLimit : d.loafLimit, { required: "required", min: "1", max: "500", inputmode: "numeric" }),
+      announce: input("drop-announce", "checkbox", "", {})
     };
+    f.announce.checked = drop ? drop.announce !== false : true;
 
     // A new drop's closing time follows its date until it's changed by hand.
     var closesTouched = Boolean(drop);
@@ -796,6 +802,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       field("Ordering opens (Pacific time)", f.opens, true),
       field("Ordering closes (Pacific time)", f.closes, true),
       field("Loaves available", f.limit),
+      data.emailReady ? el("label", { class: "check", for: "drop-announce" }, f.announce,
+        el("span", null, "Email the notify list when ordering opens",
+          el("small", { text: "Untick to open this drop quietly. You can still email the list from the drop's card." }))) : null,
       error,
       el("div", { class: "buttons" }, save, cancel)
     );
@@ -809,6 +818,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         locationName: f.name.value, locationAddress: f.address.value, notes: f.notes.value,
         opensLocal: f.opens.value, closesLocal: f.closes.value, loafLimit: Number(f.limit.value)
       };
+      if (data.emailReady) body.announce = f.announce.checked;
       api("POST", drop ? "drops/" + drop.id : "drops", body).then(function () {
         state.editing = null;
         return reloadDrops();

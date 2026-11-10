@@ -14,6 +14,13 @@ Runs on Cloudflare Workers. The website calls it to:
   GET  /api/order-summary           details of a paid order, for the thank-you page
   GET  /api/status                  is the worker set up correctly? (open it in a browser)
 
+And, once email is set up (README, "Emails"):
+
+  POST /api/stripe-webhook          Stripe says an order was paid: email the bakery
+  GET  /api/subscribe/confirm       the link in the "confirm your sign-up" email
+  GET  /api/unsubscribe             the unsubscribe link in drop emails
+  (hourly schedule)                 "a new drop is open" and "pickup tomorrow" emails
+
 The bakery's private orders page is a separate worker (orders.js), so it
 can sit behind Cloudflare Access while this one stays public.
 
@@ -39,7 +46,9 @@ import {
 } from "../../delivery-rules.js";
 import { stripe } from "./stripe.js";
 import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
-import { DropError, addSubscriber, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops } from "./drops.js";
+import { DropError, addPendingSubscriber, addSubscriber, claimEmail, confirmSubscriber, forgetEmail, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, logEmail, unsubscribeByToken } from "./drops.js";
+import { canEmail, confirmSubscriptionEmail, newOrderAlert, sendEmail } from "./email.js";
+import { runScheduledEmails } from "./email-flows.js";
 import { dropStatus, formatMoment, formatPickupWhen } from "../../pickup-rules.js";
 import {
   CHECKOUT_HOLD_SECONDS,
@@ -76,6 +85,17 @@ export default {
 
     try {
 
+      // Links people tap in emails, and Stripe's own calls: not from the website.
+      if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
+        return await handleStripeWebhook(request, env);
+      }
+      if (url.pathname === "/api/subscribe/confirm" && request.method === "GET") {
+        return await handleConfirmLink(url, env);
+      }
+      if (url.pathname === "/api/unsubscribe" && (request.method === "GET" || request.method === "POST")) {
+        return await handleUnsubscribeLink(url, request, env);
+      }
+
       let result;
 
       if (request.method === "POST" && url.pathname === API.checkDelivery) {
@@ -87,7 +107,7 @@ export default {
       } else if (request.method === "GET" && url.pathname === API.drops) {
         result = await getPublicDrops(url.searchParams.get("exclude"), env);
       } else if (request.method === "POST" && url.pathname === API.subscribe) {
-        result = await subscribe(await readJson(request), env);
+        result = await subscribe(await readJson(request), env, url.origin);
       } else if (request.method === "GET" && url.pathname === API.capacity) {
         result = await getCapacity(url.searchParams.get("exclude"), env);
       } else if (request.method === "GET" && url.pathname === API.orderSummary) {
@@ -111,6 +131,14 @@ export default {
 
     }
 
+  },
+
+  // Every hour (wrangler.toml [triggers]): drop announcements and pickup reminders.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runScheduledEmails(env, stripe).then(
+      result => console.log("scheduled emails", JSON.stringify(result)),
+      error => console.error("scheduled emails failed", error)
+    ));
   }
 
 };
@@ -511,11 +539,146 @@ async function getPublicDrops(excludeSessionId, env) {
 
 }
 
-async function subscribe(body, env) {
+/*
+  With email on, the person gets a "confirm your
+  sign-up" email first and only joins the list when
+  they tap its link; without email, they join
+  straight away.
+*/
+async function subscribe(body, env, workerOrigin) {
+
   if (!hasDatabase(env)) {
     throw new OrderValidationError("Sorry, sign-ups aren't open yet. Please email hellokiranabakehouse@gmail.com.");
   }
-  return addSubscriber(env, body);
+
+  if (!canEmail(env)) return addSubscriber(env, body);
+
+  let pending;
+  try {
+    pending = await addPendingSubscriber(env, body);
+  } catch (error) {
+    if (error instanceof DropError) throw error;
+    // The email tables aren't there yet (schema.sql not re-run): sign up directly.
+    console.error(error);
+    return addSubscriber(env, body);
+  }
+  // The same answer either way, so the form can't be used to find out who's on the list,
+  // and no email if they're already on it or were sent a confirm link a few minutes ago.
+  if (pending.alreadySubscribed || pending.recentlySent) return { ok: true, confirm: true };
+
+  try {
+    await sendEmail(env, confirmSubscriptionEmail({ to: pending.email, confirmUrl: `${workerOrigin}/api/subscribe/confirm?token=${pending.token}` }));
+  } catch (error) {
+    console.error(error);
+    throw new OrderValidationError("Sorry, we couldn't send the confirmation email. Please try again, or email hellokiranabakehouse@gmail.com.");
+  }
+
+  return { ok: true, confirm: true };
+
+}
+
+/*
+==================================================
+EMAIL LINKS AND THE STRIPE WEBHOOK
+==================================================
+*/
+
+function page(title, message, status = 200) {
+  const site = "https://www.kiranabakehouse.com";
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${title} | Kirana Bakehouse</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f0e7c8;color:#4d1a00;font-family:-apple-system,system-ui,sans-serif;text-align:center;padding:24px}h1{color:#a63a1f;font-size:1.8rem;margin:0 0 12px}p{font-size:1.05rem;line-height:1.5;max-width:28rem;margin:0 auto 20px}a{color:#a63a1f;font-weight:600}</style></head>
+<body><main><h1>${title}</h1><p>${message}</p><p><a href="${site}">Back to Kirana Bakehouse</a></p></main></body></html>`;
+  return new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+async function handleConfirmLink(url, env) {
+  const email = hasDatabase(env) ? await confirmSubscriber(env, url.searchParams.get("token")) : null;
+  return email
+    ? page("You're on the list!", "We'll email you whenever a new pickup drop opens. Every email has an unsubscribe link.")
+    : page("That link has expired", "Please sign up again on the order page, and use the newest email we send.", 404);
+}
+
+/*
+  GET (someone tapped the link) only asks; the
+  button POSTs. Some workplace mail systems open
+  every link in an email to scan it, and that
+  mustn't unsubscribe anyone. A mail app's one-click
+  unsubscribe POSTs straight away.
+*/
+async function handleUnsubscribeLink(url, request, env) {
+
+  const token = url.searchParams.get("token") || "";
+
+  if (request.method === "GET") {
+    const action = `/api/unsubscribe?token=${encodeURIComponent(token)}`;
+    return page("Unsubscribe?", `You'll stop getting emails when a new pickup drop opens.</p>
+<form method="post" action="${action.replace(/"/g, "&quot;")}"><button type="submit" style="font:inherit;font-weight:600;padding:12px 24px;border-radius:999px;border:0;background:#a63a1f;color:#fff;cursor:pointer">Unsubscribe</button></form><p>`);
+  }
+
+  const email = hasDatabase(env) ? await unsubscribeByToken(env, token) : null;
+  const oneClick = (request.headers.get("Content-Type") || "").includes("form") && (await request.clone().text()).includes("List-Unsubscribe=One-Click");
+  if (oneClick) return new Response(null, { status: email ? 200 : 404 });
+  return email
+    ? page("You're unsubscribed", "You won't get any more pickup drop emails. You can sign up again any time on the order page.")
+    : page("You're unsubscribed", "That address isn't on our list any more.");
+
+}
+
+/*
+  Stripe calls this when an order is paid (event
+  checkout.session.completed). The bakery gets a
+  "new order" email, once per order. The call is
+  checked with STRIPE_WEBHOOK_SECRET so no one else
+  can fake it.
+*/
+async function handleStripeWebhook(request, env) {
+
+  const payload = await request.text();
+
+  if (!env.STRIPE_WEBHOOK_SECRET) return new Response("Webhook secret not set.", { status: 503 });
+  if (!await isFromStripe(payload, request.headers.get("Stripe-Signature"), env.STRIPE_WEBHOOK_SECRET)) {
+    return new Response("Bad signature.", { status: 400 });
+  }
+
+  const event = JSON.parse(payload);
+  const session = event.data?.object;
+  const paid = (event.type === "checkout.session.completed" && session?.payment_status !== "unpaid") ||
+    event.type === "checkout.session.async_payment_succeeded";
+
+  if (!paid || !session?.id || !canEmail(env)) return new Response("Ignored.", { status: 200 });
+
+  const key = `alert:${session.id}`;
+  if (hasDatabase(env) && !await claimEmail(env, key).catch(() => true)) return new Response("Already sent.", { status: 200 });
+
+  try {
+    await sendEmail(env, newOrderAlert(session));
+    if (hasDatabase(env)) await logEmail(env, key, 1).catch(() => {});
+  } catch (error) {
+    if (hasDatabase(env)) await forgetEmail(env, key).catch(() => {});
+    console.error(error);
+    // Stripe tries again later.
+    return new Response("Email failed.", { status: 500 });
+  }
+
+  return new Response("Sent.", { status: 200 });
+
+}
+
+// Stripe-Signature: t=<unix time>,v1=<hex HMAC-SHA256 of "t.payload">. Five minutes' leeway.
+export async function isFromStripe(payload, header, secret, now = Date.now()) {
+
+  const parts = Object.fromEntries((header || "").split(",").map(part => part.split("=")).filter(pair => pair.length === 2));
+  const signatures = (header || "").split(",").filter(part => part.startsWith("v1=")).map(part => part.slice(3));
+  const timestamp = Number(parts.t);
+  if (!timestamp || !signatures.length || Math.abs(now / 1000 - timestamp) > 300) return false;
+
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${payload}`)));
+  const expected = [...mac].map(byte => byte.toString(16).padStart(2, "0")).join("");
+
+  return signatures.some(signature => signature.length === expected.length &&
+    [...signature].reduce((diff, char, i) => diff | (char.charCodeAt(0) ^ expected.charCodeAt(i)), 0) === 0);
+
 }
 
 /*

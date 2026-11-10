@@ -40,13 +40,17 @@ import {
   createDrop,
   getDrop,
   getDropBookings,
+  getEmailLog,
   hasDatabase,
   listDrops,
   listSubscribers,
+  logEmail,
   removeSubscriber,
   setDropCancelled,
   updateDrop
 } from "./drops.js";
+import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
+import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 
 const COOKIE_NAME = "kirana_admin";
@@ -102,6 +106,11 @@ export async function handleAdmin(request, env, { stripe }) {
       return json(result, result.ok ? 200 : 400);
     }
 
+    const emailMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+)\/email$/);
+    if (request.method === "POST" && emailMatch) {
+      return json(await emailCustomer(emailMatch[1], env, stripe));
+    }
+
     const dropRoute = await handleDropRoutes(request, path, env, stripe);
     if (dropRoute) return dropRoute;
 
@@ -109,7 +118,7 @@ export async function handleAdmin(request, env, { stripe }) {
 
   } catch (error) {
 
-    if (error instanceof DropError) {
+    if (error instanceof DropError || error instanceof EmailError) {
       return json({ error: error.message }, 400);
     }
 
@@ -265,7 +274,14 @@ async function listOpenOrders(env, stripe) {
   const sortKey = order => order.deliveryDate || "~";
   orders.sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0) || a.created - b.created);
 
-  return { today, orders, prep: prepByDate(orders) };
+  // When each order's email was sent from this page (email turned on only).
+  const emailReady = canEmail(env);
+  if (emailReady) {
+    const log = await getEmailLog(env, orders.map(({ id }) => `order:${id}`));
+    for (const order of orders) order.emailedAt = log.get(`order:${order.id}`)?.sentAt || "";
+  }
+
+  return { today, emailReady, orders, prep: prepByDate(orders) };
 
 }
 
@@ -342,6 +358,46 @@ async function orderItems(session, env, stripe) {
   return lineItems.data
     .filter(({ description }) => !NON_LOAF_LINES.has(description))
     .map(({ description, quantity }) => ({ name: description, quantity }));
+
+}
+
+/*
+==================================================
+EMAILING A CUSTOMER
+
+"Your order has been delivered", or "your order is
+ready for pickup", sent straight from the orders
+page through Resend. The order is read fresh from
+Stripe so the email matches it.
+==================================================
+*/
+
+async function emailCustomer(id, env, stripe) {
+
+  if (!canEmail(env)) throw new EmailError("Email isn't set up yet, so use the draft instead.");
+
+  const today = bakeryTodayValue();
+  const order = id.startsWith("cs_")
+    ? await describeOrder(await stripe(env, "GET", `/checkout/sessions/${id}`, { expand: ["payment_intent", "customer"] }), today, env, stripe)
+    : await describeInvoice(await stripe(env, "GET", `/invoices/${id}`, {}), today, env, stripe);
+
+  if (!order.email) throw new EmailError("This order has no email address.");
+
+  // Website orders are people ("Hi Ben"); invoices are often businesses.
+  const name = order.kind === "invoice" ? order.name || "there" : firstName(order.name);
+  let message;
+
+  if (order.fulfillment === "pickup") {
+    const drop = order.dropId && hasDatabase(env) ? await getDrop(env, Number(order.dropId)) : null;
+    message = pickupReadyEmail({ to: order.email, name, items: order.items, when: order.pickupWhen, place: drop ? placeLines(drop) : [`Where: ${order.address}`] });
+  } else {
+    message = deliveredEmail({ to: order.email, name, items: order.items });
+  }
+
+  await sendEmail(env, message);
+  if (hasDatabase(env)) await logEmail(env, `order:${id}`, 1).catch(() => {});
+
+  return { ok: true, sentAt: new Date().toISOString() };
 
 }
 
@@ -537,6 +593,23 @@ async function handleDropRoutes(request, path, env, stripe) {
     return json({ drop: await updateDrop(env, Number(updateMatch[1]), body) });
   }
 
+  const sendMatch = path.match(/^\/admin\/api\/drops\/(\d+)\/(announce|remind)$/);
+  if (request.method === "POST" && sendMatch) {
+    if (!canEmail(env)) throw new EmailError("Email isn't set up yet, so use the draft instead.");
+    const drop = await getDrop(env, Number(sendMatch[1]));
+    if (!drop) return json({ error: "That drop doesn't exist." }, 404);
+    try {
+      const sent = sendMatch[2] === "announce" ? await announceDrop(env, drop, { force: true }) : await remindDrop(env, stripe, drop, { force: true });
+      return json({ ok: true, sent });
+    } catch (error) {
+      if (/no such table/i.test(error.message || "")) {
+        throw new EmailError("The email tables aren't in the pickup database yet. Run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql");
+      }
+      if (error.sent) throw new EmailError(`Sent to ${error.sent}, then stopped: ${error.message}`);
+      throw error;
+    }
+  }
+
   if (request.method === "GET" && path === "/admin/api/subscribers") {
     return json({ subscribers: await listSubscribers(env) });
   }
@@ -564,9 +637,19 @@ async function listAdminDrops(env, stripe) {
   const booked = await getDropBookings(env, stripe, drops.filter(({ cancelled }) => !cancelled));
   const subscribers = await listSubscribers(env);
   const now = Date.now();
+  const emailReady = canEmail(env);
+  const log = emailReady ? await getEmailLog(env, drops.flatMap(drop => [announceKey(drop), remindKey(drop)])) : new Map();
+  // With email on, reminders go to customers found in Stripe (paid pickup orders).
+  const customerCounts = new Map();
+  if (emailReady) {
+    for (const drop of drops.filter(({ cancelled, pickupDate }) => !cancelled && pickupDate >= today)) {
+      customerCounts.set(drop.id, (await dropCustomerEmails(env, stripe, drop)).length);
+    }
+  }
 
   return {
     databaseReady: true,
+    emailReady,
     defaults: PICKUP.defaults,
     ...clock,
     subscriberCount: subscribers.length,
@@ -583,6 +666,9 @@ async function listAdminDrops(env, stripe) {
         when: formatPickupWhen(drop),
         opensLabel: formatMoment(drop.opensAt),
         closesLabel: formatMoment(drop.closesAt),
+        announced: log.get(announceKey(drop)) || null,
+        reminded: log.get(remindKey(drop)) || null,
+        customerCount: customerCounts.get(drop.id) ?? null,
         // Default closing for this drop's date, used when its date changes in the form.
         defaultCloseLocal: `${weekdayBefore(drop.pickupDate, PICKUP.defaults.closesWeekday)}T${PICKUP.defaults.closesAt}`
       };

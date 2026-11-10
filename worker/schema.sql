@@ -26,3 +26,28 @@ CREATE TABLE IF NOT EXISTS subscribers (
   name TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
+
+-- Emails sent by the site (README, "Emails"). Added later than the tables
+-- above; running this file again adds them without touching existing data.
+
+-- People who signed up for drop emails but haven't tapped the confirm link yet.
+CREATE TABLE IF NOT EXISTS pending_subscribers (
+  token TEXT PRIMARY KEY,
+  email TEXT NOT NULL,                    -- lowercase
+  name TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
+-- The secret in each subscriber's unsubscribe link.
+CREATE TABLE IF NOT EXISTS unsubscribe_tokens (
+  email TEXT PRIMARY KEY,
+  token TEXT NOT NULL UNIQUE
+);
+
+-- What's been sent, so nothing goes out twice: "announce:<drop id>",
+-- "remind:<drop id>", "order:<order id>", "alert:<session id>".
+CREATE TABLE IF NOT EXISTS email_log (
+  key TEXT PRIMARY KEY,
+  sent_at TEXT NOT NULL,
+  recipients INTEGER NOT NULL DEFAULT 0
+);

@@ -5,6 +5,7 @@
 # Secrets (set once, with the same --config):
 #   npx wrangler secret put STRIPE_SECRET_KEY --config wrangler.orders.toml
 #   npx wrangler secret put ADMIN_PASSWORD --config wrangler.orders.toml
+#   npx wrangler secret put RESEND_API_KEY --config wrangler.orders.toml   (emails, optional)
 
 name = "kirana-orders"
 main = "src/orders.js"
@@ -18,6 +19,10 @@ preview_urls = false
 # Local preview: http://localhost:8788/admin (the checkout worker uses 8787).
 [dev]
 port = 8788
+
+[vars]
+# Who emails come from (an address on the domain verified in Resend).
+EMAIL_FROM = "Kirana Bakehouse <hello@kiranabakehouse.com>"
 
 # Pickup drops database (see README, "Pickup drops"). Create it once with
 #   npx wrangler d1 create kirana-pickup

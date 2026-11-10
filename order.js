@@ -1729,9 +1729,11 @@ document.getElementById("notify-form").addEventListener("submit", async event =>
   button.disabled = true;
 
   try {
-    await postJson(API.subscribe, { email: input.value.trim(), name: fields.name.value.trim() });
+    const result = await postJson(API.subscribe, { email: input.value.trim(), name: fields.name.value.trim() });
     status.className = "notify-status";
-    status.textContent = "You're on the list! We'll email you when the next drop opens.";
+    status.textContent = result?.confirm
+      ? "Almost there! Check your inbox and tap the link to confirm."
+      : "You're on the list! We'll email you when the next drop opens.";
     input.value = "";
   } catch (error) {
     status.className = "notify-status error";

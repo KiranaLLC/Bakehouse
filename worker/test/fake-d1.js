@@ -19,7 +19,7 @@ export function createFakeD1() {
         bind(...values) { params = values; return statement; },
         async all() { return { results: db.prepare(sql).all(...params).map(row => ({ ...row })) }; },
         async first() { const row = db.prepare(sql).get(...params); return row ? { ...row } : null; },
-        async run() { db.prepare(sql).run(...params); return { success: true }; }
+        async run() { const result = db.prepare(sql).run(...params); return { success: true, meta: { changes: Number(result.changes) } }; }
       };
       return statement;
     }

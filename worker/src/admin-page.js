@@ -123,7 +123,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .order-actions > * { flex: 1; padding: 12px; font: inherit; font-weight: 600; text-align: center; text-decoration: none; border-radius: 999px; cursor: pointer; }
   .deliver { border: 2px solid var(--good); background: white; color: var(--good); }
   .deliver:disabled { opacity: .6; cursor: default; }
-  .email { border: 2px solid var(--terracotta); background: white; color: var(--terracotta) !important; }
+  .email { border: 2px solid var(--terracotta); background: white; color: var(--terracotta) !important; font: inherit; font-weight: 600; }
+  .email.sent { border-color: var(--line); color: var(--muted) !important; }
+  .sent-note { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
   .done { border-color: var(--good); }
   .done p { margin: 0 0 6px; color: var(--good); font-weight: 600; }
   .done .actions { display: flex; gap: 16px; flex-wrap: wrap; font-size: .95rem; }
@@ -281,6 +283,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return Promise.all([api("GET", "orders"), drops]).then(function (results) {
       var data = results[0];
       state.orders = data.orders;
+      state.emailReady = Boolean(data.emailReady);
       state.delivered = {};
       $("loading").hidden = true;
       $("signin").hidden = true;
@@ -407,10 +410,37 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
       details,
       el("div", { class: "order-actions" },
-        order.email ? el("a", { class: "email", href: deliveredEmail(order), text: "Email " + firstName(order) }) : null,
+        order.email ? emailControl(order, "email") : null,
         button
-      )
+      ),
+      order.emailedAt ? el("p", { class: "sent-note", text: "Email sent " + shortTime(order.emailedAt) }) : null
     );
+  }
+
+  // With email set up, the button sends the email itself; otherwise it opens a draft.
+  function emailControl(order, className) {
+    if (!state.emailReady) return el("a", { class: className, href: deliveredEmail(order), text: "Email " + firstName(order) });
+    var label = (order.emailedAt ? "Email again" : "Email " + firstName(order));
+    var button = el("button", { class: className + (order.emailedAt ? " sent" : ""), type: "button", text: label });
+    button.addEventListener("click", function () {
+      var what = order.fulfillment === "pickup" ? "\u201cready for pickup\u201d" : "\u201cdelivered\u201d";
+      if (!window.confirm("Send the " + what + " email to " + order.email + "?")) return;
+      button.disabled = true;
+      button.textContent = "Sending\u2026";
+      api("POST", "orders/" + order.id + "/email", {}).then(function (result) {
+        order.emailedAt = result.sentAt;
+        render();
+      }).catch(function (error) {
+        if (error.message === "signed-out") return;
+        button.textContent = label;
+        alertInCard(button, error.message);
+      });
+    });
+    return button;
+  }
+
+  function shortTime(iso) {
+    return new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
   function deliveredCard(order) {
@@ -428,7 +458,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return el("article", { class: "card done" },
       el("p", { text: "✓ " + (order.name || "Order") + (order.fulfillment === "pickup" ? " picked up" : " delivered") }),
       el("div", { class: "actions" },
-        order.email ? el("a", { href: deliveredEmail(order), text: "Email " + firstName(order) }) : null,
+        order.email ? emailControl(order, "") : null,
         undo
       )
     );
@@ -630,6 +660,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       listButton
     ));
 
+    if (data.emailReady) {
+      view.append(el("p", { class: "sent-note", text: "Emails go out by themselves: the new-drop email within an hour of ordering opening, and pickup reminders after 5 pm the day before. The buttons send them now." }));
+    }
+
     if (state.subscribers) view.append(subscribersCard());
     if (state.editing === "new") view.append(dropForm(null));
 
@@ -646,9 +680,36 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }
   }
 
+  // With email set up: buttons that send now, and a note of what has gone out.
+  function sendButton(drop, kind, count, label) {
+    var button = el("button", { type: "button", text: label + " (" + count + ")" });
+    button.addEventListener("click", function () {
+      var what = kind === "announce" ? "the \u201cnew drop is open\u201d email to " + plural(count, "person").replace("persons", "people") + " on the list" : "a pickup reminder to " + plural(count, "customer");
+      if (!window.confirm("Send " + what + "?")) return;
+      button.disabled = true;
+      button.textContent = "Sending\u2026";
+      api("POST", "drops/" + drop.id + "/" + kind, {}).then(reloadDrops).catch(function (error) {
+        if (error.message === "signed-out") return;
+        button.textContent = label + " (" + count + ")";
+        alertInCard(button, error.message);
+      });
+    });
+    return button;
+  }
+
+  function sentLine(drop) {
+    var parts = [];
+    if (drop.announced) parts.push("New-drop email sent to " + plural(drop.announced.recipients, "person").replace("persons", "people") + " " + shortTime(drop.announced.sentAt));
+    if (drop.reminded) parts.push("Reminder sent to " + plural(drop.reminded.recipients, "customer") + " " + shortTime(drop.reminded.sentAt));
+    return parts.length ? el("p", { class: "sent-note", text: parts.join(" \u00b7 ") }) : null;
+  }
+
   function dropCard(drop) {
     var announce = announceEmail(drop);
     var remind = reminderEmail(drop);
+    var emailReady = state.drops.emailReady;
+    var openOrSoon = drop.status === "open" || drop.status === "upcoming";
+    var customers = emailReady ? drop.customerCount || 0 : remind.count;
     var share = drop.loafLimit ? Math.min(100, Math.round(drop.booked / drop.loafLimit * 100)) : 0;
 
     var edit = el("button", { class: "quiet", type: "button", text: "Edit" });
@@ -673,11 +734,12 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       drop.cancelled ? null : el("div", { class: "meter", "aria-hidden": "true" }, el("span", { style: "width:" + share + "%" })),
       drop.cancelled ? null : el("p", { class: "where", text: drop.booked + " of " + drop.loafLimit + " loaves booked" }),
       el("div", { class: "drop-actions" },
-        (drop.status === "open" || drop.status === "upcoming") && announce.count ? el("a", { href: announce.href, text: "Email notify list (" + announce.count + ")" }) : null,
-        !drop.cancelled && remind.count ? el("a", { href: remind.href, text: "Remind customers (" + remind.count + ")" }) : null,
+        openOrSoon && announce.count ? (emailReady ? sendButton(drop, "announce", announce.count, drop.announced ? "Email list again" : "Email notify list") : el("a", { href: announce.href, text: "Email notify list (" + announce.count + ")" })) : null,
+        !drop.cancelled && customers ? (emailReady ? sendButton(drop, "remind", customers, drop.reminded ? "Remind again" : "Remind customers") : el("a", { href: remind.href, text: "Remind customers (" + remind.count + ")" })) : null,
         edit,
         cancel
-      )
+      ),
+      emailReady ? sentLine(drop) : null
     );
   }
 

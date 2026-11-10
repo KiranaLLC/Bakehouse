@@ -184,6 +184,96 @@ export async function removeSubscriber(env, email) {
 
 /*
 ==================================================
+EMAIL SIGN-UPS AND THE EMAIL LOG
+
+With email turned on, signing up is two steps: the
+person is "pending" until they tap the link in the
+confirm email. Everyone confirmed gets their own
+unsubscribe link. The email log remembers what has
+been sent, so nothing goes out twice.
+==================================================
+*/
+
+export async function addPendingSubscriber(env, input) {
+  const email = cleanText(input?.email, 200).toLowerCase();
+  const name = cleanText(input?.name, 100);
+  if (!EMAIL.test(email)) throw new DropError("Please enter a valid email address.");
+  const existing = await env.DB.prepare("SELECT email FROM subscribers WHERE email = ?1").bind(email).first();
+  if (existing) return { email, alreadySubscribed: true };
+  const token = crypto.randomUUID();
+  await env.DB.prepare("DELETE FROM pending_subscribers WHERE email = ?1 OR created_at < ?2")
+    .bind(email, new Date(Date.now() - 14 * 864e5).toISOString()).run();
+  await env.DB.prepare("INSERT INTO pending_subscribers (token, email, name, created_at) VALUES (?1, ?2, ?3, ?4)")
+    .bind(token, email, name, new Date().toISOString()).run();
+  return { email, token };
+}
+
+// The confirm link: moves the person onto the list. Returns their email, or null.
+export async function confirmSubscriber(env, token) {
+  if (!isToken(token)) return null;
+  const pending = await env.DB.prepare("SELECT email, name FROM pending_subscribers WHERE token = ?1").bind(token).first();
+  if (!pending) return null;
+  await addSubscriber(env, pending);
+  await env.DB.prepare("DELETE FROM pending_subscribers WHERE email = ?1").bind(pending.email).run();
+  return pending.email;
+}
+
+// Each subscriber's unsubscribe link secret, made the first time it's needed.
+export async function unsubscribeToken(env, email) {
+  const row = await env.DB.prepare("SELECT token FROM unsubscribe_tokens WHERE email = ?1").bind(email).first();
+  if (row) return row.token;
+  const token = crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO unsubscribe_tokens (email, token) VALUES (?1, ?2) ON CONFLICT (email) DO NOTHING").bind(email, token).run();
+  return (await env.DB.prepare("SELECT token FROM unsubscribe_tokens WHERE email = ?1").bind(email).first()).token;
+}
+
+// The unsubscribe link: takes the person off the list. Returns their email, or null.
+export async function unsubscribeByToken(env, token) {
+  if (!isToken(token)) return null;
+  const row = await env.DB.prepare("SELECT email FROM unsubscribe_tokens WHERE token = ?1").bind(token).first();
+  if (!row) return null;
+  await removeSubscriber(env, row.email);
+  return row.email;
+}
+
+function isToken(value) {
+  return typeof value === "string" && /^[0-9a-f-]{36}$/.test(value);
+}
+
+// key → { sentAt, recipients } for the keys that have been sent.
+export async function getEmailLog(env, keys) {
+  const log = new Map();
+  if (!hasDatabase(env) || !keys.length) return log;
+  try {
+    const { results } = await env.DB.prepare(`SELECT key, sent_at, recipients FROM email_log WHERE key IN (${keys.map((_, i) => `?${i + 1}`).join(",")})`)
+      .bind(...keys).all();
+    for (const row of results) log.set(row.key, { sentAt: row.sent_at, recipients: row.recipients });
+  } catch {
+    // The email tables haven't been added yet (schema.sql not re-run): nothing logged.
+  }
+  return log;
+}
+
+// Claims a key before sending, so two runs can't both send it. Returns false if already taken.
+export async function claimEmail(env, key) {
+  const result = await env.DB.prepare("INSERT INTO email_log (key, sent_at, recipients) VALUES (?1, ?2, 0) ON CONFLICT (key) DO NOTHING")
+    .bind(key, new Date().toISOString()).run();
+  if (result?.meta && typeof result.meta.changes === "number") return result.meta.changes > 0;
+  return true;
+}
+
+export async function logEmail(env, key, recipients) {
+  await env.DB.prepare(`INSERT INTO email_log (key, sent_at, recipients) VALUES (?1, ?2, ?3)
+    ON CONFLICT (key) DO UPDATE SET sent_at = excluded.sent_at, recipients = excluded.recipients`)
+    .bind(key, new Date().toISOString(), recipients).run();
+}
+
+export async function forgetEmail(env, key) {
+  await env.DB.prepare("DELETE FROM email_log WHERE key = ?1").bind(key).run();
+}
+
+/*
+==================================================
 LOAVES BOOKED PER DROP
 
 From Stripe Checkout Sessions marked as pickup:

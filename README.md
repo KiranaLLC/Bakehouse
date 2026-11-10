@@ -213,6 +213,63 @@ npm run deploy:orders
 When you're ready to stop using Hotplate, point the home page's pickup links
 (`index.html`) at `order.html?pickup`.
 
+### Emails
+
+The site can send its own emails through [Resend](https://resend.com) (free up
+to 3,000 a month). Until it's set up, nothing is sent and the orders page keeps
+opening drafts in the Mail app, so this is optional.
+
+Once it's on:
+
+- **New-order alert**: every paid order emails hellokiranabakehouse@gmail.com.
+- **Customer emails**: the orders page's **Email** button sends the
+  "delivered" or "ready for pickup" email itself (it asks first), and shows when
+  it was sent.
+- **New drop open**: everyone on the next-drop list gets an email within an
+  hour of a drop opening for orders. **Email notify list** on the Drops tab
+  sends it straight away instead.
+- **Pickup reminders**: everyone with a paid order for a drop gets a reminder
+  after 5 pm the day before. **Remind customers** sends it straight away
+  instead. Nothing is sent twice by the schedule.
+- **Next-drop list**: signing up sends a confirm link, and people only join the
+  list once they tap it. Every drop email has an unsubscribe link (and a
+  one-click unsubscribe for mail apps). People already on the list stay on it.
+
+Emails come from `hello@kiranabakehouse.com` (`EMAIL_FROM` in both wrangler
+files); replies go to the Gmail. To set it up:
+
+1. In Resend: **Domains → Add domain** → `kiranabakehouse.com`, and add the
+   DNS records it shows at your domain provider. Wait until it says Verified.
+2. In Resend: **API Keys → Create API key** (sending access is enough).
+3. Add the new email tables to the pickup database (safe to run again):
+
+   ```bash
+   cd worker
+   npx wrangler d1 execute kirana-pickup --remote --file=schema.sql
+   ```
+
+4. Save the key on both workers, and deploy both:
+
+   ```bash
+   npx wrangler secret put RESEND_API_KEY
+   npx wrangler secret put RESEND_API_KEY --config wrangler.orders.toml
+   npx wrangler deploy
+   npm run deploy:orders
+   ```
+
+5. For the new-order alert, in Stripe: **Developers → Webhooks → Add endpoint**,
+   URL `https://kirana-checkout.vanya-weng.workers.dev/api/stripe-webhook`,
+   events `checkout.session.completed` and
+   `checkout.session.async_payment_succeeded`. Copy its **Signing secret**
+   (`whsec_…`) and save it:
+
+   ```bash
+   npx wrangler secret put STRIPE_WEBHOOK_SECRET
+   ```
+
+The hourly schedule is in `worker/wrangler.toml` (`[triggers]`); the 5 pm
+reminder time is `SCHEDULE` in `worker/src/email-flows.js`.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public

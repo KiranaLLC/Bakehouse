@@ -423,7 +423,6 @@ img {
 
 .flavour-card {
   text-align: center;
-  opacity: 0.6;
 }
 
 .flavour-photo {
@@ -432,15 +431,16 @@ img {
   object-fit: cover;
   border-radius: 12px;
   display: block;
-  filter: grayscale(1);
+  opacity: 0.7;
 }
 
 .flavour-tile {
   display: grid;
   place-items: center;
   padding: 14px;
-  background: #b9b2a3;
-  color: #f7f3ea;
+  background: var(--deep-brown);
+  opacity: 0.7;
+  color: var(--cream);
   font-family: 'Luxurious Script', cursive;
   font-size: 1.8rem;
   line-height: 1.1;
@@ -449,7 +449,7 @@ img {
 .flavour-name {
   font-family: 'Host Grotesk', sans-serif;
   font-size: 0.98rem;
-  color: var(--text-dark);
+  color: var(--deep-brown);
   margin: 10px 0 2px;
 }
 

@@ -17,7 +17,7 @@
 
   <link
     rel="stylesheet"
-    href="./styles.css?v=1800"
+    href="./styles.css?v=1801"
   />
 
   <link
@@ -1642,6 +1642,13 @@
       class="shop-grid"
     ></div>
 
+    <!-- Past flavours: not orderable, shown greyed out (PAST_FLAVOURS in macros.js). -->
+    <section class="past-flavours" aria-labelledby="past-flavours-title">
+      <h3 id="past-flavours-title" class="past-flavours-title">Past flavours</h3>
+      <p class="past-flavours-intro">Not on the menu right now. Miss one? Email <a href="mailto:hellokiranabakehouse@gmail.com">hellokiranabakehouse@gmail.com</a> or DM us <a href="https://www.instagram.com/kiranabakehouse/" target="_blank" rel="noopener noreferrer">@kiranabakehouse</a> and we might bring it back.</p>
+      <ul id="past-flavours-list" class="past-flavours-list"></ul>
+    </section>
+
   </section>
 
 
@@ -1853,13 +1860,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261114",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261114",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261114"
+      "./macros.js": "./macros.js?v=20261115",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261115",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261115"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261114"></script>
+<script type="module" src="./order.js?v=20261115"></script>
+<script type="module" src="./past-flavours.js?v=20261115"></script>
 
 </body>
 

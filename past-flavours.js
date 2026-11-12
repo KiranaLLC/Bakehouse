@@ -1,7 +1,8 @@
 /*
-  Home page "Past Flavours": cards built from PAST_FLAVOURS in macros.js.
+  Order page "Past flavours", under the menu: greyed-out cards built from
+  PAST_FLAVOURS in macros.js. They can't be ordered.
 */
-import { PAST_FLAVOURS } from "./macros.js?v=20261115";
+import { PAST_FLAVOURS } from "./macros.js";
 
 const list = document.getElementById("past-flavours-list");
 

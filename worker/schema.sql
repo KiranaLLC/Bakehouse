@@ -69,3 +69,27 @@ CREATE TABLE IF NOT EXISTS contacts (
   source TEXT NOT NULL DEFAULT '',        -- e.g. "hotplate"
   created_at TEXT NOT NULL
 );
+
+-- Paid orders (or some of their loaves) moved to another day from the orders
+-- page. The order stays as it is in Stripe; each row here takes `items` off it
+-- and puts them on delivery_date (delivery) or drop_id (pickup). Capacity,
+-- prep and the orders page all read these. Customer details are copied in so
+-- a moved part can be shown and emailed on its own.
+CREATE TABLE IF NOT EXISTS order_moves (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id TEXT NOT NULL,                 -- cs_... (website order) or in_... (invoice)
+  items TEXT NOT NULL,                    -- JSON: {"House White":1}
+  delivery_date TEXT NOT NULL DEFAULT '', -- YYYY-MM-DD, for a delivery
+  drop_id INTEGER,                        -- for a pickup
+  from_date TEXT NOT NULL DEFAULT '',     -- the day it was on before
+  name TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  delivered_items TEXT NOT NULL DEFAULT '',
+  delivered_at TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS order_moves_order ON order_moves (order_id);

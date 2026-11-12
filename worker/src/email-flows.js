@@ -19,7 +19,8 @@ import { dayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pic
 import { canEmail, dropOpenEmail, pickupReminderEmail, sendEmails } from "./email.js";
 import { claimEmail, forgetEmail, getQuietDropIds, hasDatabase, listDrops, listSubscribers, logEmail, unsubscribeToken } from "./drops.js";
 import { listSessionsSince } from "./stripe-cache.js";
-import { CHECKOUT_HOLD_SECONDS } from "./capacity.js";
+import { CHECKOUT_HOLD_SECONDS, loavesFromMetadata } from "./capacity.js";
+import { listMoves, movedOutByOrder, sumItems } from "./moves.js";
 
 const SITE = "https://www.kiranabakehouse.com";
 
@@ -121,10 +122,17 @@ export async function announceDrop(env, drop, { now = Date.now(), force = false 
 export async function dropCustomerEmails(env, stripe, drop) {
   const since = Math.floor(Date.parse(drop.opensAt) / 1000) - CHECKOUT_HOLD_SECONDS;
   const emails = new Set();
+  // Orders moved here count; orders moved wholly to another day don't.
+  const moves = await listMoves(env);
+  const movedOut = movedOutByOrder(moves);
   for (const session of await listSessionsSince(env, stripe, since)) {
     if (session.status !== "complete" || session.metadata?.fulfillment !== "pickup" || session.metadata?.drop_id !== String(drop.id)) continue;
+    const left = (loavesFromMetadata(session) ?? 1) - sumItems(movedOut.get(session.id) || {});
     const email = session.customer_details?.email;
-    if (email) emails.add(email.toLowerCase());
+    if (email && left > 0) emails.add(email.toLowerCase());
+  }
+  for (const move of moves) {
+    if (move.dropId === String(drop.id) && move.email && !move.deliveredAt) emails.add(move.email.toLowerCase());
   }
   return [...emails];
 }

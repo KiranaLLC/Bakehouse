@@ -46,6 +46,7 @@ import {
 } from "../../delivery-rules.js";
 import { stripe } from "./stripe.js";
 import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
+import { applyMoves, listMoves } from "./moves.js";
 import { DropError, addPendingSubscriber, addSubscriber, claimEmail, confirmSubscriber, forgetEmail, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, logEmail, unsubscribeByToken } from "./drops.js";
 import { canEmail, confirmSubscriptionEmail, newOrderAlert, orderConfirmationEmail, sendEmail } from "./email.js";
 import { runScheduledEmails } from "./email-flows.js";
@@ -748,7 +749,9 @@ async function listDeliveryBookings(env, dates, { fresh = true } = {}) {
     bookings.push({ id: invoice.id, date: invoice.deliveryDate, created: 0, loaves: invoice.loaves, status: "invoice", invoice: true });
   }
 
-  return bookings;
+  // Orders moved to or from these days on the orders page.
+  const moves = await listMoves(env).catch(error => { console.error("Couldn't read moved orders", error); return []; });
+  return applyMoves(bookings, moves, { key: "date", wanted });
 
 }
 

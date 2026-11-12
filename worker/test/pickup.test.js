@@ -402,3 +402,35 @@ test("the order summary after paying shows the pickup details", async () => {
   assert.match(body.address, /Verve Coffee Roasters/);
   assert.equal(body.deliveryDate, "Saturday, 2 pm – 3 pm");
 });
+
+test("a paid pickup order can move to another drop, and both drops' counts follow", async () => {
+  const first = await makeDrop({ loafLimit: 5 });
+  const second = await makeDrop({ loafLimit: 5, pickupDate: addDays(today, 12) });
+  const id = paidPickup(first.id, 4, { name: "Rae Kim" });
+
+  // Delivery days can't be picked for a pickup order.
+  const noDrop = await callOrders("POST", `/admin/api/orders/${id}/move`, { deliveryDate: addDays(today, 6), items: { "House White": 1 } });
+  assert.equal(noDrop.status, 400);
+  assert.match(noDrop.body.error, /pickup drop/);
+
+  const moved = await callOrders("POST", `/admin/api/orders/${id}/move`, { dropId: second.id, items: { "House White": 3 } });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+
+  const drops = (await callOrders("GET", "/admin/api/drops")).body.drops;
+  assert.equal(drops.find(({ id: dropId }) => dropId === first.id).booked, 1);
+  assert.equal(drops.find(({ id: dropId }) => dropId === second.id).booked, 3);
+
+  // The public order page sees the same.
+  const publicDrops = (await callCheckout("GET", "/api/drops")).body.drops;
+  assert.equal(publicDrops.find(({ id: dropId }) => dropId === first.id).remaining, 4);
+  assert.equal(publicDrops.find(({ id: dropId }) => dropId === second.id).remaining, 2);
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(second.id, 3))).body.error, /can't fit/);
+
+  const { body } = await callOrders("GET", "/admin/api/orders");
+  const part = body.orders.find(({ kind }) => kind === "moved");
+  assert.equal(part.fulfillment, "pickup");
+  assert.equal(part.deliveryDate, second.pickupDate);
+  assert.match(part.address, /Verve Coffee Roasters/);
+  assert.match(part.pickupWhen, /\S/);
+  assert.equal(body.orders.find(o => o.id === id).loaves, 1);
+});

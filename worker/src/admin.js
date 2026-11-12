@@ -13,6 +13,7 @@ sites, which Safari would block).
   GET  /admin/api/orders                     paid orders and invoices not yet delivered
   POST /admin/api/orders/<id>/delivered      { delivered: true | false }
   POST /admin/api/orders/<id>/partial        { items: { "<loaf name>": <loaves delivered so far> } }
+  POST /admin/api/orders/<id>/move           { items: { "<loaf name>": <loaves to move> }, deliveryDate | dropId }
   GET  /admin/api/drops                      pickup drops (recent and upcoming)
   POST /admin/api/drops                      create a drop
   POST /admin/api/drops/<id>                 change a drop
@@ -54,6 +55,7 @@ import {
 import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
+import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
 
 const COOKIE_NAME = "kirana_admin";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
@@ -101,21 +103,28 @@ export async function handleAdmin(request, env, { stripe }) {
       return json(await listOpenOrders(env, stripe));
     }
 
-    const deliveredMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+)\/delivered$/);
+    const deliveredMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/delivered$/);
     if (request.method === "POST" && deliveredMatch) {
       const body = await request.json().catch(() => ({}));
       const result = await setDelivered(deliveredMatch[1], body.delivered !== false, env, stripe);
       return json(result, result.ok ? 200 : 400);
     }
 
-    const partialMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+)\/partial$/);
+    const partialMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/partial$/);
     if (request.method === "POST" && partialMatch) {
       const body = await request.json().catch(() => ({}));
       const result = await setPartlyDelivered(partialMatch[1], body.items, env, stripe);
       return json(result, result.ok ? 200 : 400);
     }
 
-    const emailMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+)\/email$/);
+    const moveMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/move$/);
+    if (request.method === "POST" && moveMatch) {
+      const body = await request.json().catch(() => ({}));
+      const result = await moveOrder(moveMatch[1], body, env, stripe);
+      return json(result, result.ok ? 200 : 400);
+    }
+
+    const emailMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/email$/);
     if (request.method === "POST" && emailMatch) {
       return json(await emailCustomer(emailMatch[1], env, stripe));
     }
@@ -129,6 +138,10 @@ export async function handleAdmin(request, env, { stripe }) {
 
     if (error instanceof DropError || error instanceof EmailError) {
       return json({ error: error.message }, 400);
+    }
+
+    if (/no such table: order_moves/i.test(error.message || "")) {
+      return json({ error: "Moving orders needs a new table in the pickup database. Run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql" }, 400);
     }
 
     console.error(error);
@@ -254,6 +267,8 @@ async function listOpenOrders(env, stripe) {
 
   const since = Math.floor(Date.now() / 1000) - ORDER_LOOKBACK_SECONDS;
   const today = bakeryTodayValue();
+  const moves = await listMoves(env);
+  const movedOut = movedOutByOrder(moves);
   const orders = [];
   let startingAfter;
 
@@ -277,6 +292,27 @@ async function listOpenOrders(env, stripe) {
   } while (startingAfter);
 
   orders.push(...await listOpenInvoices(env, stripe, since, today));
+
+  // Loaves moved to another day leave their order and show up on that day.
+  const drops = new Map();
+  const dropFor = async id => {
+    if (!id || !hasDatabase(env)) return null;
+    if (!drops.has(id)) drops.set(id, await getDrop(env, Number(id)));
+    return drops.get(id);
+  };
+  const open = [];
+  for (const order of orders) {
+    const moved = movedOut.get(order.id);
+    if (!moved) { open.push(order); continue; }
+    const left = withoutMoved(order, moved);
+    left.movedTo = await describeMovedTo(moves.filter(move => move.orderId === order.id), dropFor);
+    if (left.loaves > 0) open.push(left);
+  }
+  for (const move of moves) {
+    if (!move.deliveredAt) open.push(describeMove(move, today, await dropFor(move.dropId)));
+  }
+  orders.length = 0;
+  orders.push(...open);
 
   // Dated orders first, oldest date first; invoices with no delivery date last.
   // (Plain comparison: localeCompare would sort "~" before digits.)
@@ -336,6 +372,68 @@ function parseDeliveredItems(value) {
 
 function withDelivered(items, delivered) {
   return items.map(item => ({ ...item, delivered: Math.min(item.quantity, Math.max(0, Number(delivered[item.name]) || 0)) }));
+}
+
+// An order with the loaves moved to other days taken off.
+function withoutMoved(order, moved) {
+  const items = order.items
+    .map(item => {
+      const quantity = Math.max(0, item.quantity - (moved[item.name] || 0));
+      return { ...item, quantity, delivered: Math.min(item.delivered || 0, quantity) };
+    })
+    .filter(({ quantity }) => quantity > 0);
+  return {
+    ...order,
+    items,
+    loaves: items.reduce((total, { quantity }) => total + quantity, 0),
+    loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
+    movedLoaves: sumItems(moved)
+  };
+}
+
+async function describeMovedTo(moves, dropFor) {
+  const list = [];
+  for (const move of moves) {
+    const drop = await dropFor(move.dropId);
+    const date = drop ? drop.pickupDate : move.deliveryDate;
+    list.push({ label: date ? formatDeliveryDate(date) : "another day", loaves: sumItems(move.items) });
+  }
+  return list;
+}
+
+/*
+  A moved part, shown as its own order on its new
+  day. Its id is "mv_<number>".
+*/
+function describeMove(move, today, drop) {
+  const pickup = Boolean(move.dropId);
+  const date = pickup ? drop?.pickupDate || "" : move.deliveryDate;
+  const items = withDelivered(Object.entries(move.items).map(([name, quantity]) => ({ name, quantity })), move.deliveredItems);
+  return {
+    id: move.partId,
+    kind: "moved",
+    orderId: move.orderId,
+    fulfillment: pickup ? "pickup" : "delivery",
+    dropId: move.dropId,
+    pickupWhen: drop ? formatPickupWhen(drop) : "",
+    unpaid: false,
+    created: Math.floor(Date.parse(move.createdAt) / 1000) || 0,
+    deliveryDate: date,
+    deliveryLabel: date ? formatDeliveryDate(date) : "Pickup drop not found",
+    pastDue: Boolean(date) && date < today,
+    name: move.name,
+    phone: move.phone,
+    email: move.email,
+    address: pickup ? (drop ? `${drop.locationName}, ${drop.locationAddress}` : "") : move.address,
+    notes: move.notes,
+    items,
+    loaves: items.reduce((total, { quantity }) => total + quantity, 0),
+    loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
+    movedFrom: move.fromDate,
+    movedFromLabel: move.fromDate ? formatDeliveryDate(move.fromDate) : "",
+    totalCents: 0,
+    tipCents: 0
+  };
 }
 
 function sessionDeliveredItems(session) {
@@ -413,10 +511,8 @@ async function emailCustomer(id, env, stripe) {
 
   if (!canEmail(env)) throw new EmailError("Email isn't set up yet, so use the draft instead.");
 
-  const today = bakeryTodayValue();
-  const order = id.startsWith("cs_")
-    ? await describeOrder(await stripe(env, "GET", `/checkout/sessions/${id}`, { expand: ["payment_intent", "customer"] }), today, env, stripe)
-    : await describeInvoice(await stripe(env, "GET", `/invoices/${id}`, {}), today, env, stripe);
+  const order = await describeAny(id, bakeryTodayValue(), env, stripe);
+  if (!order) throw new EmailError("That order wasn't found.");
 
   if (!order.email) throw new EmailError("This order has no email address.");
 
@@ -436,6 +532,20 @@ async function emailCustomer(id, env, stripe) {
 
   return { ok: true, sentAt: new Date().toISOString() };
 
+}
+
+// Any order or moved part by id, as the orders page shows it (loaves moved
+// off an order are taken off it). null if a moved part isn't found.
+async function describeAny(id, today, env, stripe) {
+  if (id.startsWith("mv_")) {
+    const move = await getMove(env, id);
+    return move ? describeMove(move, today, move.dropId ? await getDrop(env, Number(move.dropId)) : null) : null;
+  }
+  const order = id.startsWith("cs_")
+    ? await describeOrder(await stripe(env, "GET", `/checkout/sessions/${id}`, { expand: ["payment_intent", "customer"] }), today, env, stripe)
+    : await describeInvoice(await stripe(env, "GET", `/invoices/${id}`, {}), today, env, stripe);
+  const moved = movedOutByOrder(await listMoves(env)).get(id);
+  return moved ? withoutMoved(order, moved) : order;
 }
 
 /*
@@ -549,7 +659,7 @@ export function prepByDate(orders) {
 */
 async function setPartlyDelivered(id, input, env, stripe) {
 
-  const target = await findDeliveryTarget(id, env, stripe);
+  const target = id.startsWith("mv_") ? await findMoveTarget(id, env) : await findDeliveryTarget(id, env, stripe);
   if (!target.ok) return target;
 
   const delivered = {};
@@ -569,6 +679,11 @@ async function setPartlyDelivered(id, input, env, stripe) {
 
   if (value.length > 500) return { ok: false, error: "Too many loaf types to save on this order." };
 
+  if (target.move) {
+    await setMoveDelivered(env, target.move, { deliveredItems: delivered, deliveredAt: complete ? new Date().toISOString() : "" });
+    return { ok: true, delivered, loavesDelivered: done, loaves: total, complete };
+  }
+
   await stripe(env, "POST", target.path, { metadata: {
     // Empty values remove the keys in Stripe.
     delivered_items: done ? value : "",
@@ -579,7 +694,21 @@ async function setPartlyDelivered(id, input, env, stripe) {
 
 }
 
-// Where an order's delivered state lives in Stripe, and its loaves.
+// A moved part's loaves; its delivered state lives in the database.
+async function findMoveTarget(id, env) {
+  const move = await getMove(env, id);
+  if (!move) return { ok: false, error: "That moved order wasn't found." };
+  return { ok: true, move, items: Object.entries(move.items).map(([name, quantity]) => ({ name, quantity })) };
+}
+
+// The loaves still on an order, after any moved to other days.
+async function itemsLeft(id, items, env) {
+  const moved = movedOutByOrder(await listMoves(env)).get(id) || {};
+  return items.map(item => ({ ...item, quantity: Math.max(0, item.quantity - (moved[item.name] || 0)) })).filter(({ quantity }) => quantity > 0);
+}
+
+// Where an order's delivered state lives in Stripe, and its loaves (those
+// still on it, not moved to another day).
 async function findDeliveryTarget(id, env, stripe) {
 
   if (id.startsWith("in_")) {
@@ -590,14 +719,14 @@ async function findDeliveryTarget(id, env, stripe) {
     const lines = invoice.lines?.has_more
       ? (await stripe(env, "GET", `/invoices/${id}/lines`, { limit: 100 })).data
       : invoice.lines?.data || [];
-    return { ok: true, path: `/invoices/${id}`, items: invoiceLoafItems(lines) };
+    return { ok: true, path: `/invoices/${id}`, items: await itemsLeft(id, invoiceLoafItems(lines), env) };
   }
 
   const session = await stripe(env, "GET", `/checkout/sessions/${id}`, {});
   if (session.status !== "complete" || !orderDate(session)) {
     return { ok: false, error: "That isn't a completed delivery order." };
   }
-  const items = await orderItems(session, env, stripe);
+  const items = await itemsLeft(id, await orderItems(session, env, stripe), env);
   if (session.payment_intent) return { ok: true, path: `/payment_intents/${session.payment_intent}`, items };
   if (session.customer) return { ok: true, path: `/customers/${session.customer}`, items };
   return { ok: false, error: "This order has no payment or customer in Stripe to mark." };
@@ -612,6 +741,15 @@ async function findDeliveryTarget(id, env, stripe) {
 async function setDelivered(id, delivered, env, stripe) {
 
   const value = delivered ? new Date().toISOString() : "";
+
+  if (id.startsWith("mv_")) {
+    const move = await getMove(env, id);
+    if (!move) return { ok: false, error: "That moved order wasn't found." };
+    // Undoing a tick keeps any loaves marked as partly delivered.
+    await setMoveDelivered(env, move, { deliveredItems: delivered ? {} : move.deliveredItems, deliveredAt: value });
+    return { ok: true, delivered };
+  }
+
   // An empty value removes the key in Stripe.
   const params = { metadata: { delivered_at: value } };
 
@@ -640,6 +778,110 @@ async function setDelivered(id, delivered, env, stripe) {
   }
 
   return { ok: true, delivered };
+
+}
+
+/*
+==================================================
+MOVING AN ORDER
+
+Moves a paid order, or some of its loaves, to
+another delivery day (delivery orders) or another
+pickup drop (pickup orders). Stripe isn't changed:
+the move is saved in the database (see moves.js),
+and the order page, prep and capacity all follow
+it. Loaves already handed over can't be moved.
+
+Moving a moved part again changes its day, or
+splits it. Moving it back to the order's own day
+puts its loaves back on the order.
+
+The customer isn't emailed; the page offers a
+draft to let them know.
+==================================================
+*/
+
+async function moveOrder(id, input, env, stripe) {
+
+  if (!hasDatabase(env)) return { ok: false, error: "Moving orders needs the pickup database. See README, \"Pickup drops\"." };
+
+  const today = bakeryTodayValue();
+  const source = await describeAny(id, today, env, stripe);
+  if (!source) return { ok: false, error: "That order wasn't found." };
+  if (source.kind !== "moved" && source.unpaid) return { ok: false, error: "Only paid orders can be moved." };
+
+  // The original order: a moved part goes back onto it when moved to its day.
+  const original = source.kind === "moved" ? await describeAny(source.orderId, today, env, stripe).catch(() => null) : source;
+  const pickup = source.fulfillment === "pickup";
+
+  // Where to.
+  let target;
+  if (pickup) {
+    const drop = /^\d+$/.test(String(input?.dropId || "")) ? await getDrop(env, Number(input.dropId)) : null;
+    if (!drop || drop.cancelled) return { ok: false, error: "Pick a pickup drop to move it to." };
+    if (drop.pickupDate < today) return { ok: false, error: "That drop has already happened." };
+    target = { dropId: String(drop.id), date: drop.pickupDate };
+  } else {
+    const date = String(input?.deliveryDate || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { ok: false, error: "Pick a day to move it to." };
+    if (date < today) return { ok: false, error: "Pick today or a day after." };
+    target = { deliveryDate: date, date };
+  }
+  const sameTarget = order => order && (pickup ? String(order.dropId) === target.dropId : order.deliveryDate === target.deliveryDate);
+  if (sameTarget(source)) return { ok: false, error: "It's already on that day." };
+
+  // Which loaves: up to what's still to hand over, for each.
+  const items = {};
+  for (const item of source.items) {
+    const raw = input?.items?.[item.name];
+    if (raw === undefined || raw === "" || raw === 0 || raw === "0") continue;
+    const count = Number(raw);
+    const movable = item.quantity - (item.delivered || 0);
+    if (!Number.isInteger(count) || count < 0 || count > movable) {
+      return { ok: false, error: `${item.name}: enter a number from 0 to ${movable}.` };
+    }
+    items[item.name] = count;
+  }
+  if (!sumItems(items)) return { ok: false, error: "Pick at least one loaf to move." };
+
+  const moves = await listMoves(env);
+  const sourceMove = source.kind === "moved" ? moves.find(move => move.partId === id) : null;
+  if (source.kind === "moved" && !sourceMove) return { ok: false, error: "That moved order wasn't found." };
+
+  const takeOff = (from, gone) => Object.fromEntries(Object.entries(from).map(([name, count]) => [name, count - (gone[name] || 0)]).filter(([, count]) => count > 0));
+  const addOn = (to, more) => { const sum = { ...to }; for (const [name, count] of Object.entries(more)) sum[name] = (sum[name] || 0) + count; return sum; };
+  const everything = sourceMove && !sumItems(sourceMove.deliveredItems) && sumItems(takeOff(sourceMove.items, items)) === 0;
+
+  // Another moved part of the same order already on that day takes them.
+  const orderId = sourceMove ? sourceMove.orderId : id;
+  const join = moves.find(move => move.orderId === orderId && move.partId !== id && !move.deliveredAt && sameTarget({ dropId: move.dropId, deliveryDate: move.deliveryDate }));
+
+  if (sourceMove && sameTarget(original)) {
+    // Back onto the order itself.
+    await updateMoveItems(env, sourceMove, takeOff(sourceMove.items, items));
+  } else if (join) {
+    await updateMoveItems(env, join, addOn(join.items, items));
+    if (sourceMove) await updateMoveItems(env, sourceMove, takeOff(sourceMove.items, items));
+  } else if (everything) {
+    await updateMoveTarget(env, sourceMove, { ...target, fromDate: source.deliveryDate });
+  } else {
+    await insertMove(env, {
+      orderId,
+      items,
+      deliveryDate: target.deliveryDate,
+      dropId: target.dropId,
+      fromDate: source.deliveryDate,
+      name: source.name,
+      email: source.email,
+      phone: source.phone,
+      // A pickup part's place comes from its drop.
+      address: pickup ? "" : source.address,
+      notes: source.notes
+    });
+    if (sourceMove) await updateMoveItems(env, sourceMove, takeOff(sourceMove.items, items));
+  }
+
+  return { ok: true, moved: sumItems(items), to: formatDeliveryDate(target.date) };
 
 }
 

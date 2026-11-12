@@ -8,6 +8,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { forgetStripeLists } from "../src/stripe-cache.js";
+import { createFakeD1 } from "./fake-d1.js";
+import { applyMoves } from "../src/moves.js";
 
 import worker from "../src/orders.js";
 import checkoutWorker from "../src/index.js";
@@ -432,4 +434,132 @@ test("invoices can be partly delivered too", async () => {
   assert.equal(updates.at(-1).object, "invoices");
   const order = (await call("GET", "/admin/api/orders", { cookie })).body.orders.find(({ id }) => id === "in_part");
   assert.equal(order.loavesDelivered, 6);
+});
+
+/*
+  Moving a paid order to another day.
+*/
+
+const withDb = () => ({ ...env, DB: createFakeD1() });
+
+test("a whole order can be moved to another delivery day", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  const from = addDays(today, 3);
+  const to = addDays(today, 6);
+  addOrder({ id: "cs_move", date: from, items: "house_white:2,pesto:1" });
+
+  const moved = await call("POST", "/admin/api/orders/cs_move/move", { cookie, useEnv, body: { deliveryDate: to, items: { "House White": 2, Pesto: 1 } } });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  assert.equal(moved.body.moved, 3);
+
+  const { body } = await call("GET", "/admin/api/orders", { cookie, useEnv });
+  assert.equal(body.orders.some(({ id }) => id === "cs_move"), false, "nothing left on the old day");
+  const part = body.orders.find(({ kind }) => kind === "moved");
+  assert.equal(part.deliveryDate, to);
+  assert.equal(part.movedFrom, from);
+  assert.equal(part.name, "Asha Rao");
+  assert.equal(part.address, "1 Oak St, Menlo Park, CA 94025");
+  assert.deepEqual(body.prep.map(({ date, total }) => [date, total]), [[to, 3]]);
+  // Stripe isn't changed.
+  assert.equal(updates.length, 0);
+});
+
+test("some loaves can be moved, and the rest stay on the order", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  const to = addDays(today, 5);
+  addOrder({ id: "cs_split", items: "house_white:3,pesto:2" });
+
+  await call("POST", "/admin/api/orders/cs_split/move", { cookie, useEnv, body: { deliveryDate: to, items: { "House White": 1 } } });
+  const { body } = await call("GET", "/admin/api/orders", { cookie, useEnv });
+  const left = body.orders.find(({ id }) => id === "cs_split");
+  assert.deepEqual(left.items.map(({ name, quantity }) => [name, quantity]), [["House White", 2], ["Pesto", 2]]);
+  assert.equal(left.loaves, 4);
+  assert.deepEqual(left.movedTo, [{ label: body.orders.find(({ kind }) => kind === "moved").deliveryLabel, loaves: 1 }]);
+  const part = body.orders.find(({ kind }) => kind === "moved");
+  assert.deepEqual(part.items.map(({ name, quantity }) => [name, quantity]), [["House White", 1]]);
+
+  // Moving the moved part back puts the loaf back on the order.
+  const back = await call("POST", `/admin/api/orders/${part.id}/move`, { cookie, useEnv, body: { deliveryDate: left.deliveryDate, items: { "House White": 1 } } });
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  const after = (await call("GET", "/admin/api/orders", { cookie, useEnv })).body;
+  assert.equal(after.orders.some(({ kind }) => kind === "moved"), false);
+  assert.equal(after.orders.find(({ id }) => id === "cs_split").loaves, 5);
+});
+
+test("a moved part can be delivered, partly delivered and emailed on its own", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  addOrder({ id: "cs_part2", items: "house_white:2,pesto:2" });
+  await call("POST", "/admin/api/orders/cs_part2/move", { cookie, useEnv, body: { deliveryDate: addDays(today, 7), items: { Pesto: 2 } } });
+  let part = (await call("GET", "/admin/api/orders", { cookie, useEnv })).body.orders.find(({ kind }) => kind === "moved");
+
+  const partly = await call("POST", `/admin/api/orders/${part.id}/partial`, { cookie, useEnv, body: { items: { Pesto: 1 } } });
+  assert.equal(partly.status, 200, JSON.stringify(partly.body));
+  part = (await call("GET", "/admin/api/orders", { cookie, useEnv })).body.orders.find(({ id }) => id === part.id);
+  assert.equal(part.loavesDelivered, 1);
+
+  // Only the loaf not yet handed over can move again.
+  const tooMany = await call("POST", `/admin/api/orders/${part.id}/move`, { cookie, useEnv, body: { deliveryDate: addDays(today, 8), items: { Pesto: 2 } } });
+  assert.equal(tooMany.status, 400);
+  assert.match(tooMany.body.error, /0 to 1/);
+
+  const done = await call("POST", `/admin/api/orders/${part.id}/delivered`, { cookie, useEnv, body: { delivered: true } });
+  assert.equal(done.status, 200);
+  const list = (await call("GET", "/admin/api/orders", { cookie, useEnv })).body.orders;
+  assert.equal(list.some(({ kind }) => kind === "moved"), false);
+  // The original still has its two House White.
+  assert.equal(list.find(({ id }) => id === "cs_part2").loaves, 2);
+  assert.equal(updates.length, 0);
+});
+
+test("delivering the rest of a partly moved order completes it", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  addOrder({ id: "cs_rest", items: "house_white:2,pesto:1" });
+  await call("POST", "/admin/api/orders/cs_rest/move", { cookie, useEnv, body: { deliveryDate: addDays(today, 7), items: { Pesto: 1 } } });
+  const saved = await call("POST", "/admin/api/orders/cs_rest/partial", { cookie, useEnv, body: { items: { "House White": 2 } } });
+  assert.equal(saved.body.complete, true);
+  assert.equal(saved.body.loaves, 2);
+});
+
+test("moves are checked: a day, at least one loaf, not the same day, not past", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  const date = addDays(today, 3);
+  addOrder({ id: "cs_bad", date, items: "house_white:2" });
+  const cases = [
+    [{ items: { "House White": 1 } }, /Pick a day/],
+    [{ deliveryDate: addDays(today, 5), items: {} }, /at least one loaf/],
+    [{ deliveryDate: date, items: { "House White": 1 } }, /already on that day/],
+    [{ deliveryDate: addDays(today, -1), items: { "House White": 1 } }, /today or a day after/],
+    [{ deliveryDate: addDays(today, 5), items: { "House White": 3 } }, /0 to 2/]
+  ];
+  for (const [body, error] of cases) {
+    const result = await call("POST", "/admin/api/orders/cs_bad/move", { cookie, useEnv, body });
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, error);
+  }
+  const noDb = await call("POST", "/admin/api/orders/cs_bad/move", { cookie, body: { deliveryDate: addDays(today, 5), items: { "House White": 1 } } });
+  assert.equal(noDb.status, 400);
+  assert.match(noDb.body.error, /database/);
+});
+
+test("capacity follows moves: loaves leave the old day and count on the new one", () => {
+  const moves = [
+    { partId: "mv_1", orderId: "cs_a", items: { "House White": 2 }, deliveryDate: "2026-11-20", dropId: "" },
+    { partId: "mv_2", orderId: "cs_old", items: { Pesto: 1 }, deliveryDate: "2026-11-20", dropId: "" },
+    { partId: "mv_3", orderId: "cs_b", items: { Pesto: 3 }, deliveryDate: "", dropId: "7" }
+  ];
+  const bookings = [{ id: "cs_a", date: "2026-11-15", created: 5, loaves: 3 }, { id: "cs_c", date: "2026-11-20", created: 6, loaves: 4 }];
+  const counted = applyMoves(bookings, moves, { key: "date", wanted: new Set(["2026-11-15", "2026-11-20"]) });
+  const byDate = date => counted.filter(booking => booking.date === date).reduce((sum, { loaves }) => sum + loaves, 0);
+  assert.equal(byDate("2026-11-15"), 1);
+  // Moved parts count even when their order is too old to be listed (cs_old).
+  assert.equal(byDate("2026-11-20"), 7);
+  assert.ok(counted.filter(({ status }) => status === "moved").every(({ invoice, created }) => invoice && created === 0));
+
+  const drops = applyMoves([], moves, { key: "dropId", wanted: new Set(["7"]) });
+  assert.deepEqual(drops.map(({ id, loaves }) => [id, loaves]), [["mv_3", 3]]);
 });

@@ -170,6 +170,13 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .email { border: 2px solid var(--terracotta); background: white; color: var(--terracotta) !important; font: inherit; font-weight: 600; }
   .email.sent { border-color: var(--line); color: var(--muted) !important; }
   .sent-note { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
+  .badge.moved { color: #8a5a00; }
+  .move-note { margin: -4px 0 10px; font-size: .9rem; color: var(--muted); font-style: italic; }
+  .move-label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .part-editor select, .part-editor input[type=date] { width: 100%; padding: 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin-bottom: 6px; }
+  .move-hint { min-height: 1em; }
+  .move-done { color: var(--good) !important; font-weight: 600; }
+  .move-email { display: block; margin: 6px 0 4px; color: var(--terracotta); }
   .part-note { margin: -4px 0 10px; font-size: .9rem; color: var(--good); font-weight: 600; }
   .part-toggle { display: block; margin: 10px auto 0; background: none; border: 0; padding: 4px; font: inherit; font-size: .9rem; color: var(--terracotta); text-decoration: underline; cursor: pointer; }
   .part-editor { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
@@ -463,8 +470,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       order.email ? el("dd", { text: order.email }) : null,
       order.notes ? el("dt", { text: "Notes" }) : null,
       order.notes ? el("dd", { text: order.notes }) : null,
-      el("dt", { text: order.unpaid ? "Amount due" : "Paid" }),
-      el("dd", { text: money(order.totalCents) + (order.tipCents ? " (incl. " + money(order.tipCents) + " tip)" : "") })
+      order.kind === "moved" ? el("dt", { text: "Moved from" }) : null,
+      order.kind === "moved" ? el("dd", { text: (order.movedFromLabel || "another day") + " (already paid)" }) : null,
+      order.kind === "moved" ? null : el("dt", { text: order.unpaid ? "Amount due" : "Paid" }),
+      order.kind === "moved" ? null : el("dd", { text: money(order.totalCents) + (order.tipCents ? " (incl. " + money(order.tipCents) + " tip)" : "") })
     );
 
     // Two separate actions: emailing doesn't mark the order, and marking
@@ -476,18 +485,130 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       el("h3", { text: order.name || "(no name)" },
         order.kind === "invoice" ? el("span", { class: "badge invoice", text: "Invoice" + (order.invoiceNumber ? " " + order.invoiceNumber : "") }) : null,
         order.fulfillment === "pickup" ? el("span", { class: "badge pickup", text: "Pickup" }) : null,
+        order.kind === "moved" ? el("span", { class: "badge moved", text: "Moved" }) : null,
         order.unpaid ? el("span", { class: "badge unpaid", text: "Unpaid" }) : null
       ),
       el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
       order.loavesDelivered ? el("p", { class: "part-note", text: "Partly " + (order.fulfillment === "pickup" ? "picked up" : "delivered") + ": " + order.loavesDelivered + " of " + order.loaves + " loaves" }) : null,
+      ...(order.movedTo || []).map(function (move) {
+        return el("p", { class: "move-note", text: plural(move.loaves, "loaf").replace("loafs", "loaves") + " moved to " + move.label });
+      }),
       details,
       el("div", { class: "order-actions" },
         order.email ? emailControl(order, "email") : null,
         button
       ),
       order.emailedAt ? el("p", { class: "sent-note", text: "Email sent " + shortTime(order.emailedAt) }) : null,
-      order.items.length ? partControl(order) : null
+      order.items.length ? partControl(order) : null,
+      order.items.length && !order.unpaid ? moveControl(order) : null
     );
+  }
+
+  /*
+    "Move to another day": all or some of a paid
+    order's loaves, to another delivery day or
+    pickup drop. Loaves already handed over stay.
+  */
+  function moveControl(order) {
+    var wrap = el("div", {});
+    var pickup = order.fulfillment === "pickup";
+    var toggle = el("button", { class: "part-toggle", type: "button", text: "Move to another day" });
+    wrap.append(toggle);
+
+    toggle.addEventListener("click", function () {
+      toggle.hidden = true;
+      var movable = order.items.map(function (item) { return { item: item, left: item.quantity - (item.delivered || 0) }; })
+        .filter(function (entry) { return entry.left > 0; });
+      var error = el("p", { class: "error", role: "alert", hidden: "hidden" });
+      var cancel = el("button", { class: "cancel", type: "button", text: "Cancel" });
+      var save = el("button", { type: "button", text: "Move" });
+      var hint = el("p", { class: "move-hint" });
+      var where;
+
+      if (pickup) {
+        var drops = ((state.drops && state.drops.drops) || []).filter(function (drop) {
+          return !drop.cancelled && drop.pickupDate >= state.today && String(drop.id) !== String(order.dropId);
+        });
+        where = el("select", { id: "move-to-" + order.id },
+          el("option", { value: "", text: drops.length ? "Choose a drop" : "No other upcoming drops" }),
+          ...drops.map(function (drop) {
+            return el("option", { value: String(drop.id), text: drop.when + " · " + drop.booked + " of " + drop.loafLimit + " loaves booked" + (drop.booked >= drop.loafLimit ? " (full)" : "") });
+          })
+        );
+      } else {
+        where = el("input", { type: "date", id: "move-to-" + order.id, min: state.today || "" });
+        where.addEventListener("change", function () {
+          var booked = loafCount(state.orders.filter(function (other) { return other.deliveryDate === where.value && other.fulfillment !== "pickup"; }));
+          hint.textContent = where.value ? plural(booked, "loaf").replace("loafs", "loaves") + " already to deliver that day." : "";
+        });
+      }
+
+      var inputs = movable.map(function (entry, index) {
+        var field = el("input", { type: "number", id: "move-" + order.id + "-" + index, min: "0", max: String(entry.left), value: String(entry.left), inputmode: "numeric" });
+        return { item: entry.item, left: entry.left, field: field };
+      });
+
+      var editor = el("div", { class: "part-editor" },
+        el("label", { class: "move-label", for: where.id, text: pickup ? "Move to which pickup drop?" : "Move to which day?" }),
+        where,
+        hint,
+        el("p", { text: "Loaves to move (leave them all for the whole order):" }),
+        ...inputs.map(function (entry) {
+          return el("div", { class: "part-row" },
+            el("label", { for: entry.field.id, text: entry.item.name }),
+            entry.field,
+            el("span", { class: "of", text: "of " + entry.left })
+          );
+        }),
+        error,
+        el("div", { class: "part-buttons" }, cancel, save)
+      );
+      wrap.append(editor);
+
+      cancel.addEventListener("click", function () { editor.remove(); toggle.hidden = false; });
+      save.addEventListener("click", function () {
+        var items = {};
+        inputs.forEach(function (entry) { items[entry.item.name] = Number(entry.field.value || 0); });
+        var body = { items: items };
+        if (pickup) body.dropId = where.value; else body.deliveryDate = where.value;
+        save.disabled = true;
+        save.textContent = "Moving…";
+        api("POST", "orders/" + order.id + "/move", body).then(function (result) {
+          var moved = movable.filter(function (entry) { return items[entry.item.name] > 0; })
+            .map(function (entry) { return { name: entry.item.name, quantity: items[entry.item.name] }; });
+          editor.replaceChildren(
+            el("p", { class: "move-done", text: plural(result.moved, "loaf").replace("loafs", "loaves") + " moved to " + result.to + "." }),
+            order.email ? el("a", { class: "move-email", href: movedEmail(order, moved, result.to, pickup ? where.options[where.selectedIndex].text.split(" · ")[0] : ""), text: "Email " + firstName(order) + " about the new day" }) : null,
+            el("div", { class: "part-buttons" }, el("button", { type: "button", text: "Done", onclick: load }))
+          );
+        }).catch(function (problem) {
+          if (problem.message === "signed-out") return;
+          save.disabled = false;
+          save.textContent = "Move";
+          error.textContent = problem.message;
+          error.hidden = false;
+        });
+      });
+    });
+
+    return wrap;
+  }
+
+  // A draft telling the customer their loaves are on a new day.
+  function movedEmail(order, items, dayLabel, pickupWhen) {
+    var lines = [
+      "Hi " + firstName(order) + ",",
+      "",
+      "Just letting you know we've moved your Kirana Bakehouse order" + (pickupWhen ? " to the pickup on " + pickupWhen : " to " + dayLabel) + ":",
+      ""
+    ].concat(items.map(function (item) { return item.quantity + " × " + item.name; })).concat([
+      "",
+      "It's already paid for, so there's nothing you need to do. If the new day doesn't work for you, just reply to this email.",
+      "",
+      "Thank you,",
+      "Kirana Bakehouse"
+    ]);
+    return mailto(order.email, [], "Your Kirana Bakehouse order has a new " + (pickupWhen ? "pickup" : "delivery") + " day", lines);
   }
 
   // "Part delivered…": how many of each loaf have gone out so far.

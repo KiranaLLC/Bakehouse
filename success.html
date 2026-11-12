@@ -135,6 +135,59 @@
     }
 
 
+    .help-box {
+
+      margin-top: 30px;
+
+      padding: 20px;
+
+      border: 2px solid rgba(166, 58, 31, 0.35);
+
+      border-radius: 12px;
+
+      text-align: left;
+
+    }
+
+
+    .help-box h2 {
+
+      font-family: 'Host Grotesk', 'Montserrat', sans-serif;
+
+      font-size: 1.15rem;
+
+      color: var(--terracotta);
+
+      margin: 0 0 8px;
+
+    }
+
+
+    .help-box p {
+
+      font-size: 0.95rem !important;
+
+      margin-bottom: 8px !important;
+
+    }
+
+
+    .help-box a {
+
+      color: var(--terracotta);
+
+      font-weight: 600;
+
+    }
+
+
+    .help-pickup {
+
+      font-weight: 600;
+
+    }
+
+
     .reorder {
 
       margin-top: 30px;
@@ -373,6 +426,13 @@
     </p>
 
 
+    <section class="help-box" aria-labelledby="help-title">
+      <h2 id="help-title">Questions about your order?</h2>
+      <p id="help-pickup" class="help-pickup" hidden></p>
+      <p id="help-contact"></p>
+    </section>
+
+
     <p id="reorder" class="reorder" hidden>
       <strong>Ordering again?</strong>
       Save this link to reorder the same loaves in one tap:<br>
@@ -401,13 +461,13 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261113",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261113",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261113"
+      "./macros.js": "./macros.js?v=20261114",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261114",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261114"
     }
   }
 </script>
-<script type="module" src="./success.js?v=20261113"></script>
+<script type="module" src="./success.js?v=20261114"></script>
 
 </body>
 

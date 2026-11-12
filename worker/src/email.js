@@ -14,7 +14,7 @@ domain). Replies go to the bakery's Gmail.
 ==================================================
 */
 
-import { PRODUCTS } from "../../macros.js";
+import { CONTACT, PRODUCTS } from "../../macros.js";
 
 export const BAKERY_EMAIL = "hellokiranabakehouse@gmail.com";
 const DEFAULT_FROM = "Kirana Bakehouse <hello@kiranabakehouse.com>";
@@ -75,6 +75,18 @@ orders page used to open in the Mail app.
 
 const SIGN_OFF = ["", "Kirana Bakehouse"];
 
+// How to reach us, at the end of customer emails. Pickup emails also say what
+// to do if they can't find us.
+export function contactLines({ pickup = false } = {}) {
+  const lines = ["", `Questions? Just reply to this email, or DM us on Instagram @${CONTACT.instagram}.`];
+  if (pickup) {
+    lines.push(CONTACT.pickupPhone
+      ? `Can't find us at pickup? Call or text ${CONTACT.pickupPhone}.`
+      : `Can't find us at pickup? DM @${CONTACT.instagram} on Instagram; we check it during pickup.`);
+  }
+  return lines;
+}
+
 function itemLines(items) {
   return items.map(({ name, quantity }) => `${quantity} × ${name}`);
 }
@@ -123,6 +135,7 @@ export function pickupReadyEmail({ to, name, items, when, place }) {
       "",
       `When: ${when}`,
       ...place,
+      ...contactLines({ pickup: true }),
       "",
       "See you soon!",
       ...SIGN_OFF.slice(1)
@@ -168,6 +181,7 @@ export function pickupReminderEmail({ to, when, place }) {
       "",
       `When: ${when}`,
       ...place,
+      ...contactLines({ pickup: true }),
       "",
       "See you there!",
       ...SIGN_OFF.slice(1)
@@ -190,6 +204,37 @@ export function confirmSubscriptionEmail({ to, confirmUrl }) {
       ...SIGN_OFF
     ].join("\n")
   };
+}
+
+// To the customer, once their payment goes through.
+export function orderConfirmationEmail(session) {
+
+  const meta = session.metadata || {};
+  const pickup = meta.fulfillment === "pickup";
+  const name = firstName(meta.customer_name || session.customer_details?.name);
+  const when = pickup ? meta.pickup_label : `${meta.delivery_date_label || meta.delivery_date}, 2–4 pm`;
+
+  return {
+    to: session.customer_details?.email,
+    subject: pickup ? `Your Kirana Bakehouse order: pickup ${meta.pickup_label}` : `Your Kirana Bakehouse order: delivery ${meta.delivery_date_label || meta.delivery_date}`,
+    text: [
+      `Hi ${name},`,
+      "",
+      "Thank you for your order! Here's what we're baking for you:",
+      "",
+      ...itemLines(itemsFromMetadata(meta.items)),
+      "",
+      pickup ? `Pickup: ${when}` : `Delivery: ${when}`,
+      pickup ? `Where: ${meta.pickup_location}` : `To: ${meta.delivery_address || ""}`,
+      `Total paid: $${((session.amount_total || 0) / 100).toFixed(2)}`,
+      "",
+      pickup ? "Your sourdough will be baked fresh that morning and waiting for you." : "Your sourdough will be baked fresh that morning.",
+      "Stripe sends your receipt separately.",
+      ...contactLines({ pickup }),
+      ...SIGN_OFF
+    ].join("\n")
+  };
+
 }
 
 export function newOrderAlert(session) {

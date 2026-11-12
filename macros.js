@@ -19,6 +19,15 @@ a new drop; every drop can change them.
 ==================================================
 */
 
+// How customers reach the bakery: the thank-you page and the site's emails.
+export const CONTACT = Object.freeze({
+  email: "hellokiranabakehouse@gmail.com",
+  instagram: "kiranabakehouse",
+  // A number to call or text on pickup day (e.g. a Google Voice number),
+  // written how it should show, like "(650) 555-0123". "" leaves it out.
+  pickupPhone: "(408) 548-7856"
+});
+
 export const PICKUP = Object.freeze({
   timeZone: "America/Los_Angeles",
   // How many upcoming drops the order page shows at once.

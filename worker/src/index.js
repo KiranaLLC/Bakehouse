@@ -47,7 +47,7 @@ import {
 import { stripe } from "./stripe.js";
 import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
 import { DropError, addPendingSubscriber, addSubscriber, claimEmail, confirmSubscriber, forgetEmail, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, logEmail, unsubscribeByToken } from "./drops.js";
-import { canEmail, confirmSubscriptionEmail, newOrderAlert, sendEmail } from "./email.js";
+import { canEmail, confirmSubscriptionEmail, newOrderAlert, orderConfirmationEmail, sendEmail } from "./email.js";
 import { runScheduledEmails } from "./email-flows.js";
 import { dropStatus, formatMoment, formatPickupWhen } from "../../pickup-rules.js";
 import {
@@ -627,7 +627,8 @@ async function handleUnsubscribeLink(url, request, env) {
 /*
   Stripe calls this when an order is paid (event
   checkout.session.completed). The bakery gets a
-  "new order" email, once per order. The call is
+  "new order" email and the customer gets an order
+  confirmation, each once per order. The call is
   checked with STRIPE_WEBHOOK_SECRET so no one else
   can fake it.
 */
@@ -647,17 +648,21 @@ async function handleStripeWebhook(request, env) {
 
   if (!paid || !session?.id || !canEmail(env)) return new Response("Ignored.", { status: 200 });
 
-  const key = `alert:${session.id}`;
-  if (hasDatabase(env) && !await claimEmail(env, key).catch(() => true)) return new Response("Already sent.", { status: 200 });
+  // The bakery's alert, and the customer's confirmation: each once per order.
+  const emails = [[`alert:${session.id}`, newOrderAlert(session)]];
+  if (session.customer_details?.email) emails.push([`confirm:${session.id}`, orderConfirmationEmail(session)]);
 
-  try {
-    await sendEmail(env, newOrderAlert(session));
-    if (hasDatabase(env)) await logEmail(env, key, 1).catch(() => {});
-  } catch (error) {
-    if (hasDatabase(env)) await forgetEmail(env, key).catch(() => {});
-    console.error(error);
-    // Stripe tries again later.
-    return new Response("Email failed.", { status: 500 });
+  for (const [key, message] of emails) {
+    if (hasDatabase(env) && !await claimEmail(env, key).catch(() => true)) continue;
+    try {
+      await sendEmail(env, message);
+      if (hasDatabase(env)) await logEmail(env, key, 1).catch(() => {});
+    } catch (error) {
+      if (hasDatabase(env)) await forgetEmail(env, key).catch(() => {});
+      console.error(error);
+      // Stripe tries again later; whatever already went out isn't sent twice.
+      return new Response("Email failed.", { status: 500 });
+    }
   }
 
   return new Response("Sent.", { status: 200 });

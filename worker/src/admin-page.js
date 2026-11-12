@@ -287,6 +287,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       var data = results[0];
       state.orders = data.orders;
       state.emailReady = Boolean(data.emailReady);
+      state.contact = data.contact || {};
       state.delivered = {};
       $("loading").hidden = true;
       $("signin").hidden = true;
@@ -556,6 +557,14 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       "&body=" + encodeURIComponent(lines.join("\r\n"));
   }
 
+  // "Can't find us?" for pickup drafts (the same line the site's own emails use).
+  function findUsLines() {
+    var c = state.contact || {};
+    if (!c.instagram) return [];
+    return ["", "Questions? Just reply to this email, or DM us on Instagram @" + c.instagram + ".",
+      c.pickupPhone ? "Can't find us at pickup? Call or text " + c.pickupPhone + "." : "Can't find us at pickup? DM @" + c.instagram + " on Instagram; we check it during pickup."];
+  }
+
   function dropFor(order) {
     return (state.drops && state.drops.drops || []).filter(function (drop) { return String(drop.id) === String(order.dropId); })[0];
   }
@@ -576,7 +585,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     ].concat(order.items.map(function (item) { return item.quantity + " × " + item.name; })).concat([
       "",
       "When: " + order.pickupWhen
-    ]).concat(placeLines(drop, order.address)).concat([
+    ]).concat(placeLines(drop, order.address)).concat(findUsLines()).concat([
       "",
       "See you soon!",
       "Kirana Bakehouse"
@@ -621,7 +630,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       "A friendly reminder that your Kirana Bakehouse order will be ready for pickup:",
       "",
       "When: " + drop.when
-    ].concat(placeLines(drop)).concat([
+    ].concat(placeLines(drop)).concat(findUsLines()).concat([
       "",
       "See you there!",
       "Kirana Bakehouse"

@@ -177,6 +177,18 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .move-hint { min-height: 1em; }
   .move-done { color: var(--good) !important; font-weight: 600; }
   .move-email { display: block; margin: 6px 0 4px; color: var(--terracotta); }
+  .part-list { list-style: none; margin: 0 0 12px; padding: 0; }
+  .part-list li { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; font-weight: 600; }
+  .part-list .mark { width: 1.1em; flex: none; text-align: center; }
+  .part-list li.some .mark, .part-list li.todo .mark { width: 12px; height: 12px; margin: 0 2px; border-radius: 50%; border: 2px solid #8a5a00; align-self: center; }
+  .part-list li.some .mark { background: linear-gradient(90deg, #8a5a00 50%, transparent 50%); }
+  .part-list li.todo .mark { border-color: var(--muted); }
+  .part-list .what { flex: 1; }
+  .part-list .status { font-size: .85rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+  .part-list li.done { color: var(--good); }
+  .part-list li.done .what { text-decoration: line-through; }
+  .part-list li.done .status { color: var(--good); }
+  .part-list li.some .status { color: #8a5a00; }
   .part-note { margin: -4px 0 10px; font-size: .9rem; color: var(--good); font-weight: 600; }
   .part-toggle { display: block; margin: 10px auto 0; background: none; border: 0; padding: 4px; font: inherit; font-size: .9rem; color: var(--terracotta); text-decoration: underline; cursor: pointer; }
   .part-editor { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
@@ -488,8 +500,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         order.kind === "moved" ? el("span", { class: "badge moved", text: "Moved" }) : null,
         order.unpaid ? el("span", { class: "badge unpaid", text: "Unpaid" }) : null
       ),
-      el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
+      order.loavesDelivered ? null : el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
       order.loavesDelivered ? el("p", { class: "part-note", text: "Partly " + (order.fulfillment === "pickup" ? "picked up" : "delivered") + ": " + order.loavesDelivered + " of " + order.loaves + " loaves" }) : null,
+      order.loavesDelivered ? partList(order) : null,
       ...(order.movedTo || []).map(function (move) {
         return el("p", { class: "move-note", text: plural(move.loaves, "loaf").replace("loafs", "loaves") + " moved to " + move.label });
       }),
@@ -502,6 +515,21 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       order.items.length ? partControl(order) : null,
       order.items.length && !order.unpaid ? moveControl(order) : null
     );
+  }
+
+  // Each loaf of a partly delivered order: done, partly done, or still to go.
+  function partList(order) {
+    var verb = order.fulfillment === "pickup" ? "picked up" : "delivered";
+    return el("ul", { class: "part-list" }, ...order.items.map(function (item) {
+      var done = item.delivered || 0;
+      var state = done >= item.quantity ? "done" : done ? "some" : "todo";
+      var status = state === "done" ? "all " + verb : state === "some" ? done + " of " + item.quantity + " " + verb : "still to go";
+      return el("li", { class: state },
+        el("span", { class: "mark", "aria-hidden": "true", text: state === "done" ? "\u2713" : "" }),
+        el("span", { class: "what", text: item.quantity + " \u00d7 " + item.name }),
+        el("span", { class: "status", text: status })
+      );
+    }));
   }
 
   /*

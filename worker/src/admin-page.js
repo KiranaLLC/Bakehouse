@@ -358,8 +358,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return days;
   }
 
+  // Loaves still to go out: partly delivered loaves don't count.
   function loafCount(orders) {
-    return orders.reduce(function (total, order) { return total + order.loaves; }, 0);
+    return orders.reduce(function (total, order) { return total + order.loaves - (order.loavesDelivered || 0); }, 0);
   }
 
   function render() {
@@ -551,7 +552,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     byDay(open).forEach(function (day) {
       var counts = {};
       day.orders.forEach(function (order) {
-        order.items.forEach(function (item) { counts[item.name] = (counts[item.name] || 0) + item.quantity; });
+        order.items.forEach(function (item) {
+          var left = item.quantity - (item.delivered || 0);
+          if (left > 0) counts[item.name] = (counts[item.name] || 0) + left;
+        });
       });
       var names = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
       var total = loafCount(day.orders);

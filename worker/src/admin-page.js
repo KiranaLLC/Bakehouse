@@ -129,6 +129,17 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .email { border: 2px solid var(--terracotta); background: white; color: var(--terracotta) !important; font: inherit; font-weight: 600; }
   .email.sent { border-color: var(--line); color: var(--muted) !important; }
   .sent-note { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
+  .part-note { margin: -4px 0 10px; font-size: .9rem; color: var(--good); font-weight: 600; }
+  .part-toggle { display: block; margin: 10px auto 0; background: none; border: 0; padding: 4px; font: inherit; font-size: .9rem; color: var(--terracotta); text-decoration: underline; cursor: pointer; }
+  .part-editor { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+  .part-editor p { margin: 0 0 8px; font-size: .9rem; color: var(--muted); }
+  .part-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+  .part-row label { flex: 1; }
+  .part-row input { width: 64px; padding: 8px; font: inherit; text-align: center; border: 1px solid var(--line); border-radius: 8px; }
+  .part-row .of { color: var(--muted); font-size: .9rem; min-width: 3.5ch; }
+  .part-buttons { display: flex; gap: 8px; margin-top: 10px; }
+  .part-buttons button { flex: 1; padding: 10px; font: inherit; font-weight: 600; border-radius: 999px; cursor: pointer; border: 2px solid var(--good); background: white; color: var(--good); }
+  .part-buttons .cancel { border-color: var(--line); color: var(--muted); }
   .done { border-color: var(--good); }
   .done p { margin: 0 0 6px; color: var(--good); font-weight: 600; }
   .done .actions { display: flex; gap: 16px; flex-wrap: wrap; font-size: .95rem; }
@@ -210,7 +221,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   function describeItems(items) {
     // Non-breaking spaces keep "2 × House White" on one line.
-    return items.map(function (item) { return item.quantity + "\u00a0×\u00a0" + item.name; }).join(", ");
+    return items.map(function (item) {
+      return item.quantity + "\u00a0×\u00a0" + item.name + (item.delivered ? " (" + item.delivered + "\u00a0delivered)" : "");
+    }).join(", ");
   }
 
   function api(method, path, body) {
@@ -412,13 +425,66 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         order.unpaid ? el("span", { class: "badge unpaid", text: "Unpaid" }) : null
       ),
       el("p", { class: "items", text: order.items.length ? describeItems(order.items) : "No loaves listed on this invoice" }),
+      order.loavesDelivered ? el("p", { class: "part-note", text: "Partly " + (order.fulfillment === "pickup" ? "picked up" : "delivered") + ": " + order.loavesDelivered + " of " + order.loaves + " loaves" }) : null,
       details,
       el("div", { class: "order-actions" },
         order.email ? emailControl(order, "email") : null,
         button
       ),
-      order.emailedAt ? el("p", { class: "sent-note", text: "Email sent " + shortTime(order.emailedAt) }) : null
+      order.emailedAt ? el("p", { class: "sent-note", text: "Email sent " + shortTime(order.emailedAt) }) : null,
+      order.items.length ? partControl(order) : null
     );
+  }
+
+  // "Part delivered…": how many of each loaf have gone out so far.
+  function partControl(order) {
+    var wrap = el("div", {});
+    var verb = order.fulfillment === "pickup" ? "picked up" : "delivered";
+    var toggle = el("button", { class: "part-toggle", type: "button", text: order.loavesDelivered ? "Update what\u2019s been " + verb : "Mark some loaves " + verb });
+    wrap.append(toggle);
+
+    toggle.addEventListener("click", function () {
+      toggle.hidden = true;
+      var inputs = order.items.map(function (item, index) {
+        var field = el("input", { type: "number", id: "part-" + order.id + "-" + index, min: "0", max: String(item.quantity), value: String(item.delivered || 0), inputmode: "numeric" });
+        return { item: item, field: field };
+      });
+      var error = el("p", { class: "error", role: "alert", hidden: "hidden" });
+      var save = el("button", { type: "button", text: "Save" });
+      var cancel = el("button", { class: "cancel", type: "button", text: "Cancel" });
+      var editor = el("div", { class: "part-editor" },
+        el("p", { text: "How many of each loaf have been " + verb + " so far? The order stays here until every loaf has." }),
+        ...inputs.map(function (entry) {
+          return el("div", { class: "part-row" },
+            el("label", { for: entry.field.id, text: entry.item.name }),
+            entry.field,
+            el("span", { class: "of", text: "of " + entry.item.quantity })
+          );
+        }),
+        error,
+        el("div", { class: "part-buttons" }, cancel, save)
+      );
+      wrap.append(editor);
+
+      cancel.addEventListener("click", function () { editor.remove(); toggle.hidden = false; });
+      save.addEventListener("click", function () {
+        var items = {};
+        inputs.forEach(function (entry) { items[entry.item.name] = Number(entry.field.value || 0); });
+        save.disabled = true;
+        save.textContent = "Saving\u2026";
+        api("POST", "orders/" + order.id + "/partial", { items: items }).then(function () {
+          load();
+        }).catch(function (problem) {
+          if (problem.message === "signed-out") return;
+          save.disabled = false;
+          save.textContent = "Save";
+          error.textContent = problem.message;
+          error.hidden = false;
+        });
+      });
+    });
+
+    return wrap;
   }
 
   // With email set up, the button sends the email itself; otherwise it opens a draft.

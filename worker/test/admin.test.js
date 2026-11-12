@@ -118,7 +118,19 @@ async function fakeStripe(input, init = {}) {
 
   const updateMatch = url.pathname.match(/^\/v1\/(payment_intents|customers|invoices)\/(\w+)$/);
   if (method === "POST" && updateMatch) {
-    updates.push({ object: updateMatch[1], id: updateMatch[2], deliveredAt: params.get("metadata[delivered_at]") });
+    updates.push({ object: updateMatch[1], id: updateMatch[2], deliveredAt: params.get("metadata[delivered_at]"),
+      ...(params.has("metadata[delivered_items]") ? { deliveredItems: params.get("metadata[delivered_items]") } : {}) });
+    // Keep the saved metadata, so the next list shows it (empty values remove keys, like Stripe).
+    const holder = updateMatch[1] === "invoices" ? invoices.find(({ id }) => id === updateMatch[2])
+      : sessions.map(session => updateMatch[1] === "payment_intents" ? session.payment_intent : session.customer).find(object => object?.id === updateMatch[2]);
+    if (holder) {
+      for (const [key, value] of params) {
+        const name = key.match(/^metadata\[(\w+)\]$/)?.[1];
+        if (!name) continue;
+        holder.metadata = { ...holder.metadata };
+        if (value === "") delete holder.metadata[name]; else holder.metadata[name] = value;
+      }
+    }
     return Response.json({ id: updateMatch[2] });
   }
 
@@ -212,7 +224,7 @@ test("lists paid orders that aren't delivered yet, oldest date first", async () 
   assert.equal(soon.name, "Ben Ito");
   assert.equal(soon.email, "cs_soon@example.com");
   assert.equal(soon.loaves, 3);
-  assert.deepEqual(soon.items, [{ name: "House White", quantity: 1 }, { name: "Croissourdough", quantity: 2 }]);
+  assert.deepEqual(soon.items, [{ name: "House White", quantity: 1, delivered: 0 }, { name: "Croissourdough", quantity: 2, delivered: 0 }]);
   assert.equal(body.orders[0].pastDue, true);
   assert.equal(soon.pastDue, false);
 });
@@ -229,7 +241,7 @@ test("older orders without an item list are read from Stripe line items", async 
 
   const { body } = await call("GET", "/admin/api/orders", { cookie });
 
-  assert.deepEqual(body.orders[0].items, [{ name: "Elote", quantity: 2 }, { name: "House White", quantity: 1 }]);
+  assert.deepEqual(body.orders[0].items, [{ name: "Elote", quantity: 2, delivered: 0 }, { name: "House White", quantity: 1, delivered: 0 }]);
   assert.equal(body.orders[0].loaves, 3);
 });
 
@@ -339,7 +351,7 @@ test("invoice delivery, tip and fee lines don't count as loaves", async () => {
 
   const { body } = await call("GET", "/admin/api/orders", { cookie });
 
-  assert.deepEqual(body.orders[0].items, [{ name: "Pesto", quantity: 10 }, { name: "Bacon & Cheddar", quantity: 5 }]);
+  assert.deepEqual(body.orders[0].items, [{ name: "Pesto", quantity: 10, delivered: 0 }, { name: "Bacon & Cheddar", quantity: 5, delivered: 0 }]);
   assert.equal(body.orders[0].loaves, 15);
 });
 
@@ -366,4 +378,58 @@ test("a draft or void invoice can't be marked delivered", async () => {
 test("signing out clears the cookie", async () => {
   const { headers } = await call("POST", "/admin/api/logout", { body: {} });
   assert.match(headers.get("Set-Cookie"), /^kirana_admin=; Max-Age=0;/);
+});
+
+/* ---------- Partly delivered ---------- */
+
+test("marking part of an order delivered keeps it on the list and takes those loaves out of prep", async () => {
+  const cookie = await signIn();
+  addOrder({ id: "cs_part", items: "house_white:3,pesto:2" });
+
+  const saved = await call("POST", "/admin/api/orders/cs_part/partial", { cookie, body: { items: { "House White": 2, Pesto: 0 } } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual(saved.body, { ok: true, delivered: { "House White": 2 }, loavesDelivered: 2, loaves: 5, complete: false });
+  assert.equal(updates.at(-1).object, "payment_intents");
+  assert.equal(updates.at(-1).deliveredAt, "");
+
+  const { body } = await call("GET", "/admin/api/orders", { cookie });
+  const order = body.orders.find(({ id }) => id === "cs_part");
+  assert.equal(order.loavesDelivered, 2);
+  assert.deepEqual(order.items, [{ name: "House White", quantity: 3, delivered: 2 }, { name: "Pesto", quantity: 2, delivered: 0 }]);
+  assert.deepEqual(body.prep[0].loaves, [{ name: "Pesto", quantity: 2 }, { name: "House White", quantity: 1 }]);
+  assert.equal(body.prep[0].total, 3);
+});
+
+test("once every loaf is delivered, the order is marked delivered and leaves the list", async () => {
+  const cookie = await signIn();
+  addOrder({ id: "cs_done", items: "house_white:1,pesto:1" });
+  await call("POST", "/admin/api/orders/cs_done/partial", { cookie, body: { items: { "House White": 1 } } });
+  const last = await call("POST", "/admin/api/orders/cs_done/partial", { cookie, body: { items: { "House White": 1, Pesto: 1 } } });
+  assert.equal(last.body.complete, true);
+  assert.ok(updates.at(-1).deliveredAt);
+  assert.equal((await call("GET", "/admin/api/orders", { cookie })).body.orders.some(({ id }) => id === "cs_done"), false);
+});
+
+test("partly delivered counts can't go above what was ordered, and can be cleared", async () => {
+  const cookie = await signIn();
+  addOrder({ id: "cs_check", items: "house_white:2" });
+  const tooMany = await call("POST", "/admin/api/orders/cs_check/partial", { cookie, body: { items: { "House White": 3 } } });
+  assert.equal(tooMany.status, 400);
+  assert.match(tooMany.body.error, /0 to 2/);
+
+  await call("POST", "/admin/api/orders/cs_check/partial", { cookie, body: { items: { "House White": 1 } } });
+  await call("POST", "/admin/api/orders/cs_check/partial", { cookie, body: { items: { "House White": 0 } } });
+  assert.equal(updates.at(-1).deliveredItems, "");
+  const order = (await call("GET", "/admin/api/orders", { cookie })).body.orders.find(({ id }) => id === "cs_check");
+  assert.equal(order.loavesDelivered, 0);
+});
+
+test("invoices can be partly delivered too", async () => {
+  const cookie = await signIn();
+  addInvoice({ id: "in_part", deliveryDate: addDays(today, 2), lines: [{ description: "Pesto", quantity: 10 }, { description: "Delivery fee", quantity: 1 }] });
+  const saved = await call("POST", "/admin/api/orders/in_part/partial", { cookie, body: { items: { Pesto: 6 } } });
+  assert.equal(saved.body.loaves, 10);
+  assert.equal(updates.at(-1).object, "invoices");
+  const order = (await call("GET", "/admin/api/orders", { cookie })).body.orders.find(({ id }) => id === "in_part");
+  assert.equal(order.loavesDelivered, 6);
 });

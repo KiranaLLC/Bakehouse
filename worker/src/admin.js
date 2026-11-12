@@ -12,6 +12,7 @@ sites, which Safari would block).
   POST /admin/api/logout                     clears the cookie
   GET  /admin/api/orders                     paid orders and invoices not yet delivered
   POST /admin/api/orders/<id>/delivered      { delivered: true | false }
+  POST /admin/api/orders/<id>/partial        { items: { "<loaf name>": <loaves delivered so far> } }
   GET  /admin/api/drops                      pickup drops (recent and upcoming)
   POST /admin/api/drops                      create a drop
   POST /admin/api/drops/<id>                 change a drop
@@ -104,6 +105,13 @@ export async function handleAdmin(request, env, { stripe }) {
     if (request.method === "POST" && deliveredMatch) {
       const body = await request.json().catch(() => ({}));
       const result = await setDelivered(deliveredMatch[1], body.delivered !== false, env, stripe);
+      return json(result, result.ok ? 200 : 400);
+    }
+
+    const partialMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+)\/partial$/);
+    if (request.method === "POST" && partialMatch) {
+      const body = await request.json().catch(() => ({}));
+      const result = await setPartlyDelivered(partialMatch[1], body.items, env, stripe);
       return json(result, result.ok ? 200 : 400);
     }
 
@@ -307,10 +315,37 @@ function deliveredAt(session) {
   return session.payment_intent?.metadata?.delivered_at || session.customer?.metadata?.delivered_at || "";
 }
 
+/*
+  PARTLY DELIVERED
+
+  When only some loaves have gone out, the orders
+  page saves how many of each in delivered_items,
+  next to delivered_at: {"House White":1,"Pesto":2}.
+  The order stays on the list (and in the prep
+  counts, for what's left) until it's fully
+  delivered.
+*/
+function parseDeliveredItems(value) {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function withDelivered(items, delivered) {
+  return items.map(item => ({ ...item, delivered: Math.min(item.quantity, Math.max(0, Number(delivered[item.name]) || 0)) }));
+}
+
+function sessionDeliveredItems(session) {
+  return parseDeliveredItems(session.payment_intent?.metadata?.delivered_items || session.customer?.metadata?.delivered_items);
+}
+
 async function describeOrder(session, today, env, stripe) {
 
   const metadata = session.metadata;
-  const items = await orderItems(session, env, stripe);
+  const items = withDelivered(await orderItems(session, env, stripe), sessionDeliveredItems(session));
   const pickup = isPickup(session);
   const date = orderDate(session);
 
@@ -332,6 +367,7 @@ async function describeOrder(session, today, env, stripe) {
     notes: metadata.delivery_notes || "",
     items,
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),
+    loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
     totalCents: session.amount_total || 0,
     tipCents: Number(metadata.tip_cents) || 0
   };
@@ -446,7 +482,7 @@ async function describeInvoice(invoice, today, env, stripe) {
   const lines = invoice.lines?.has_more
     ? (await stripe(env, "GET", `/invoices/${invoice.id}/lines`, { limit: 100 })).data
     : invoice.lines?.data || [];
-  const items = invoiceLoafItems(lines);
+  const items = withDelivered(invoiceLoafItems(lines), parseDeliveredItems(invoice.metadata?.delivered_items));
   const shipping = invoice.customer_shipping;
   const paid = invoice.status === "paid";
 
@@ -469,6 +505,7 @@ async function describeInvoice(invoice, today, env, stripe) {
     notes: invoice.description || "",
     items,
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),
+    loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
     totalCents: paid ? invoice.amount_paid : invoice.amount_due,
     tipCents: 0
   };
@@ -481,7 +518,7 @@ function formatStripeAddress(address) {
   return [address.line1, address.line2, cityLine].filter(Boolean).join(", ");
 }
 
-// For each delivery date: how many of each loaf to bake, most first.
+// For each delivery date: how many of each loaf still to bake or hand over, most first.
 export function prepByDate(orders) {
 
   const dates = new Map();
@@ -489,9 +526,11 @@ export function prepByDate(orders) {
   for (const order of orders) {
     const day = dates.get(order.deliveryDate) || { date: order.deliveryDate, label: order.deliveryLabel, pastDue: order.pastDue, orders: 0, total: 0, loaves: new Map() };
     day.orders += 1;
-    for (const { name, quantity } of order.items) {
-      day.loaves.set(name, (day.loaves.get(name) || 0) + quantity);
-      day.total += quantity;
+    for (const { name, quantity, delivered = 0 } of order.items) {
+      const left = quantity - delivered;
+      if (left <= 0) continue;
+      day.loaves.set(name, (day.loaves.get(name) || 0) + left);
+      day.total += left;
     }
     dates.set(order.deliveryDate, day);
   }
@@ -500,6 +539,68 @@ export function prepByDate(orders) {
     ...day,
     loaves: [...day.loaves].map(([name, quantity]) => ({ name, quantity })).sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name))
   }));
+
+}
+
+/*
+  Saves how many of each loaf have gone out so
+  far. Once every loaf has, the order is marked
+  delivered and leaves the list.
+*/
+async function setPartlyDelivered(id, input, env, stripe) {
+
+  const target = await findDeliveryTarget(id, env, stripe);
+  if (!target.ok) return target;
+
+  const delivered = {};
+  for (const item of target.items) {
+    const count = Number(input?.[item.name]);
+    if (input?.[item.name] === undefined || input[item.name] === "") continue;
+    if (!Number.isInteger(count) || count < 0 || count > item.quantity) {
+      return { ok: false, error: `${item.name}: enter a number from 0 to ${item.quantity}.` };
+    }
+    if (count > 0) delivered[item.name] = count;
+  }
+
+  const total = target.items.reduce((sum, { quantity }) => sum + quantity, 0);
+  const done = Object.values(delivered).reduce((sum, count) => sum + count, 0);
+  const complete = total > 0 && done === total;
+  const value = JSON.stringify(delivered);
+
+  if (value.length > 500) return { ok: false, error: "Too many loaf types to save on this order." };
+
+  await stripe(env, "POST", target.path, { metadata: {
+    // Empty values remove the keys in Stripe.
+    delivered_items: done ? value : "",
+    delivered_at: complete ? new Date().toISOString() : ""
+  } });
+
+  return { ok: true, delivered, loavesDelivered: done, loaves: total, complete };
+
+}
+
+// Where an order's delivered state lives in Stripe, and its loaves.
+async function findDeliveryTarget(id, env, stripe) {
+
+  if (id.startsWith("in_")) {
+    const invoice = await stripe(env, "GET", `/invoices/${id}`, {});
+    if (invoice.status !== "paid" && invoice.status !== "open") {
+      return { ok: false, error: "Only paid or sent invoices can be marked delivered." };
+    }
+    const lines = invoice.lines?.has_more
+      ? (await stripe(env, "GET", `/invoices/${id}/lines`, { limit: 100 })).data
+      : invoice.lines?.data || [];
+    return { ok: true, path: `/invoices/${id}`, items: invoiceLoafItems(lines) };
+  }
+
+  const session = await stripe(env, "GET", `/checkout/sessions/${id}`, {});
+  if (session.status !== "complete" || !orderDate(session)) {
+    return { ok: false, error: "That isn't a completed delivery order." };
+  }
+  const items = await orderItems(session, env, stripe);
+  if (session.payment_intent) return { ok: true, path: `/payment_intents/${session.payment_intent}`, items };
+  if (session.customer) return { ok: true, path: `/customers/${session.customer}`, items };
+  return { ok: false, error: "This order has no payment or customer in Stripe to mark." };
 
 }
 

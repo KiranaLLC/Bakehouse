@@ -113,19 +113,35 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   /* Prep */
   .prep-list { list-style: none; margin: 0; padding: 0; }
   .prep-part { margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--line); }
-  .prep-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
-  .prep-columns .prep-part { margin-top: 0; padding-top: 0; border-top: 0; min-width: 0; }
-  .prep-columns .prep-part + .prep-part { border-left: 1px solid var(--line); padding-left: 18px; }
-  .prep-columns h4 { flex-wrap: wrap; padding-bottom: 8px; border-bottom: 2px solid var(--deep-brown); margin-bottom: 4px; }
-  .prep-columns .prep-list li { gap: 8px; }
-  .prep-columns .prep-list li span:first-child { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: anywhere; }
-  @media (max-width: 520px) {
-    .prep-columns { gap: 0 8px; margin: 0 -6px; }
-    .prep-columns .prep-part + .prep-part { padding-left: 8px; }
-    .prep-columns h4, .prep-columns .prep-list li { font-size: .82rem; }
-    .prep-columns .prep-list .count { font-size: .9rem; }
-    .prep-columns h4 .muted { display: none; }
+  body.wide main { max-width: 1200px; }
+  .prep-days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; align-items: start; }
+  @media (max-width: 960px) { .prep-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* Phones: days in a row you swipe through, a little of the next one showing. */
+  @media (max-width: 600px) {
+    .prep-days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; margin: 0 -16px; padding: 0 16px 8px; scroll-padding-inline: 16px; }
+    .prep-day { flex: 0 0 86%; scroll-snap-align: start; }
   }
+  .prep-day.flash .card { box-shadow: 0 0 0 3px var(--terracotta); transition: box-shadow .3s; }
+
+  /* Month calendar above the prep days */
+  .calendar { max-width: 460px; margin: 4px auto 18px; padding: 14px 16px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-head h3 { margin: 0; font-size: 1.05rem; color: var(--deep-brown); }
+  .cal-head button { width: 36px; height: 36px; border-radius: 999px; border: 1px solid var(--line); background: white; font: inherit; font-size: 1.1rem; color: var(--deep-brown); cursor: pointer; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+  .cal-dow { font-size: .72rem; font-weight: 600; color: var(--muted); padding-bottom: 2px; }
+  .cal-cell { min-height: 44px; border-radius: 10px; padding: 4px 0; font: inherit; font-size: .9rem; color: var(--ink); background: none; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .cal-cell.past { color: var(--muted); }
+  .cal-cell.today { border-color: var(--deep-brown); font-weight: 700; }
+  button.cal-cell { cursor: pointer; background: white; border-color: var(--line); font-weight: 700; color: var(--deep-brown); }
+  button.cal-cell.today { border-color: var(--deep-brown); }
+  .cal-count { font-size: .68rem; font-weight: 600; color: var(--muted); }
+  .cal-dots { display: flex; gap: 3px; }
+  .cal-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .cal-dot.delivery { background: var(--terracotta); }
+  .cal-dot.pickup { background: var(--good); }
+  .cal-legend { display: flex; justify-content: center; gap: 14px; margin-top: 10px; font-size: .8rem; color: var(--muted); }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
   .prep-part.only { margin-top: 0; padding-top: 0; border-top: 0; }
   .prep-part.only .prep-list li { padding: 10px 0; font-size: 1rem; }
   .prep-part.only .prep-list .count { font-size: 1.15rem; }
@@ -323,6 +339,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return Promise.all([api("GET", "orders"), drops]).then(function (results) {
       var data = results[0];
       state.orders = data.orders;
+      state.today = data.today;
       state.emailReady = Boolean(data.emailReady);
       state.contact = data.contact || {};
       state.delivered = {};
@@ -355,6 +372,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     $("orders-view").hidden = tab !== "orders";
     $("prep-view").hidden = tab !== "prep";
     $("drops-view").hidden = tab !== "drops";
+    // Prep shows days side by side, so it uses more of a wide screen.
+    document.body.classList.toggle("wide", tab === "prep");
     render();
   }
 
@@ -564,6 +583,75 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     node.after(el("span", { class: "error", text: " " + message }));
   }
 
+  /*
+    A month at a glance: days with orders are marked (red dot: delivery,
+    green dot: pickup) with their loaf count. Tap one to jump to it below.
+  */
+  function prepCalendar(days) {
+    var byDate = {};
+    days.forEach(function (day) { byDate[day.date] = day; });
+    var today = state.today || new Date().toISOString().slice(0, 10);
+    if (!state.calMonth) state.calMonth = (days.length && days[0].date < today ? days[0].date : today).slice(0, 7);
+
+    var year = Number(state.calMonth.slice(0, 4));
+    var month = Number(state.calMonth.slice(5, 7));
+    var startDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    var daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    var label = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
+
+    function shift(by) {
+      var d = new Date(Date.UTC(year, month - 1 + by, 1));
+      state.calMonth = d.toISOString().slice(0, 7);
+      render();
+    }
+
+    var prev = el("button", { type: "button", "aria-label": "Previous month", text: "\u2039" });
+    var next = el("button", { type: "button", "aria-label": "Next month", text: "\u203a" });
+    prev.addEventListener("click", function () { shift(-1); });
+    next.addEventListener("click", function () { shift(1); });
+
+    var cells = ["S", "M", "T", "W", "T", "F", "S"].map(function (d) { return el("div", { class: "cal-dow", text: d }); });
+    for (var i = 0; i < startDow; i++) cells.push(el("div", {}));
+
+    for (var n = 1; n <= daysInMonth; n++) {
+      var date = state.calMonth + "-" + (n < 10 ? "0" + n : String(n));
+      var day = byDate[date];
+      var classes = "cal-cell" + (date === today ? " today" : "") + (date < today ? " past" : "");
+      if (!day) {
+        cells.push(el("div", { class: classes }, el("span", { text: String(n) })));
+        continue;
+      }
+      var hasDelivery = day.orders.some(function (o) { return o.fulfillment !== "pickup"; });
+      var hasPickup = day.orders.some(function (o) { return o.fulfillment === "pickup"; });
+      var loaves = loafCount(day.orders);
+      var cell = el("button", { type: "button", class: classes, "aria-label": day.label + ": " + plural(day.orders.length, "order") + ", " + plural(loaves, "loaf").replace("loafs", "loaves") },
+        el("span", { text: String(n) }),
+        el("span", { class: "cal-dots" }, hasDelivery ? el("span", { class: "cal-dot delivery" }) : null, hasPickup ? el("span", { class: "cal-dot pickup" }) : null),
+        el("span", { class: "cal-count", text: String(loaves) })
+      );
+      cell.addEventListener("click", (function (target) {
+        return function () {
+          var column = $("prep-day-" + target);
+          if (!column) return;
+          column.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+          column.classList.add("flash");
+          setTimeout(function () { column.classList.remove("flash"); }, 1200);
+        };
+      })(date));
+      cells.push(cell);
+    }
+
+    return el("div", { class: "card calendar" },
+      el("div", { class: "cal-head" }, prev, el("h3", { text: label }), next),
+      el("div", { class: "cal-grid" }, ...cells),
+      el("div", { class: "cal-legend" },
+        el("span", {}, el("span", { class: "cal-dot delivery" }), "Delivery"),
+        el("span", {}, el("span", { class: "cal-dot pickup" }), "Pickup"),
+        el("span", { text: "Number = loaves" })
+      )
+    );
+  }
+
   function renderPrep(open) {
     var view = $("prep-view");
     view.replaceChildren();
@@ -572,6 +660,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       view.append(el("p", { class: "empty", text: "Nothing to bake right now." }));
       return;
     }
+
+    var days = byDay(open);
+    var grid = el("div", { class: "prep-days" });
+    view.append(prepCalendar(days), grid);
 
     // Loaves still to go out, per loaf, for some orders.
     function countLoaves(orders) {
@@ -596,7 +688,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       return plural(count, "loaf").replace("loafs", "loaves");
     }
 
-    byDay(open).forEach(function (day) {
+    days.forEach(function (day) {
       var delivery = day.orders.filter(function (order) { return order.fulfillment !== "pickup"; });
       var pickup = day.orders.filter(function (order) { return order.fulfillment === "pickup"; });
       var both = delivery.length && pickup.length;
@@ -612,26 +704,25 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         );
       }
 
-      view.append(dayHeading(day, plural(day.orders.length, "order")));
-
+      var card;
       if (!both) {
-        view.append(el("div", { class: "card" },
+        card = el("div", { class: "card" },
           part(delivery.length ? "Delivery" : "Pickup", delivery.length ? "delivery" : "pickup", day.orders),
           el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) }))
-        ));
-        return;
+        );
+      } else {
+        // Both kinds: what to bake in all, then how it splits for packing.
+        card = el("div", { class: "card" },
+          el("p", { class: "prep-heading", text: "To bake" }),
+          prepList(countLoaves(day.orders)),
+          el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) })),
+          part("Delivery", "delivery", delivery),
+          part("Pickup", "pickup", pickup)
+        );
       }
 
-      // Both kinds on one day: three columns side by side.
-      // What to bake in all, then how it splits for packing.
-      view.append(el("div", { class: "card prep-columns" },
-        el("div", { class: "prep-part" },
-          el("h4", {}, el("span", { text: "To bake" }), el("span", { text: loavesText(loafCount(day.orders)) })),
-          prepList(countLoaves(day.orders))
-        ),
-        part("Delivery", "delivery", delivery),
-        part("Pickup", "pickup", pickup)
-      ));
+      // One column per day: three days side by side on a wide screen.
+      grid.append(el("div", { class: "prep-day", id: "prep-day-" + day.date }, dayHeading(day, plural(day.orders.length, "order")), card));
     });
   }
 

@@ -113,6 +113,19 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   /* Prep */
   .prep-list { list-style: none; margin: 0; padding: 0; }
   .prep-part { margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--line); }
+  .prep-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; }
+  .prep-columns .prep-part { margin-top: 0; padding-top: 0; border-top: 0; min-width: 0; }
+  .prep-columns .prep-part + .prep-part { border-left: 1px solid var(--line); padding-left: 18px; }
+  .prep-columns h4 { flex-wrap: wrap; padding-bottom: 8px; border-bottom: 2px solid var(--deep-brown); margin-bottom: 4px; }
+  .prep-columns .prep-list li { gap: 8px; }
+  .prep-columns .prep-list li span:first-child { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: anywhere; }
+  @media (max-width: 520px) {
+    .prep-columns { gap: 0 8px; margin: 0 -6px; }
+    .prep-columns .prep-part + .prep-part { padding-left: 8px; }
+    .prep-columns h4, .prep-columns .prep-list li { font-size: .82rem; }
+    .prep-columns .prep-list .count { font-size: .9rem; }
+    .prep-columns h4 .muted { display: none; }
+  }
   .prep-part.only { margin-top: 0; padding-top: 0; border-top: 0; }
   .prep-part.only .prep-list li { padding: 10px 0; font-size: 1rem; }
   .prep-part.only .prep-list .count { font-size: 1.15rem; }
@@ -600,14 +613,24 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       }
 
       view.append(dayHeading(day, plural(day.orders.length, "order")));
-      view.append(el("div", { class: "card" },
-        // Both kinds on one day: what to bake in all, then how it splits for packing.
-        both ? el("p", { class: "prep-heading", text: "To bake" }) : null,
-        both ? prepList(countLoaves(day.orders)) : null,
-        both ? el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) })) : null,
-        delivery.length ? part("Delivery", "delivery", delivery) : null,
-        pickup.length ? part("Pickup", "pickup", pickup) : null,
-        both ? null : el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) }))
+
+      if (!both) {
+        view.append(el("div", { class: "card" },
+          part(delivery.length ? "Delivery" : "Pickup", delivery.length ? "delivery" : "pickup", day.orders),
+          el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) }))
+        ));
+        return;
+      }
+
+      // Both kinds on one day: three columns side by side.
+      // What to bake in all, then how it splits for packing.
+      view.append(el("div", { class: "card prep-columns" },
+        el("div", { class: "prep-part" },
+          el("h4", {}, el("span", { text: "To bake" }), el("span", { text: loavesText(loafCount(day.orders)) })),
+          prepList(countLoaves(day.orders))
+        ),
+        part("Delivery", "delivery", delivery),
+        part("Pickup", "pickup", pickup)
       ));
     });
   }

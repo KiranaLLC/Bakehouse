@@ -165,6 +165,25 @@ export const PRODUCTS = Object.freeze({
   // }
 });
 
+/*
+  Loaves we've baked before, shown in "Past Flavours" on the home page
+  (newest first). To retire a loaf, move it from PRODUCTS to here; to bring
+  one back, move it the other way. image is optional: without one, the card
+  shows the loaf's name on a plain tile until a photo is added to img/menu/.
+*/
+export const PAST_FLAVOURS = Object.freeze([
+  { name: "Bird's Eye", description: "Chili cheese garlic bread, with the kick of bird's eye chili.", image: "./img/menu/birds-eye.jpg" },
+  { name: "Coconut Laddoo", description: "The classic Indian sweet, reimagined as a sourdough.", image: "./img/menu/coconut-laddoo.jpg" },
+  { name: "Margherita", description: "Margherita pizza (not the drink!), reimagined as a sourdough.", image: "./img/menu/margherita.jpg" },
+  { name: "Pumpkin Spice", description: "Autumn's favourite flavour, baked into a sourdough.", image: "./img/menu/pumpkin-spice.jpg" },
+  { name: "I'm Like a Bird (ILAB)", description: "A seed-packed sourdough the birds would envy.", image: "./img/menu/ilab.jpg" },
+  { name: "Elote", description: "Bringing Mexican street corn flavours to sourdough bread.", image: "./img/menu/elote.jpg" },
+  { name: "Strawberry & White Chocolate", description: "", image: "" },
+  { name: "Olives", description: "", image: "" },
+  { name: "Cheddar", description: "", image: "" },
+  { name: "Chocolate Chip", description: "", image: "" }
+]);
+
 export const DELIVERY = Object.freeze({
   // Dates are always calculated in the bakery's time zone so the server
   // (which may run in UTC) and the customer's browser agree on "today".

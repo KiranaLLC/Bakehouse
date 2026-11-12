@@ -404,7 +404,6 @@ img {
   line-height: 1.6;
   color: var(--muted);
   margin: 0;
-  max-width: 720px;
 }
 
 .past-flavours-intro a {

@@ -114,6 +114,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .prep-list { list-style: none; margin: 0; padding: 0; }
   .prep-part { margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--line); }
   body.wide main { max-width: 1200px; }
+  .prep-day .day { flex-direction: column; align-items: flex-start; gap: 2px; }
   .prep-days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; align-items: start; }
   @media (max-width: 960px) { .prep-days { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   /* Phones: days in a row you swipe through, a little of the next one showing. */
@@ -372,8 +373,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     $("orders-view").hidden = tab !== "orders";
     $("prep-view").hidden = tab !== "prep";
     $("drops-view").hidden = tab !== "drops";
-    // Prep shows days side by side, so it uses more of a wide screen.
-    document.body.classList.toggle("wide", tab === "prep");
+    // Orders and Prep show days side by side, so they use more of a wide screen.
+    document.body.classList.toggle("wide", tab === "prep" || tab === "orders");
     render();
   }
 
@@ -407,6 +408,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function render() {
+    document.body.classList.toggle("wide", state.tab === "prep" || state.tab === "orders");
     var open = openOrders();
     $("summary").textContent = open.length
       ? plural(open.length, "order") + " to deliver · " + plural(loafCount(open), "loaf").replace("loafs", "loaves")
@@ -432,12 +434,20 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       return;
     }
 
-    byDay(state.orders).forEach(function (day) {
+    // Same layout as Prep: a month calendar, then one column per day.
+    var days = byDay(state.orders);
+    var grid = el("div", { class: "prep-days" });
+    var calendarDays = days.map(function (day) {
+      return { date: day.date, label: day.label, orders: day.orders.filter(function (order) { return !state.delivered[order.id]; }) };
+    }).filter(function (day) { return day.orders.length; });
+    view.append(prepCalendar(calendarDays, "orders-day-"), grid);
+
+    days.forEach(function (day) {
       var open = day.orders.filter(function (order) { return !state.delivered[order.id]; });
-      view.append(dayHeading(day, plural(open.length, "order") + " · " + plural(loafCount(open), "loaf").replace("loafs", "loaves")));
-      day.orders.forEach(function (order) {
-        view.append(state.delivered[order.id] ? deliveredCard(order) : orderCard(order));
-      });
+      grid.append(el("div", { class: "prep-day", id: "orders-day-" + day.date },
+        dayHeading(day, plural(open.length, "order") + " · " + plural(loafCount(open), "loaf").replace("loafs", "loaves")),
+        ...day.orders.map(function (order) { return state.delivered[order.id] ? deliveredCard(order) : orderCard(order); })
+      ));
     });
   }
 
@@ -587,7 +597,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     A month at a glance: days with orders are marked (red dot: delivery,
     green dot: pickup) with their loaf count. Tap one to jump to it below.
   */
-  function prepCalendar(days) {
+  function prepCalendar(days, idPrefix) {
     var byDate = {};
     days.forEach(function (day) { byDate[day.date] = day; });
     var today = state.today || new Date().toISOString().slice(0, 10);
@@ -631,7 +641,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       );
       cell.addEventListener("click", (function (target) {
         return function () {
-          var column = $("prep-day-" + target);
+          var column = $((idPrefix || "prep-day-") + target);
           if (!column) return;
           column.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
           column.classList.add("flash");

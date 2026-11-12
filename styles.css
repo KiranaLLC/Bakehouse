@@ -381,48 +381,49 @@ img {
 }
 
 /* =========================
-   PAST FLAVOURS
+   PAST FLAVOURS (order page, under the menu; greyed out, not orderable)
 ========================= */
 
 .past-flavours {
-  background: var(--cream);
+  margin-top: 48px;
+  padding-top: 28px;
+  border-top: 1px dashed rgba(77, 26, 0, 0.3);
   color: var(--deep-brown);
-  padding: 50px 20px 20px;
-  font-family: 'Montserrat', serif;
 }
 
-.past-flavours-intro,
-.past-flavours-ask {
-  max-width: 640px;
-  margin: 0 auto;
-  text-align: center;
-  font-size: 1.05rem;
-  line-height: 1.6;
-}
-
-.past-flavours-ask {
-  margin-top: 8px;
-  font-style: italic;
+.past-flavours-title {
+  font-family: 'Host Grotesk', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
   color: var(--muted);
+  margin: 0 0 6px;
 }
 
-.past-flavours-ask a {
+.past-flavours-intro {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+  max-width: 720px;
+}
+
+.past-flavours-intro a {
   color: var(--terracotta);
   font-weight: 600;
 }
 
 .past-flavours-list {
   list-style: none;
-  max-width: 1100px;
-  margin: 32px auto 24px;
+  margin: 20px 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px;
 }
 
 .flavour-card {
   text-align: center;
+  opacity: 0.6;
 }
 
 .flavour-photo {
@@ -431,55 +432,53 @@ img {
   object-fit: cover;
   border-radius: 12px;
   display: block;
-  filter: saturate(0.8);
-  opacity: 0.92;
+  filter: grayscale(1);
 }
 
 .flavour-tile {
   display: grid;
   place-items: center;
-  padding: 16px;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(240, 231, 200, 0.18), transparent 60%),
-    var(--deep-brown);
-  color: var(--cream);
+  padding: 14px;
+  background: #b9b2a3;
+  color: #f7f3ea;
   font-family: 'Luxurious Script', cursive;
-  font-size: 2.1rem;
+  font-size: 1.8rem;
   line-height: 1.1;
 }
 
 .flavour-name {
   font-family: 'Host Grotesk', sans-serif;
-  font-size: 1.05rem;
-  color: var(--deep-brown);
-  margin: 12px 0 4px;
+  font-size: 0.98rem;
+  color: var(--text-dark);
+  margin: 10px 0 2px;
 }
 
 .flavour-text {
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.85rem;
+  line-height: 1.4;
   color: var(--muted);
   margin: 0;
 }
 
-/* Phones: one row that swipes sideways. */
+/* Phones: three small cards per row, names only, so it stays short. */
 @media (max-width: 700px) {
   .past-flavours-list {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: 20px;
-    gap: 14px;
-    padding: 0 4px 8px;
-    margin: 24px -20px 16px;
-    padding-left: 20px;
-    padding-right: 20px;
-    max-width: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
   }
 
-  .flavour-card {
-    flex: 0 0 62%;
-    scroll-snap-align: start;
+  .flavour-tile {
+    font-size: 1.05rem;
+    padding: 8px;
+  }
+
+  .flavour-name {
+    font-size: 0.82rem;
+    margin-top: 6px;
+  }
+
+  .flavour-text {
+    display: none;
   }
 }
 

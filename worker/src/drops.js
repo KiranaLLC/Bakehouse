@@ -17,6 +17,7 @@ working.
 
 import { CHECKOUT_HOLD_SECONDS, listCapacityInvoices, loavesFromMetadata } from "./capacity.js";
 import { listSessionsSince } from "./stripe-cache.js";
+import { applyMoves, listMoves } from "./moves.js";
 import { localToUtc, utcToLocal } from "../../pickup-rules.js";
 
 export class DropError extends Error {}
@@ -359,7 +360,8 @@ export async function listDropBookings(env, stripe, drops, { fresh = true } = {}
     bookings.push({ id: invoice.id, dropId: invoice.dropId, created: 0, loaves: invoice.loaves, status: "invoice", invoice: true });
   }
 
-  return bookings;
+  // Orders moved to or from these drops on the orders page.
+  return applyMoves(bookings, await listMoves(env), { key: "dropId", wanted });
 
 }
 

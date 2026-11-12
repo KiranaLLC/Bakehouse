@@ -118,6 +118,17 @@ Each order has two separate buttons:
   off the page. Tapped the wrong one? **Undo** puts it back. The email
   button stays available until you leave the page.
 
+**Move to another day** (under each paid order) moves the whole order, or
+just some of its loaves, to another delivery day, or for a pickup order, to
+another pickup drop. The moved loaves show up on the new day marked "Moved",
+and can be delivered, emailed or moved again on their own; moving them back to
+the order's own day puts them back on it. Loaves already handed over can't be
+moved. The day's loaf counts, prep and the website's sold-out checks all
+follow the move. Nothing in Stripe changes (the move is saved in the pickup
+database), and the customer isn't emailed: after moving, a link opens a
+ready-written email to let them know. Needs the pickup database with the
+latest `schema.sql` applied (see "Pickup drops").
+
 Two locks keep it private:
 
 1. **Cloudflare Access**: Cloudflare emails a one-time code to your address

@@ -396,7 +396,45 @@ img {
   font-size: 1.3rem;
   font-weight: 600;
   color: var(--muted);
-  margin: 0 0 6px;
+  margin: 0;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.past-flavours-title::-webkit-details-marker {
+  display: none;
+}
+
+/* A small arrow that turns when the section opens. */
+.past-flavours-title::before {
+  content: "\203A";
+  display: inline-block;
+  font-size: 1.4rem;
+  line-height: 1;
+  transition: transform .2s;
+}
+
+.past-flavours[open] .past-flavours-title::before {
+  transform: rotate(90deg);
+}
+
+.past-flavours-hint {
+  font-size: 0.9rem;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.past-flavours[open] .past-flavours-hint {
+  display: none;
+}
+
+.past-flavours[open] .past-flavours-intro {
+  margin-top: 8px;
 }
 
 .past-flavours-intro {

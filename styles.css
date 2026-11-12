@@ -381,6 +381,109 @@ img {
 }
 
 /* =========================
+   PAST FLAVOURS
+========================= */
+
+.past-flavours {
+  background: var(--cream);
+  color: var(--deep-brown);
+  padding: 50px 20px 20px;
+  font-family: 'Montserrat', serif;
+}
+
+.past-flavours-intro,
+.past-flavours-ask {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.past-flavours-ask {
+  margin-top: 8px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.past-flavours-ask a {
+  color: var(--terracotta);
+  font-weight: 600;
+}
+
+.past-flavours-list {
+  list-style: none;
+  max-width: 1100px;
+  margin: 32px auto 24px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
+}
+
+.flavour-card {
+  text-align: center;
+}
+
+.flavour-photo {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+  filter: saturate(0.8);
+  opacity: 0.92;
+}
+
+.flavour-tile {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(240, 231, 200, 0.18), transparent 60%),
+    var(--deep-brown);
+  color: var(--cream);
+  font-family: 'Luxurious Script', cursive;
+  font-size: 2.1rem;
+  line-height: 1.1;
+}
+
+.flavour-name {
+  font-family: 'Host Grotesk', sans-serif;
+  font-size: 1.05rem;
+  color: var(--deep-brown);
+  margin: 12px 0 4px;
+}
+
+.flavour-text {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Phones: one row that swipes sideways. */
+@media (max-width: 700px) {
+  .past-flavours-list {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 20px;
+    gap: 14px;
+    padding: 0 4px 8px;
+    margin: 24px -20px 16px;
+    padding-left: 20px;
+    padding-right: 20px;
+    max-width: none;
+  }
+
+  .flavour-card {
+    flex: 0 0 62%;
+    scroll-snap-align: start;
+  }
+}
+
+/* =========================
    MEDIA SECTION
 ========================= */
 

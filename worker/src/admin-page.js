@@ -78,6 +78,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .badge.invoice { color: var(--deep-brown); }
   .badge.unpaid { color: var(--terracotta); }
   .badge.pickup { color: var(--good); }
+  .badge.delivery { color: var(--terracotta); }
+  .prep-part h4 .badge { margin-left: 0; }
 
   /* Drops */
   .drops-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
@@ -110,6 +112,15 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   /* Prep */
   .prep-list { list-style: none; margin: 0; padding: 0; }
+  .prep-part { margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--line); }
+  .prep-part.only { margin-top: 0; padding-top: 0; border-top: 0; }
+  .prep-part.only .prep-list li { padding: 10px 0; font-size: 1rem; }
+  .prep-part.only .prep-list .count { font-size: 1.15rem; }
+  .prep-part h4 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; font-size: .95rem; }
+  .prep-part h4 .muted { font-weight: 400; color: var(--muted); font-size: .85rem; }
+  .prep-part .prep-list li { padding: 6px 0; font-size: .95rem; }
+  .prep-part .prep-list .count { font-size: 1rem; }
+  .prep-heading { margin: 0 0 4px; font-size: .95rem; color: var(--muted); font-weight: 600; }
   .prep-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .prep-list li:last-child { border-bottom: 0; }
   .prep-list .count { font-weight: 700; font-size: 1.15rem; color: var(--deep-brown); min-width: 2.5ch; text-align: right; }
@@ -549,23 +560,54 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       return;
     }
 
-    byDay(open).forEach(function (day) {
+    // Loaves still to go out, per loaf, for some orders.
+    function countLoaves(orders) {
       var counts = {};
-      day.orders.forEach(function (order) {
+      orders.forEach(function (order) {
         order.items.forEach(function (item) {
           var left = item.quantity - (item.delivered || 0);
           if (left > 0) counts[item.name] = (counts[item.name] || 0) + left;
         });
       });
+      return counts;
+    }
+
+    function prepList(counts) {
       var names = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
-      var total = loafCount(day.orders);
+      return el("ul", { class: "prep-list" }, ...names.map(function (name) {
+        return el("li", {}, el("span", { text: name }), el("span", { class: "count", text: String(counts[name]) }));
+      }));
+    }
+
+    function loavesText(count) {
+      return plural(count, "loaf").replace("loafs", "loaves");
+    }
+
+    byDay(open).forEach(function (day) {
+      var delivery = day.orders.filter(function (order) { return order.fulfillment !== "pickup"; });
+      var pickup = day.orders.filter(function (order) { return order.fulfillment === "pickup"; });
+      var both = delivery.length && pickup.length;
+
+      // A part of the day: its badge, how many orders, and its loaves.
+      function part(label, badgeClass, orders) {
+        return el("div", { class: both ? "prep-part" : "prep-part only" },
+          el("h4", {},
+            el("span", {}, el("span", { class: "badge " + badgeClass, text: label }), " ", el("span", { class: "muted", text: plural(orders.length, "order") })),
+            el("span", { text: loavesText(loafCount(orders)) })
+          ),
+          prepList(countLoaves(orders))
+        );
+      }
 
       view.append(dayHeading(day, plural(day.orders.length, "order")));
       view.append(el("div", { class: "card" },
-        el("ul", { class: "prep-list" }, ...names.map(function (name) {
-          return el("li", {}, el("span", { text: name }), el("span", { class: "count", text: String(counts[name]) }));
-        })),
-        el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: plural(total, "loaf").replace("loafs", "loaves") }))
+        // Both kinds on one day: what to bake in all, then how it splits for packing.
+        both ? el("p", { class: "prep-heading", text: "To bake" }) : null,
+        both ? prepList(countLoaves(day.orders)) : null,
+        both ? el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) })) : null,
+        delivery.length ? part("Delivery", "delivery", delivery) : null,
+        pickup.length ? part("Pickup", "pickup", pickup) : null,
+        both ? null : el("div", { class: "prep-total" }, el("span", { text: "Total" }), el("span", { text: loavesText(loafCount(day.orders)) }))
       ));
     });
   }

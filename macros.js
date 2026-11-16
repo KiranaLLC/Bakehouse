@@ -115,7 +115,7 @@ export const PRODUCTS = Object.freeze({
     name: "Double Chocolate",
     description: "Every chocolate craving, answered in sourdough.",
     price: 1600,
-    image: "./img/menu/double-chocolate.jpg",
+    image: "./img/menu/double-chocolate.png",
     ingredients: ["Milk Chocolate Chips", "Unsweetened Cocoa Powder", "Vanilla Essence"],
     maxQuantity: 6
   },

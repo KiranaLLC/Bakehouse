@@ -181,7 +181,7 @@ export const PRODUCTS = Object.freeze({
   shows the loaf's name on a plain tile until a photo is added to img/menu/.
 */
 export const PAST_FLAVOURS = Object.freeze([
-  { name: "Bird's Eye", description: "Chili cheese garlic bread, with the kick of bird's eye chili.", image: "./img/menu/birds-eye.jpg" },
+  // { name: "Bird's Eye", description: "Chili cheese garlic bread, with the kick of bird's eye chili.", image: "./img/menu/birds-eye.jpg" },
   { name: "Coconut Laddoo", description: "The classic Indian sweet, reimagined as a sourdough.", image: "./img/menu/coconut-laddoo.jpg" },
   { name: "Margherita", description: "Margherita pizza (not the drink!), reimagined as a sourdough.", image: "./img/menu/margherita.jpg" },
   { name: "Pumpkin Spice", description: "Autumn's favourite flavour, baked into a sourdough.", image: "./img/menu/pumpkin-spice.jpg" },

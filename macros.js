@@ -61,15 +61,15 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Bacon", "Sharp Cheddar Cheese"],
     maxQuantity: 6
   },
-  // birds_eye: {
-  //   name: "Bird's Eye",
-  //   description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
-  //   price: 1600,
-  //   image: "./img/menu/birds-eye.jpg",
-  //   imageCenter: 49,
-  //   ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
-  //   maxQuantity: 6
-  // },
+  birds_eye: {
+    name: "Bird's Eye",
+    description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
+    price: 1600,
+    image: "./img/menu/birds-eye.jpg",
+    imageCenter: 49,
+    ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
+    maxQuantity: 6
+  },
   birthday: {
     name: "Birthday",
     description: "Rainbow sprinkles folded into a sourdough bread.",

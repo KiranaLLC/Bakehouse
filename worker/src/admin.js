@@ -467,7 +467,8 @@ async function describeOrder(session, today, env, stripe) {
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),
     loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
     totalCents: session.amount_total || 0,
-    tipCents: Number(metadata.tip_cents) || 0
+    tipCents: Number(metadata.tip_cents) || 0,
+    serviceFeeCents: Number(metadata.service_fee_cents) || 0
   };
 
 }

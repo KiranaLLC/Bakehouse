@@ -1242,6 +1242,22 @@
       font-size: .98rem;
     }
 
+    .service-fee-note {
+      margin: -6px 0 18px;
+      font-size: .9rem;
+      color: var(--deep-brown);
+      opacity: .8;
+    }
+
+    .service-fee-summary-note {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .service-fee-summary-note[hidden] {
+      display: none;
+    }
+
     .menu-for a {
       color: var(--terracotta);
       font-weight: 600;
@@ -1635,6 +1651,8 @@
       <p id="menu-for" class="menu-for" aria-live="polite"></p>
     </div>
 
+    <p id="service-fee-note" class="service-fee-note" hidden></p>
+
     <p id="menu-limit" class="menu-limit" role="status" hidden></p>
 
     <div
@@ -1813,6 +1831,11 @@
       <span id="cart-discount">−$0.00</span>
     </div>
 
+    <div class="cart-line" id="cart-service-line" hidden>
+      <span id="cart-service-label">Service fee</span>
+      <span id="cart-service">$0.00</span>
+    </div>
+
     <div class="cart-total">
 
       <span>
@@ -1842,6 +1865,7 @@
       </button>
 
         <p class="stripe-note">
+        <span id="service-fee-summary-note" class="service-fee-summary-note" hidden></span>
         You'll enter your email and card details on the next page.
         Secure payment powered by Stripe.
       </p>
@@ -1863,14 +1887,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261115",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261115",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261115"
+      "./macros.js": "./macros.js?v=20261124",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261124",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261124"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261115"></script>
-<script type="module" src="./past-flavours.js?v=20261115"></script>
+<script type="module" src="./order.js?v=20261124"></script>
+<script type="module" src="./past-flavours.js?v=20261124"></script>
 
 </body>
 

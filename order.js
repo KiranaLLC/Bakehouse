@@ -5,10 +5,11 @@ DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
+import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, SERVICE_FEE, TIP } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
+  calculateServiceFee,
   calculateSubtotal,
   describeDeliveryDays,
   formatMoney,
@@ -400,8 +401,21 @@ function updateTotals() {
     document.getElementById("cart-discount").textContent = `−${formatMoney(discountCents)}`;
   }
 
+  // Worked out again on the server; follows the delivery fee once the address is in.
+  const serviceFee =
+    calculateServiceFee(SERVICE_FEE, subtotal + deliveryFee - discountCents);
+
+  document.getElementById("cart-service-line").hidden =
+    !serviceFee;
+
+  document.getElementById("cart-service-label").textContent =
+    SERVICE_FEE.label;
+
+  document.getElementById("cart-service").textContent =
+    formatMoney(serviceFee);
+
   document.getElementById("cart-total").textContent =
-    formatMoney(subtotal + deliveryFee + tipCents - discountCents);
+    formatMoney(subtotal + deliveryFee + tipCents - discountCents + serviceFee);
 
 }
 
@@ -1829,3 +1843,22 @@ document.getElementById("discount-code").addEventListener("keydown", event => {
     applyDiscountCode();
   }
 });
+
+/*
+==================================================
+SERVICE FEE NOTICE
+
+California requires the service fee and its
+purpose to be shown wherever prices are: next to
+the menu and above the payment button.
+==================================================
+*/
+
+if (SERVICE_FEE.percent || SERVICE_FEE.flatCents) {
+  for (const id of ["service-fee-note", "service-fee-summary-note"]) {
+    const note = document.getElementById(id);
+    if (!note) continue;
+    note.textContent = SERVICE_FEE.note;
+    note.hidden = false;
+  }
+}

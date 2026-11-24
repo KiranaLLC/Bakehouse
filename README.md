@@ -286,6 +286,22 @@ files); replies go to the Gmail. To set it up:
 The hourly schedule is in `worker/wrangler.toml` (`[triggers]`); the 5 pm
 reminder time is `SCHEDULE` in `worker/src/email-flows.js`.
 
+### Service fee
+
+Every website order (delivery and pickup) has a service fee to cover card
+processing: **3% of the loaves and delivery (after any discount), plus 30¢**.
+It isn't charged on the tip, or on an order that comes to $0. It shows as its
+own line on the order page, on the Stripe payment page ("Service fee (covers
+payment processing)"), on the confirmation page and on your orders page.
+
+California requires a fee like this, and what it's for, to be shown wherever
+prices are, so the order page says so under "Choose your loaves" and above the
+payment button. If you post prices anywhere else (Instagram, a market sign),
+add the same line there.
+
+To change it, edit `SERVICE_FEE` in `macros.js` (percent, flat amount and the
+note), then redeploy the checkout worker. Set both to 0 to turn it off.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public

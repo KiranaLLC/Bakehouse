@@ -243,6 +243,25 @@ export const API = Object.freeze({
   orderSummary: "/api/order-summary"
 });
 
+/*
+  Service fee added to every order (delivery and
+  pickup) to cover card processing: a percentage of
+  the loaves and delivery after any discount, plus a
+  flat amount. Not charged on the tip, or when the
+  order comes to $0. Set percent and flatCents to 0
+  to turn it off.
+
+  California requires the fee and its purpose to be
+  shown wherever prices are, so the order page
+  shows `note` next to the menu and the total.
+*/
+export const SERVICE_FEE = Object.freeze({
+  percent: 3,
+  flatCents: 30,
+  label: "Service fee",
+  note: "A service fee of 3% + 30¢ is added to every order to cover payment processing."
+});
+
 export const TIP = Object.freeze({
   // Percentages offered on the order page (0 = "No tip").
   presetPercents: Object.freeze([0, 10, 15, 20]),

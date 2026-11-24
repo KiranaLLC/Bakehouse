@@ -91,6 +91,13 @@ export function calculateDiscount(percent, subtotalCents, deliveryFeeCents) {
   return Math.round((subtotalCents + deliveryFeeCents) * percent / 100);
 }
 
+// The service fee on an order (SERVICE_FEE in macros.js), from the loaves and
+// delivery after any discount, in cents. 0 when there's nothing to pay.
+export function calculateServiceFee(fee, chargeableCents) {
+  if (!fee || chargeableCents <= 0 || (!fee.percent && !fee.flatCents)) return 0;
+  return Math.round(chargeableCents * fee.percent / 100) + fee.flatCents;
+}
+
 export function calculateDeliveryFee(zone, subtotalCents) {
   if (!zone || zone.feeCents === 0) return 0;
   return subtotalCents >= zone.freeOverCents ? 0 : zone.feeCents;

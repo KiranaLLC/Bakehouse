@@ -31,10 +31,11 @@ browser. The Stripe secret key lives here too.
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PICKUP, PRODUCTS, TIP } from "../../macros.js";
+import { API, DELIVERY, DELIVERY_SERVICE, PICKUP, PRODUCTS, SERVICE_FEE, TIP } from "../../macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
+  calculateServiceFee,
   calculateSubtotal,
   describeDeliveryDays,
   findDeliveryZone,
@@ -257,6 +258,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const subtotal = calculateSubtotal(items);
   const deliveryFee = calculateDeliveryFee(zone, subtotal);
   const discountCents = discount ? calculateDiscount(discount.percent, subtotal, deliveryFee) : 0;
+  const serviceFee = calculateServiceFee(SERVICE_FEE, subtotal + deliveryFee - discountCents);
 
   /*
   ==========================================
@@ -279,6 +281,10 @@ async function createCheckoutSession(body, env, siteUrl) {
 
   if (tipCents > 0) {
     lineItems.push({ price_data: { currency: "usd", product_data: { name: "Tip for your baker" }, unit_amount: tipCents }, quantity: 1 });
+  }
+
+  if (serviceFee > 0) {
+    lineItems.push(serviceFeeLine(serviceFee));
   }
 
   /*
@@ -308,7 +314,8 @@ async function createCheckoutSession(body, env, siteUrl) {
     delivery_notes: notes,
     tip_cents: String(tipCents),
     discount_code: discount?.code || "",
-    discount_cents: String(discountCents)
+    discount_cents: String(discountCents),
+    service_fee_cents: String(serviceFee)
   };
 
   /*
@@ -438,6 +445,7 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
 
   const subtotal = calculateSubtotal(items);
   const discountCents = discount ? calculateDiscount(discount.percent, subtotal, 0) : 0;
+  const serviceFee = calculateServiceFee(SERVICE_FEE, subtotal - discountCents);
 
   const lineItems = items.map(({ productId, quantity }) => ({
     price_data: { currency: "usd", product_data: { name: PRODUCTS[productId].name }, unit_amount: PRODUCTS[productId].price },
@@ -446,6 +454,10 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
 
   if (tipCents > 0) {
     lineItems.push({ price_data: { currency: "usd", product_data: { name: "Tip for your baker" }, unit_amount: tipCents }, quantity: 1 });
+  }
+
+  if (serviceFee > 0) {
+    lineItems.push(serviceFeeLine(serviceFee));
   }
 
   const location = `${drop.locationName}, ${drop.locationAddress}`;
@@ -462,7 +474,8 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
     customer_phone: customer.phone,
     tip_cents: String(tipCents),
     discount_code: discount?.code || "",
-    discount_cents: String(discountCents)
+    discount_cents: String(discountCents),
+    service_fee_cents: String(serviceFee)
   };
 
   const session = await stripe(env, "POST", "/checkout/sessions", {
@@ -997,6 +1010,11 @@ function findDiscount(code, env) {
 
   throw new OrderValidationError("That discount code isn't valid.");
 
+}
+
+// The service fee as a Stripe line item, its purpose in the name.
+function serviceFeeLine(cents) {
+  return { price_data: { currency: "usd", product_data: { name: `${SERVICE_FEE.label} (covers payment processing)` }, unit_amount: cents }, quantity: 1 };
 }
 
 function parseTip(tipCents) {

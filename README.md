@@ -93,7 +93,17 @@ website links to it. Bookmark it on your phone. It has two views:
   delivery date, with the customer's address (tap for directions), phone
   (tap to call), email and delivery notes. Orders whose date has passed but
   that were never marked delivered stay at the top, marked "Past date".
-- **Prep**: how many of each loaf to bake for each delivery date.
+- **Prep**: two views.
+  - **Prep tracker** (like the prep spreadsheet): for each bake day, a row per
+    batch with Qty, Autolyse?, Knead time, S&F, BF1?, Shaped? and Baked?, and
+    a total. A day starts with one row per loaf from its orders; after that
+    it's yours to edit: rename, change quantities, **Split** a loaf into
+    another batch, **+ Add a row** for extras, **Delete**. Everything saves
+    as you go, so it's the same on your phone and laptop. If orders come in
+    after a day has started, a note offers to add the new loaves. Needs the
+    latest `schema.sql` applied to the pickup database.
+  - **Summary**: how many of each loaf to bake for each date, split by
+    delivery and pickup.
 - **Past**: orders already delivered or picked up, newest first, with
   totals (orders, loaves, money paid) for the last 90 days. Search by name,
   email, phone or loaf; **Show older orders** goes back up to two years.

@@ -94,3 +94,29 @@ CREATE TABLE IF NOT EXISTS order_moves (
 );
 
 CREATE INDEX IF NOT EXISTS order_moves_order ON order_moves (order_id);
+
+-- The prep tracker on the orders page (Prep tab): one row per batch of
+-- loaves for a bake day, with each step ticked off as it's done. A day's rows
+-- start from that day's orders; prep_days remembers that's been done, so
+-- deleting every row doesn't bring them back.
+CREATE TABLE IF NOT EXISTS prep_rows (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  bake_date TEXT NOT NULL,                 -- YYYY-MM-DD
+  position INTEGER NOT NULL DEFAULT 0,
+  name TEXT NOT NULL DEFAULT '',
+  qty INTEGER NOT NULL DEFAULT 1,
+  autolyse TEXT NOT NULL DEFAULT '',       -- '', 'Yes' or 'No'
+  knead_time TEXT NOT NULL DEFAULT '',     -- e.g. 1245h
+  stretch_folds TEXT NOT NULL DEFAULT '',  -- e.g. 1111
+  bulk_ferment TEXT NOT NULL DEFAULT '',   -- BF1: '', 'Yes' or 'No'
+  shaped TEXT NOT NULL DEFAULT '',
+  baked TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS prep_rows_day ON prep_rows (bake_date, position);
+
+CREATE TABLE IF NOT EXISTS prep_days (
+  bake_date TEXT PRIMARY KEY,
+  seeded_at TEXT NOT NULL
+);

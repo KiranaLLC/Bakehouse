@@ -213,6 +213,43 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .done p { margin: 0 0 6px; color: var(--good); font-weight: 600; }
   .done .actions { display: flex; gap: 16px; flex-wrap: wrap; font-size: .95rem; }
   .done a { color: var(--terracotta); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* Prep: tracker / summary switch */
+  .prep-mode { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); margin-bottom: 8px; }
+  .prep-mode button { padding: 6px 14px; font: inherit; font-size: .9rem; font-weight: 600; border: 0; border-radius: 999px; background: transparent; color: var(--deep-brown); cursor: pointer; }
+  .prep-mode button[aria-selected="true"] { background: var(--deep-brown); color: var(--cream); }
+
+  /* Prep tracker: like the prep spreadsheet */
+  .track-day { margin-bottom: 28px; }
+  .track-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+  table.track { width: 100%; border-collapse: collapse; min-width: 880px; font-size: .95rem; }
+  .track th, .track td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  .track thead th { background: #7cf060; color: #111; font-weight: 700; position: sticky; top: 0; }
+  .track thead th.loaf { background: #f5f05a; }
+  .track tfoot th, .track tfoot td { background: #fbf0cf; font-weight: 700; border-bottom: 0; }
+  .track .loaf { position: sticky; left: 0; background: var(--paper); z-index: 1; min-width: 190px; }
+  .track thead .loaf { z-index: 2; }
+  .track tfoot .loaf { background: #fbf0cf; }
+  .track .qty { width: 64px; }
+  .track td.total { text-align: center; }
+  .track input, .track select { font: inherit; }
+  .track-name { width: 100%; border: 1px solid transparent; background: transparent; padding: 6px; border-radius: 6px; }
+  .track-name:hover, .track-name:focus, .track-text:hover, .track-text:focus, .track-qty:hover, .track-qty:focus { border-color: var(--line); background: #fff; }
+  .track-qty { width: 56px; border: 1px solid transparent; background: transparent; padding: 6px; border-radius: 6px; text-align: center; }
+  .track-text { width: 96px; border: 1px solid transparent; background: transparent; padding: 6px; border-radius: 6px; }
+  .track-status { appearance: none; -webkit-appearance: none; width: 96px; padding: 5px 26px 5px 12px; border-radius: 999px; border: 0; font-weight: 600; cursor: pointer; background: #e8e2d0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23333'/%3E%3C/svg%3E") no-repeat right 10px center; color: var(--muted); }
+  .track-status[data-value="Yes"] { background-color: #2e6b3a; color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E"); }
+  .track-status[data-value="No"] { background-color: #a3221a; color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E"); }
+  .track tr.baked .track-name { text-decoration: line-through; color: var(--muted); }
+  .track .row-actions { width: 1%; }
+  .track .row-actions .linkish { font-size: .85rem; margin-left: 10px; }
+  .track .row-actions .linkish:disabled { color: var(--muted); text-decoration: none; cursor: default; opacity: .5; }
+  .linkish.danger { color: var(--terracotta); }
+  .track-add { margin-top: 10px; }
+  .track-missing { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff4d6; border: 1px solid #e6c77a; color: #7a5200; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; font-size: .92rem; }
+  .track-missing button { padding: 6px 14px; font: inherit; font-weight: 600; border-radius: 999px; border: 1px solid #7a5200; background: transparent; color: #7a5200; cursor: pointer; }
+
   .linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--terracotta); text-decoration: underline; cursor: pointer; }
 </style>
 </head>
@@ -256,7 +293,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 <script>
 (function () {
 
-  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 90, pastQuery: "" };
+  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 90, pastQuery: "", prepMode: "tracker", tracker: null, trackerError: "", seeding: {} };
 
   // Where "a new drop is open" and reminder emails come from (they're sent to
   // customers as BCC, so nobody sees anyone else's address).
@@ -357,6 +394,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   /* ---------- Loading ---------- */
 
   function load() {
+    loadTracker();
     $("load-error").hidden = true;
     $("refresh").disabled = true;
     // Drops load alongside orders; if they fail, orders still show.
@@ -968,9 +1006,253 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     );
   }
 
+  /* ---------- Prep tracker ---------- */
+
+  // The tracker's rows from a week back (so yesterday's sheet is still there).
+  function loadTracker() {
+    var since = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    return api("GET", "prep?since=" + since).then(function (data) {
+      state.tracker = data;
+      state.trackerError = "";
+      if (state.tab === "prep") render();
+    }).catch(function (error) {
+      if (error.message === "signed-out") return;
+      state.trackerError = error.message;
+      if (state.tab === "prep") render();
+    });
+  }
+
   function renderPrep(open) {
     var view = $("prep-view");
-    view.replaceChildren();
+    var toggle = el("div", { class: "prep-mode", role: "tablist", "aria-label": "Prep view" },
+      el("button", { type: "button", role: "tab", "aria-selected": String(state.prepMode === "tracker"), text: "Prep tracker" }),
+      el("button", { type: "button", role: "tab", "aria-selected": String(state.prepMode === "summary"), text: "Summary" })
+    );
+    toggle.children[0].addEventListener("click", function () { state.prepMode = "tracker"; render(); });
+    toggle.children[1].addEventListener("click", function () { state.prepMode = "summary"; render(); });
+    var body = el("div", {});
+    view.replaceChildren(toggle, body);
+    if (state.prepMode === "tracker") renderTracker(open, body);
+    else renderPrepSummary(open, body);
+  }
+
+  // Loaves still to go out per loaf, in the order the prep list shows them.
+  function loavesToBake(orders) {
+    var counts = {};
+    orders.forEach(function (order) {
+      order.items.forEach(function (item) {
+        var left = item.quantity - (item.delivered || 0);
+        if (left > 0) counts[item.name] = (counts[item.name] || 0) + left;
+      });
+    });
+    return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); })
+      .map(function (name) { return { name: name, qty: counts[name] }; });
+  }
+
+  var TRACK_COLUMNS = [
+    { field: "autolyse", label: "Autolyse?", kind: "status" },
+    { field: "knead_time", label: "Knead time", kind: "text" },
+    { field: "stretch_folds", label: "S&F", kind: "text" },
+    { field: "bulk_ferment", label: "BF1?", kind: "status" },
+    { field: "shaped", label: "Shaped?", kind: "status" },
+    { field: "baked", label: "Baked?", kind: "status" }
+  ];
+
+  function renderTracker(open, view) {
+    if (state.trackerError) {
+      view.append(el("p", { class: "error", text: state.trackerError }));
+      return;
+    }
+    if (!state.tracker) {
+      view.append(el("p", { class: "empty", text: "Loading the prep tracker\u2026" }));
+      return;
+    }
+    if (!state.tracker.ready) {
+      view.append(el("p", { class: "empty", text: "The prep tracker needs new tables in the pickup database. From the worker folder, run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql" }));
+      return;
+    }
+
+    // Days with orders, plus days that only have tracker rows (extras, or orders all done).
+    var orderDays = byDay(open);
+    var days = {};
+    orderDays.forEach(function (day) { days[day.date] = { date: day.date, label: day.label, pastDue: day.pastDue, orders: day.orders }; });
+    Object.keys(state.tracker.days).forEach(function (date) {
+      if (!days[date] && state.tracker.days[date].rows.length && date >= (state.today || "")) {
+        days[date] = { date: date, label: longDate(date), pastDue: false, orders: [] };
+      }
+    });
+    var list = Object.keys(days).sort().map(function (date) { return days[date]; });
+
+    if (!list.length) {
+      view.append(el("p", { class: "empty", text: "Nothing to bake right now." }));
+      return;
+    }
+
+    view.append(prepCalendar(orderDays, "track-day-"));
+    list.forEach(function (day) {
+      var saved = state.tracker.days[day.date];
+      var needed = loavesToBake(day.orders);
+      // First time this day is opened: start it from its orders.
+      if ((!saved || !saved.seeded) && needed.length && !state.seeding[day.date]) {
+        state.seeding[day.date] = true;
+        api("POST", "prep/" + day.date + "/seed", { items: needed }).then(function (result) {
+          state.tracker.days[day.date] = result;
+          render();
+        }).catch(function (error) {
+          if (error.message !== "signed-out") { state.trackerError = error.message; render(); }
+        });
+      }
+      view.append(trackerDay(day, saved ? saved.rows : [], needed));
+    });
+  }
+
+  function longDate(date) {
+    return new Date(date + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" });
+  }
+
+  function trackerDay(day, rows, needed) {
+    var wrap = el("section", { class: "track-day", id: "track-day-" + day.date });
+    var error = el("p", { class: "error", role: "alert", hidden: "hidden" });
+    function fail(problem) {
+      if (problem.message === "signed-out") return;
+      error.textContent = problem.message;
+      error.hidden = false;
+    }
+    function rowsNow() { return (state.tracker.days[day.date] || { rows: [] }).rows; }
+    function ensureDay() {
+      state.tracker.days[day.date] = state.tracker.days[day.date] || { seeded: true, rows: [] };
+      return state.tracker.days[day.date];
+    }
+
+    var total = rows.reduce(function (sum, row) { return sum + (row.qty || 0); }, 0);
+
+    // Loaves on orders that the tracker doesn't have yet (orders that came in after it started).
+    var tracked = {};
+    rows.forEach(function (row) { tracked[row.name.toLowerCase()] = (tracked[row.name.toLowerCase()] || 0) + row.qty; });
+    var missing = needed.map(function (item) { return { name: item.name, qty: item.qty - (tracked[item.name.toLowerCase()] || 0) }; })
+      .filter(function (item) { return item.qty > 0; });
+
+    var table = el("table", { class: "track" },
+      el("thead", {}, el("tr", {},
+        el("th", { class: "loaf", text: "Loaf" }),
+        el("th", { class: "qty", text: "Qty" }),
+        ...TRACK_COLUMNS.map(function (column) { return el("th", { text: column.label }); }),
+        el("th", { class: "row-actions" }, el("span", { class: "visually-hidden", text: "Row actions" }))
+      )),
+      el("tbody", {}, ...rows.map(function (row) { return trackerRow(day, row, fail); })),
+      el("tfoot", {}, el("tr", {},
+        el("th", { class: "loaf", text: "Total" }),
+        el("td", { class: "qty total", text: String(total) }),
+        el("td", { colspan: String(TRACK_COLUMNS.length + 1) })
+      ))
+    );
+
+    var add = el("button", { type: "button", class: "linkish track-add", text: "+ Add a row" });
+    add.addEventListener("click", function () {
+      add.disabled = true;
+      api("POST", "prep/" + day.date + "/rows", { name: "", qty: 1 }).then(function (row) {
+        ensureDay().rows.push(row);
+        render();
+        var input = $("track-name-" + row.id);
+        if (input) input.focus();
+      }).catch(function (problem) { add.disabled = false; fail(problem); });
+    });
+
+    wrap.append(...[
+      el("div", { class: "day" }, el("h2", { text: day.label }, day.pastDue ? el("span", { class: "badge", text: "Past date" }) : null),
+        el("span", { text: plural(day.orders.length, "order") + " \u00b7 " + plural(total, "loaf").replace("loafs", "loaves") + " on the tracker" })),
+      missing.length ? el("div", { class: "track-missing" },
+        el("span", { text: "Not on the tracker yet: " + missing.map(function (item) { return item.qty + " \u00d7 " + item.name; }).join(", ") }),
+        (function () {
+          var button = el("button", { type: "button", text: "Add them" });
+          button.addEventListener("click", function () {
+            button.disabled = true;
+            missing.reduce(function (chain, item) {
+              return chain.then(function () {
+                return api("POST", "prep/" + day.date + "/rows", { name: item.name, qty: item.qty }).then(function (row) { ensureDay().rows.push(row); });
+              });
+            }, Promise.resolve()).then(render).catch(function (problem) { button.disabled = false; fail(problem); });
+          });
+          return button;
+        })()
+      ) : null,
+      el("div", { class: "track-scroll" }, table),
+      error,
+      add
+    ].filter(Boolean));
+    return wrap;
+
+    function trackerRow(day, row, fail) {
+      function save(change) {
+        Object.assign(row, change);
+        return api("POST", "prep/rows/" + row.id, change).then(function (saved) { Object.assign(row, saved); }).catch(fail);
+      }
+
+      var name = el("input", { type: "text", id: "track-name-" + row.id, class: "track-name", value: row.name, placeholder: "Loaf", "aria-label": "Loaf" });
+      name.addEventListener("change", function () { save({ name: name.value }); });
+      var qty = el("input", { type: "number", class: "track-qty", min: "0", max: "99", value: String(row.qty), inputmode: "numeric", "aria-label": "Quantity of " + (row.name || "loaf") });
+      qty.addEventListener("change", function () { save({ qty: Number(qty.value || 0) }).then(render); });
+
+      var cells = TRACK_COLUMNS.map(function (column) {
+        var label = column.label.replace("?", "") + " for " + (row.name || "this row");
+        if (column.kind === "status") {
+          var select = el("select", { class: "track-status", "data-value": row[column.field], "aria-label": label },
+            el("option", { value: "", text: "\u2013" }),
+            el("option", { value: "Yes", text: "Yes" }),
+            el("option", { value: "No", text: "No" })
+          );
+          select.value = row[column.field];
+          select.addEventListener("change", function () {
+            select.setAttribute("data-value", select.value);
+            var change = {};
+            change[column.field] = select.value;
+            save(change);
+          });
+          return el("td", {}, select);
+        }
+        var input = el("input", { type: "text", class: "track-text", value: row[column.field], "aria-label": label });
+        input.addEventListener("change", function () {
+          var change = {};
+          change[column.field] = input.value;
+          save(change);
+        });
+        return el("td", {}, input);
+      });
+
+      // Split: one loaf off this row into a new batch right under it.
+      var split = el("button", { type: "button", class: "linkish", text: "Split", title: "Make another batch of this loaf" });
+      split.disabled = row.qty < 2;
+      split.addEventListener("click", function () {
+        split.disabled = true;
+        save({ qty: row.qty - 1 }).then(function () {
+          return api("POST", "prep/" + day.date + "/rows", { name: row.name, qty: 1, after: row.id });
+        }).then(function (added) {
+          var list = rowsNow();
+          list.splice(list.indexOf(row) + 1, 0, added);
+          render();
+        }).catch(fail);
+      });
+      var remove = el("button", { type: "button", class: "linkish danger", text: "Delete", "aria-label": "Delete " + (row.name || "this row") });
+      remove.addEventListener("click", function () {
+        remove.disabled = true;
+        api("POST", "prep/rows/" + row.id + "/delete", {}).then(function () {
+          var list = rowsNow();
+          list.splice(list.indexOf(row), 1);
+          render();
+        }).catch(function (problem) { remove.disabled = false; fail(problem); });
+      });
+
+      var done = row.baked === "Yes";
+      return el("tr", { class: done ? "baked" : "" },
+        el("td", { class: "loaf" }, name),
+        el("td", { class: "qty" }, qty),
+        ...cells,
+        el("td", { class: "row-actions" }, split, remove)
+      );
+    }
+  }
+
+  function renderPrepSummary(open, view) {
 
     if (open.length === 0) {
       view.append(el("p", { class: "empty", text: "Nothing to bake right now." }));

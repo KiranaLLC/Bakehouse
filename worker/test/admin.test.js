@@ -608,3 +608,56 @@ test("an order can move to any day, even a past one or one with nothing else on 
   assert.equal(part.pastDue, true);
   assert.equal(part.fulfillment, "delivery");
 });
+
+/*
+  Prep tracker.
+*/
+
+test("the prep tracker starts a day from its orders once, then keeps your edits", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  const date = addDays(today, 1);
+
+  const empty = await call("GET", `/admin/api/prep?since=${today}`, { cookie, useEnv });
+  assert.deepEqual(empty.body, { ready: true, days: {} });
+
+  const seeded = await call("POST", `/admin/api/prep/${date}/seed`, { cookie, useEnv, body: { items: [{ name: "House White", qty: 3 }, { name: "Pesto", qty: 1 }] } });
+  assert.equal(seeded.status, 200, JSON.stringify(seeded.body));
+  assert.deepEqual(seeded.body.rows.map(({ name, qty }) => [name, qty]), [["House White", 3], ["Pesto", 1]]);
+
+  // Split House White into a second batch, right under it.
+  const white = seeded.body.rows[0];
+  await call("POST", `/admin/api/prep/rows/${white.id}`, { cookie, useEnv, body: { qty: 2, autolyse: "Yes", knead_time: "1245h", stretch_folds: "1111" } });
+  const split = await call("POST", `/admin/api/prep/${date}/rows`, { cookie, useEnv, body: { name: "House White", qty: 1, after: white.id } });
+  assert.equal(split.status, 200, JSON.stringify(split.body));
+  await call("POST", `/admin/api/prep/${date}/rows`, { cookie, useEnv, body: { name: "Extra plain", qty: 1 } });
+
+  // Seeding again changes nothing.
+  const again = await call("POST", `/admin/api/prep/${date}/seed`, { cookie, useEnv, body: { items: [{ name: "Rye", qty: 4 }] } });
+  assert.deepEqual(again.body.rows.map(({ name, qty }) => [name, qty]), [["House White", 2], ["House White", 1], ["Pesto", 1], ["Extra plain", 1]]);
+  const first = again.body.rows[0];
+  assert.equal(first.autolyse, "Yes");
+  assert.equal(first.knead_time, "1245h");
+  assert.equal(first.stretch_folds, "1111");
+
+  // Delete, and deleting everything doesn't bring the orders back.
+  for (const row of again.body.rows) await call("POST", `/admin/api/prep/rows/${row.id}/delete`, { cookie, useEnv });
+  const listed = (await call("GET", `/admin/api/prep?since=${today}`, { cookie, useEnv })).body;
+  assert.deepEqual(listed.days[date], { seeded: true, rows: [] });
+});
+
+test("prep tracker cells are checked", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  const date = addDays(today, 2);
+  const row = (await call("POST", `/admin/api/prep/${date}/rows`, { cookie, useEnv, body: { name: "Rye", qty: 1 } })).body;
+  for (const [body, error] of [[{ baked: "Maybe" }, /Yes, No or blank/], [{ qty: 500 }, /0 to 99/], [{ color: "red" }, /Nothing to change/]]) {
+    const result = await call("POST", `/admin/api/prep/rows/${row.id}`, { cookie, useEnv, body });
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, error);
+  }
+  assert.equal((await call("POST", "/admin/api/prep/rows/99999", { cookie, useEnv, body: { baked: "Yes" } })).status, 400);
+  // Without the database it says so, and listing just reports it isn't ready.
+  assert.deepEqual((await call("GET", "/admin/api/prep", { cookie })).body, { ready: false, days: {} });
+  assert.match((await call("POST", `/admin/api/prep/${date}/rows`, { cookie, body: { name: "Rye" } })).body.error, /database/);
+});

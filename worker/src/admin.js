@@ -14,6 +14,11 @@ sites, which Safari would block).
   POST /admin/api/orders/<id>/delivered      { delivered: true | false }
   POST /admin/api/orders/<id>/partial        { items: { "<loaf name>": <loaves delivered so far> } }
   GET  /admin/api/past-orders?days=90        delivered and picked-up orders
+  GET  /admin/api/prep?since=<date>          prep tracker rows (see prep.js)
+  POST /admin/api/prep/<date>/seed           { items: [{ name, qty }] }: start a day from its orders
+  POST /admin/api/prep/<date>/rows           { name, qty, after? }: add a row
+  POST /admin/api/prep/rows/<id>             { <field>: <value> }: change a row
+  POST /admin/api/prep/rows/<id>/delete
   POST /admin/api/orders/<id>/move           { items: { "<loaf name>": <loaves to move> }, deliveryDate | dropId }
   GET  /admin/api/drops                      pickup drops (recent and upcoming)
   POST /admin/api/drops                      create a drop
@@ -56,6 +61,7 @@ import {
 import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
+import { PrepError, addPrepRow, deletePrepRow, listPrep, seedPrepDay, updatePrepRow } from "./prep.js";
 import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
 
 const COOKIE_NAME = "kirana_admin";
@@ -102,6 +108,11 @@ export async function handleAdmin(request, env, { stripe }) {
 
     if (request.method === "GET" && path === "/admin/api/orders") {
       return json(await listOpenOrders(env, stripe));
+    }
+
+    if (path.startsWith("/admin/api/prep")) {
+      const prep = await handlePrep(request, path, url, env);
+      if (prep) return prep;
     }
 
     if (request.method === "GET" && path === "/admin/api/past-orders") {
@@ -342,6 +353,31 @@ function isPickup(session) {
 // The day the order goes out: its delivery date, or its pickup date.
 function orderDate(session) {
   return session.metadata?.delivery_date || (isPickup(session) ? session.metadata?.pickup_date : "") || "";
+}
+
+// The prep tracker's routes; null if none matches.
+async function handlePrep(request, path, url, env) {
+  const body = request.method === "POST" ? await request.json().catch(() => ({})) : null;
+  try {
+    if (request.method === "GET" && path === "/admin/api/prep") {
+      return json(await listPrep(env, url.searchParams.get("since") || bakeryTodayValue()));
+    }
+    let match = path.match(/^\/admin\/api\/prep\/(\d{4}-\d{2}-\d{2})\/seed$/);
+    if (request.method === "POST" && match) return json(await seedPrepDay(env, match[1], body?.items));
+    match = path.match(/^\/admin\/api\/prep\/(\d{4}-\d{2}-\d{2})\/rows$/);
+    if (request.method === "POST" && match) return json(await addPrepRow(env, match[1], body));
+    match = path.match(/^\/admin\/api\/prep\/rows\/(\d+)\/delete$/);
+    if (request.method === "POST" && match) { await deletePrepRow(env, match[1]); return json({ ok: true }); }
+    match = path.match(/^\/admin\/api\/prep\/rows\/(\d+)$/);
+    if (request.method === "POST" && match) return json(await updatePrepRow(env, match[1], body));
+  } catch (error) {
+    if (error instanceof PrepError) return json({ error: error.message }, 400);
+    if (/no such table: prep_/i.test(error.message || "")) {
+      return json({ error: "The prep tracker needs new tables in the pickup database. Run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql" }, 400);
+    }
+    throw error;
+  }
+  return null;
 }
 
 /*

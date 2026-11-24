@@ -31,7 +31,7 @@ browser. The Stripe secret key lives here too.
 ==================================================
 */
 
-import { API, DELIVERY, DELIVERY_SERVICE, PICKUP, PRODUCTS, TIP } from "../../macros.js";
+import { API, DELIVERY, DELIVERY_SERVICE, PICKUP, PRODUCTS, SURCHARGE, TIP } from "../../macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
@@ -47,6 +47,7 @@ import {
 import { stripe } from "./stripe.js";
 import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
 import { applyMoves, listMoves } from "./moves.js";
+import { surchargeCents, surchargeNotice, surchargeParams, surchargeVersion } from "./surcharge.js";
 import { DropError, addPendingSubscriber, addSubscriber, claimEmail, confirmSubscriber, forgetEmail, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, logEmail, unsubscribeByToken } from "./drops.js";
 import { canEmail, confirmSubscriptionEmail, newOrderAlert, orderConfirmationEmail, sendEmail } from "./email.js";
 import { runScheduledEmails } from "./email-flows.js";
@@ -361,12 +362,13 @@ async function createCheckoutSession(body, env, siteUrl) {
     metadata,
     custom_text: {
       submit: {
-        message: `Delivering to ${addressLine} on ${deliverySlotLabel}. Your sourdough will be baked fresh that morning.`
+        message: `Delivering to ${addressLine} on ${deliverySlotLabel}. Your sourdough will be baked fresh that morning.${surchargeNotice(SURCHARGE)}`
       }
     },
+    ...surchargeParams(SURCHARGE),
     success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/order.html?cancelled=true`
-  });
+  }, surchargeVersion(SURCHARGE));
 
   await confirmPlaceInLine(env, session, loafCount,
     await listDeliveryBookings(env, [deliveryDate]),
@@ -478,11 +480,12 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
     },
     metadata,
     custom_text: {
-      submit: { message: `Pickup at ${location}, ${pickupWhen}. Your sourdough will be baked fresh that morning.` }
+      submit: { message: `Pickup at ${location}, ${pickupWhen}. Your sourdough will be baked fresh that morning.${surchargeNotice(SURCHARGE)}` }
     },
+    ...surchargeParams(SURCHARGE),
     success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/order.html?cancelled=true`
-  });
+  }, surchargeVersion(SURCHARGE));
 
   await confirmPlaceInLine(env, session, loafCount,
     await listDropBookings(env, stripe, [drop]),
@@ -841,6 +844,7 @@ async function getOrderSummary(sessionId, env) {
     items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_subtotal ?? item.amount_total })),
     discountCode: session.metadata.discount_code || "",
     amountDiscount: session.total_details?.amount_discount || 0,
+    amountSurcharge: surchargeCents(session),
     amountTotal: session.amount_total
   };
 

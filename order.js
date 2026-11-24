@@ -5,7 +5,7 @@ DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, TIP } from "./macros.js";
+import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, SURCHARGE, TIP } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
@@ -1829,3 +1829,20 @@ document.getElementById("discount-code").addEventListener("keydown", event => {
     applyDiscountCode();
   }
 });
+
+/*
+==================================================
+CARD SURCHARGE NOTICE
+
+Shown before payment whenever the card surcharge
+is on (SURCHARGE in macros.js), as card rules
+require.
+==================================================
+*/
+
+const surchargeNote = document.getElementById("surcharge-note");
+if (surchargeNote && SURCHARGE.enabled) {
+  surchargeNote.textContent =
+    `Credit card payments include a surcharge of up to ${SURCHARGE.maxPercent}% to cover card processing, shown before you pay. There's no surcharge on debit cards.`;
+  surchargeNote.hidden = false;
+}

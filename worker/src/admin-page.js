@@ -485,7 +485,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       order.kind === "moved" ? el("dt", { text: "Moved from" }) : null,
       order.kind === "moved" ? el("dd", { text: (order.movedFromLabel || "another day") + " (already paid)" }) : null,
       order.kind === "moved" ? null : el("dt", { text: order.unpaid ? "Amount due" : "Paid" }),
-      order.kind === "moved" ? null : el("dd", { text: money(order.totalCents) + (order.tipCents ? " (incl. " + money(order.tipCents) + " tip)" : "") })
+      order.kind === "moved" ? null : el("dd", { text: money(order.totalCents) + paidExtras(order) })
     );
 
     // Two separate actions: emailing doesn't mark the order, and marking
@@ -537,6 +537,14 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     order's loaves, to another delivery day or
     pickup drop. Loaves already handed over stay.
   */
+  // " (incl. $2.00 tip, $0.51 card surcharge)"
+  function paidExtras(order) {
+    var parts = [];
+    if (order.tipCents) parts.push(money(order.tipCents) + " tip");
+    if (order.surchargeCents) parts.push(money(order.surchargeCents) + " card surcharge");
+    return parts.length ? " (incl. " + parts.join(", ") + ")" : "";
+  }
+
   function moveControl(order) {
     var wrap = el("div", {});
     var pickup = order.fulfillment === "pickup";

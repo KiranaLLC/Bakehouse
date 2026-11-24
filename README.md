@@ -286,6 +286,30 @@ files); replies go to the Gmail. To set it up:
 The hourly schedule is in `worker/wrangler.toml` (`[triggers]`); the 5 pm
 reminder time is `SCHEDULE` in `worker/src/email-flows.js`.
 
+### Card surcharge
+
+Website orders can pass card processing costs on to customers who pay by
+**credit** card, using Stripe's automatic surcharge (in private preview).
+Stripe works out the surcharge once the customer enters their card, adds it
+to the total (debit cards are never surcharged; the card networks cap it at
+3%), and shows it before they pay, so they can switch cards. The order page
+says so above the payment button, and the confirmation page and orders page
+show the surcharge paid.
+
+It's **off** until you switch it on:
+
+1. In the Stripe Dashboard, install a surcharge app from the App Marketplace,
+   [Yeeld](https://marketplace.stripe.com/apps/yeeld) or
+   [InterPayments](https://marketplace.stripe.com/apps/interpayments), and
+   finish its setup. The app decides the amount and checks card rules and
+   state law, so check what it charges.
+2. In `macros.js`, set `SURCHARGE.enabled` to `true`.
+3. Redeploy the checkout worker (`npx wrangler deploy` in `worker`).
+4. Place a test order with a credit card and check the surcharge appears.
+
+To turn it off, set `enabled` back to `false` and redeploy. If Stripe changes
+the preview API version, update `SURCHARGE.apiVersion`.
+
 ### Discount codes
 
 Codes are kept as a Cloudflare secret, so they don't appear in this public

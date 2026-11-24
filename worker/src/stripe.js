@@ -14,7 +14,7 @@ nested values written as line_items[0][quantity].
 ==================================================
 */
 
-export async function stripe(env, method, path, params) {
+export async function stripe(env, method, path, params, { version } = {}) {
 
   if (!env.STRIPE_SECRET_KEY) {
     throw Object.assign(new Error("STRIPE_SECRET_KEY is not set"), { publicMessage: "Online payment isn't set up yet. Please email us at hellokiranabakehouse@gmail.com to place your order." });
@@ -27,6 +27,7 @@ export async function stripe(env, method, path, params) {
     method,
     headers: {
       Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      ...(version ? { "Stripe-Version": version } : {}),
       ...(method === "GET" ? {} : { "Content-Type": "application/x-www-form-urlencoded" })
     },
     body: method === "GET" ? undefined : body

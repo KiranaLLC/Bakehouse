@@ -55,6 +55,7 @@ import {
 import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
+import { surchargeCents } from "./surcharge.js";
 import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
 
 const COOKIE_NAME = "kirana_admin";
@@ -467,7 +468,8 @@ async function describeOrder(session, today, env, stripe) {
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),
     loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
     totalCents: session.amount_total || 0,
-    tipCents: Number(metadata.tip_cents) || 0
+    tipCents: Number(metadata.tip_cents) || 0,
+    surchargeCents: surchargeCents(session)
   };
 
 }

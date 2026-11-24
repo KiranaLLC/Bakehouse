@@ -552,6 +552,15 @@
       margin-top: 18px;
     }
 
+    #surcharge-note {
+      display: block;
+      margin-top: 6px;
+    }
+
+    #surcharge-note[hidden] {
+      display: none;
+    }
+
     @media (max-width: 1000px) and (min-width: 801px) {
 
       .shop-grid {
@@ -1844,6 +1853,7 @@
         <p class="stripe-note">
         You'll enter your email and card details on the next page.
         Secure payment powered by Stripe.
+        <span id="surcharge-note" hidden></span>
       </p>
 
       </aside>
@@ -1863,14 +1873,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261115",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261115",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261115"
+      "./macros.js": "./macros.js?v=20261124",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261124",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261124"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261115"></script>
-<script type="module" src="./past-flavours.js?v=20261115"></script>
+<script type="module" src="./order.js?v=20261124"></script>
+<script type="module" src="./past-flavours.js?v=20261124"></script>
 
 </body>
 

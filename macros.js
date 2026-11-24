@@ -243,6 +243,22 @@ export const API = Object.freeze({
   orderSummary: "/api/order-summary"
 });
 
+/*
+  Card surcharge: Stripe adds a fee to credit card
+  payments (never debit) to cover processing, worked
+  out by the surcharge app installed in Stripe
+  (Yeeld or InterPayments). Leave `enabled` false
+  until that app is set up; after changing it,
+  redeploy the checkout worker too.
+*/
+export const SURCHARGE = Object.freeze({
+  enabled: false,
+  // The most the surcharge can be (card network cap), shown to customers.
+  maxPercent: 3,
+  // Stripe preview API version the surcharge needs.
+  apiVersion: "2026-04-22.preview"
+});
+
 export const TIP = Object.freeze({
   // Percentages offered on the order page (0 = "No tip").
   presetPercents: Object.freeze([0, 10, 15, 20]),

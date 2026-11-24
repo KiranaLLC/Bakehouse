@@ -263,7 +263,10 @@ test("a pickup order creates a Stripe payment with no address or delivery fee", 
   assert.equal(metadata.delivery_date, undefined);
   assert.equal(params.get("payment_intent_data[shipping][name]"), null);
   const lineNames = [...params].filter(([key]) => key.endsWith("[product_data][name]")).map(([, value]) => value);
-  assert.deepEqual(lineNames, ["House White", "Tip for your baker"]);
+  assert.deepEqual(lineNames, ["House White", "Tip for your baker", "Payment processing fee"]);
+  // 3% of the two $12 loaves, not the tip, plus 30¢.
+  assert.equal(params.get("line_items[2][price_data][unit_amount]"), "102");
+  assert.equal(metadata.service_fee_cents, "102");
   assert.match(params.get("custom_text[submit][message]"), /Pickup at Verve Coffee Roasters/);
 });
 

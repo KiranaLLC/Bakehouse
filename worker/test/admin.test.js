@@ -563,3 +563,34 @@ test("capacity follows moves: loaves leave the old day and count on the new one"
   const drops = applyMoves([], moves, { key: "dropId", wanted: new Set(["7"]) });
   assert.deepEqual(drops.map(({ id, loaves }) => [id, loaves]), [["mv_3", 3]]);
 });
+
+test("past orders lists delivered orders newest first, with totals", async () => {
+  const cookie = await signIn();
+  const older = addDays(today, -6);
+  const newer = addDays(today, -2);
+  addOrder({ id: "cs_past_old", date: older, items: "house_white:2" });
+  addOrder({ id: "cs_past_new", date: newer, items: "pesto:1" });
+  addOrder({ id: "cs_still_open", date: addDays(today, 2), items: "house_white:1" });
+  await call("POST", "/admin/api/orders/cs_past_old/delivered", { cookie, body: { delivered: true } });
+  await call("POST", "/admin/api/orders/cs_past_new/delivered", { cookie, body: { delivered: true } });
+
+  const { status, body } = await call("GET", "/admin/api/past-orders", { cookie });
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.days, 90);
+  assert.deepEqual(body.orders.map(({ id }) => id), ["cs_past_new", "cs_past_old"]);
+  assert.ok(body.orders.every(({ deliveredAt }) => deliveredAt));
+  assert.equal(body.totals.orders, 2);
+  assert.equal(body.totals.loaves, 3);
+
+  // Undo puts it back on the open list and off the past list.
+  await call("POST", "/admin/api/orders/cs_past_new/delivered", { cookie, body: { delivered: false } });
+  const after = (await call("GET", "/admin/api/past-orders?days=9999", { cookie })).body;
+  assert.equal(after.days, 730);
+  assert.deepEqual(after.orders.map(({ id }) => id), ["cs_past_old"]);
+  assert.ok((await call("GET", "/admin/api/orders", { cookie })).body.orders.some(({ id }) => id === "cs_past_new"));
+});
+
+test("past orders need signing in", async () => {
+  const { status } = await call("GET", "/admin/api/past-orders");
+  assert.equal(status, 401);
+});

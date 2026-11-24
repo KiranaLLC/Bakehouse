@@ -13,6 +13,7 @@ sites, which Safari would block).
   GET  /admin/api/orders                     paid orders and invoices not yet delivered
   POST /admin/api/orders/<id>/delivered      { delivered: true | false }
   POST /admin/api/orders/<id>/partial        { items: { "<loaf name>": <loaves delivered so far> } }
+  GET  /admin/api/past-orders?days=90        delivered and picked-up orders
   POST /admin/api/orders/<id>/move           { items: { "<loaf name>": <loaves to move> }, deliveryDate | dropId }
   GET  /admin/api/drops                      pickup drops (recent and upcoming)
   POST /admin/api/drops                      create a drop
@@ -101,6 +102,10 @@ export async function handleAdmin(request, env, { stripe }) {
 
     if (request.method === "GET" && path === "/admin/api/orders") {
       return json(await listOpenOrders(env, stripe));
+    }
+
+    if (request.method === "GET" && path === "/admin/api/past-orders") {
+      return json(await listPastOrders(env, stripe, url.searchParams.get("days")));
     }
 
     const deliveredMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/delivered$/);
@@ -337,6 +342,83 @@ function isPickup(session) {
 // The day the order goes out: its delivery date, or its pickup date.
 function orderDate(session) {
   return session.metadata?.delivery_date || (isPickup(session) ? session.metadata?.pickup_date : "") || "";
+}
+
+/*
+==================================================
+PAST ORDERS
+
+Orders already delivered or picked up, newest
+first, from the last `days` days (by when they
+were placed): website orders, invoices and moved
+parts. Read only, apart from Undo, which puts an
+order back on the list.
+==================================================
+*/
+
+const PAST_DAYS_DEFAULT = 90;
+const PAST_DAYS_MAX = 730;
+
+async function listPastOrders(env, stripe, daysParam) {
+
+  const days = Math.min(Math.max(Number.parseInt(daysParam, 10) || PAST_DAYS_DEFAULT, 1), PAST_DAYS_MAX);
+  const since = Math.floor(Date.now() / 1000) - days * 86400;
+  const today = bakeryTodayValue();
+  const moves = await listMoves(env);
+  const movedOut = movedOutByOrder(moves);
+  const orders = [];
+
+  let startingAfter;
+  do {
+    const page = await stripe(env, "GET", "/checkout/sessions", {
+      limit: 100,
+      status: "complete",
+      created: { gte: since },
+      starting_after: startingAfter,
+      expand: ["data.payment_intent", "data.customer"]
+    });
+    for (const session of page.data) {
+      const paid = session.payment_status === "paid" || session.payment_status === "no_payment_required";
+      if (!paid || !orderDate(session) || !deliveredAt(session)) continue;
+      const order = await describeOrder(session, today, env, stripe);
+      const moved = movedOut.get(session.id);
+      const left = moved ? withoutMoved(order, moved) : order;
+      // Wholly moved: its moved parts are listed instead.
+      if (left.loaves > 0) orders.push({ ...left, deliveredAt: deliveredAt(session) });
+    }
+    startingAfter = page.has_more ? page.data.at(-1).id : undefined;
+  } while (startingAfter);
+
+  startingAfter = undefined;
+  do {
+    const page = await stripe(env, "GET", "/invoices", { limit: 100, status: "paid", created: { gte: since }, starting_after: startingAfter });
+    for (const invoice of page.data) {
+      if (!invoice.metadata?.delivered_at) continue;
+      orders.push({ ...await describeInvoice(invoice, today, env, stripe), deliveredAt: invoice.metadata.delivered_at });
+    }
+    startingAfter = page.has_more ? page.data.at(-1).id : undefined;
+  } while (startingAfter);
+
+  for (const move of moves) {
+    if (!move.deliveredAt || Date.parse(move.createdAt) / 1000 < since) continue;
+    const drop = move.dropId && hasDatabase(env) ? await getDrop(env, Number(move.dropId)) : null;
+    orders.push({ ...describeMove(move, today, drop), deliveredAt: move.deliveredAt });
+  }
+
+  // Newest delivery date first.
+  orders.sort((a, b) => (a.deliveryDate < b.deliveryDate ? 1 : a.deliveryDate > b.deliveryDate ? -1 : 0) || b.created - a.created);
+
+  return {
+    days,
+    maxDays: PAST_DAYS_MAX,
+    orders,
+    totals: {
+      orders: orders.filter(({ kind }) => kind !== "moved").length,
+      loaves: orders.reduce((total, { loaves }) => total + loaves, 0),
+      paidCents: orders.reduce((total, { totalCents, unpaid }) => total + (unpaid ? 0 : totalCents || 0), 0)
+    }
+  };
+
 }
 
 function isOpenOrder(session) {

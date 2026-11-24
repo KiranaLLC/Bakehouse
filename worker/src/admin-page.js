@@ -66,6 +66,15 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .tabs button[aria-selected="true"] { background: var(--deep-brown); color: var(--cream); }
 
   .summary { color: var(--muted); margin: 0 0 16px; }
+
+  /* Past orders */
+  .past-search { width: 100%; padding: 12px 14px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-bottom: 8px; }
+  .card.past { padding: 14px 16px; }
+  .past-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .past-top h3 { margin: 0; font-size: 1.05rem; }
+  .card.past .items { margin: 6px 0 4px; font-weight: 600; }
+  .past-when { margin: 0 0 8px; color: var(--good); font-size: .9rem; font-weight: 600; }
+  .past-more { display: block; margin: 16px auto 32px; padding: 10px 18px; font: inherit; font-weight: 600; border-radius: 999px; border: 1px solid var(--deep-brown); background: transparent; color: var(--deep-brown); cursor: pointer; }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
 
   /* Day headings */
@@ -159,10 +168,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   /* Orders */
   .order h3 { margin: 0 0 2px; font-size: 1.05rem; }
   .order .items { margin: 0 0 10px; font-weight: 600; color: var(--deep-brown); }
-  .order dl { margin: 0 0 14px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: .95rem; }
-  .order dt { color: var(--muted); }
-  .order dd { margin: 0; overflow-wrap: anywhere; }
-  .order a { color: var(--terracotta); }
+  .order dl, .card.past dl { margin: 0 0 14px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: .95rem; }
+  .order dt, .card.past dt { color: var(--muted); }
+  .order dd, .card.past dd { margin: 0; overflow-wrap: anywhere; }
+  .order a, .card.past a { color: var(--terracotta); }
   .order-actions { display: flex; gap: 8px; }
   .order-actions > * { flex: 1; padding: 12px; font: inherit; font-weight: 600; text-align: center; text-decoration: none; border-radius: 999px; cursor: pointer; }
   .deliver { border: 2px solid var(--good); background: white; color: var(--good); }
@@ -230,12 +239,14 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       <button id="tab-orders" type="button" role="tab" aria-selected="true">Orders</button>
       <button id="tab-prep" type="button" role="tab" aria-selected="false">Prep</button>
       <button id="tab-drops" type="button" role="tab" aria-selected="false">Drops</button>
+      <button id="tab-past" type="button" role="tab" aria-selected="false">Past</button>
     </div>
     <p id="summary" class="summary"></p>
     <p id="load-error" class="error" role="alert" hidden></p>
     <section id="orders-view"></section>
     <section id="prep-view" hidden></section>
     <section id="drops-view" hidden></section>
+    <section id="past-view" hidden></section>
   </div>
 
   <p id="loading" class="empty">Loading…</p>
@@ -245,7 +256,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 <script>
 (function () {
 
-  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null };
+  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 90, pastQuery: "" };
 
   // Where "a new drop is open" and reminder emails come from (they're sent to
   // customers as BCC, so nobody sees anyone else's address).
@@ -380,7 +391,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     });
   }
 
-  $("refresh").addEventListener("click", load);
+  $("refresh").addEventListener("click", function () {
+    load();
+    if (state.past) loadPast();
+  });
 
   /* ---------- Tabs ---------- */
 
@@ -389,6 +403,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     $("tab-orders").setAttribute("aria-selected", String(tab === "orders"));
     $("tab-prep").setAttribute("aria-selected", String(tab === "prep"));
     $("tab-drops").setAttribute("aria-selected", String(tab === "drops"));
+    $("tab-past").setAttribute("aria-selected", String(tab === "past"));
+    $("past-view").hidden = tab !== "past";
     $("orders-view").hidden = tab !== "orders";
     $("prep-view").hidden = tab !== "prep";
     $("drops-view").hidden = tab !== "drops";
@@ -400,6 +416,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   $("tab-orders").addEventListener("click", function () { selectTab("orders"); });
   $("tab-prep").addEventListener("click", function () { selectTab("prep"); });
   $("tab-drops").addEventListener("click", function () { selectTab("drops"); });
+  $("tab-past").addEventListener("click", function () {
+    selectTab("past");
+    if (!state.past) loadPast();
+  });
 
   /* ---------- Rendering ---------- */
 
@@ -429,11 +449,12 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   function render() {
     document.body.classList.toggle("wide", state.tab === "prep" || state.tab === "orders");
     var open = openOrders();
-    $("summary").textContent = open.length
+    $("summary").textContent = open.length && state.tab !== "past"
       ? plural(open.length, "order") + " to deliver · " + plural(loafCount(open), "loaf").replace("loafs", "loaves")
       : "";
     if (state.tab === "orders") renderOrders();
     else if (state.tab === "prep") renderPrep(open);
+    else if (state.tab === "past") renderPast();
     else renderDrops();
   }
 
@@ -742,6 +763,123 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         order.email ? emailControl(order, "") : null,
         undo
       )
+    );
+  }
+
+  /* ---------- Past orders ---------- */
+
+  // Delivered and picked-up orders, newest first, from the last state.pastDays days.
+  function loadPast() {
+    state.pastError = "";
+    state.pastLoading = true;
+    if (state.tab === "past") renderPast();
+    api("GET", "past-orders?days=" + state.pastDays).then(function (data) {
+      state.past = data;
+      state.pastLoading = false;
+      if (state.tab === "past") renderPast();
+    }).catch(function (error) {
+      state.pastLoading = false;
+      if (error.message === "signed-out") return;
+      state.pastError = error.message;
+      if (state.tab === "past") renderPast();
+    });
+  }
+
+  function renderPast() {
+    var view = $("past-view");
+    if (state.pastError) {
+      view.replaceChildren(el("p", { class: "error", text: state.pastError }), el("button", { type: "button", text: "Try again", onclick: loadPast }));
+      return;
+    }
+    if (!state.past) {
+      view.replaceChildren(el("p", { class: "empty", text: "Loading past orders\u2026" }));
+      return;
+    }
+
+    var data = state.past;
+    var search = el("input", { type: "search", id: "past-search", class: "past-search", placeholder: "Search by name, email, phone or loaf", value: state.pastQuery, "aria-label": "Search past orders" });
+    var list = el("div", { id: "past-list" });
+    var more = data.days < data.maxDays
+      ? el("button", { type: "button", class: "past-more", text: state.pastLoading ? "Loading\u2026" : "Show older orders" })
+      : el("p", { class: "summary", text: "That's everything from the last " + Math.round(data.maxDays / 365) + " years." });
+    if (more.tagName === "BUTTON") {
+      more.disabled = Boolean(state.pastLoading);
+      more.addEventListener("click", function () {
+        state.pastDays = data.days < 180 ? 180 : data.days < 365 ? 365 : data.maxDays;
+        loadPast();
+      });
+    }
+
+    view.replaceChildren(
+      el("p", { class: "summary", text: "Last " + data.days + " days: " + plural(data.totals.orders, "order") + " \u00b7 " +
+        plural(data.totals.loaves, "loaf").replace("loafs", "loaves") + " \u00b7 " + money(data.totals.paidCents) + " paid" }),
+      search,
+      list,
+      more
+    );
+
+    search.addEventListener("input", function () {
+      state.pastQuery = search.value;
+      fillPast(list);
+    });
+    fillPast(list);
+  }
+
+  function fillPast(list) {
+    var query = state.pastQuery.trim().toLowerCase();
+    var orders = state.past.orders.filter(function (order) {
+      if (!query) return true;
+      var haystack = [order.name, order.email, order.phone, order.address, order.notes]
+        .concat(order.items.map(function (item) { return item.name; })).join(" ").toLowerCase();
+      var digits = query.replace(/\D/g, "");
+      return haystack.indexOf(query) !== -1 || (digits.length >= 3 && String(order.phone || "").replace(/\D/g, "").indexOf(digits) !== -1);
+    });
+    if (!orders.length) {
+      list.replaceChildren(el("p", { class: "empty", text: query ? "No past orders match \u201c" + state.pastQuery.trim() + "\u201d." : "No delivered or picked-up orders in this time." }));
+      return;
+    }
+    list.replaceChildren(...byDay(orders).map(function (day) {
+      return el("div", { class: "past-day" },
+        el("div", { class: "day" }, el("h2", { text: day.label }), el("span", { text: plural(day.orders.length, "order") })),
+        ...day.orders.map(pastCard)
+      );
+    }));
+  }
+
+  function pastCard(order) {
+    var pickup = order.fulfillment === "pickup";
+    var undo = el("button", { class: "linkish", type: "button", text: "Not " + (pickup ? "picked up" : "delivered") + "? Put it back on Orders" });
+    undo.addEventListener("click", function () {
+      undo.disabled = true;
+      api("POST", "orders/" + order.id + "/delivered", { delivered: false }).then(function () {
+        state.past.orders = state.past.orders.filter(function (other) { return other.id !== order.id; });
+        renderPast();
+        load();
+      }).catch(function (error) {
+        if (error.message !== "signed-out") alertInCard(undo, error.message);
+      });
+    });
+
+    return el("article", { class: "card past" },
+      el("div", { class: "past-top" },
+        el("h3", { text: order.name || "Order" }),
+        pickup ? el("span", { class: "badge pickup", text: "Pickup" }) : null,
+        order.kind === "invoice" ? el("span", { class: "badge", text: "Invoice" }) : null,
+        order.kind === "moved" ? el("span", { class: "badge moved", text: "Moved" }) : null
+      ),
+      el("p", { class: "items", text: order.items.map(function (item) { return item.quantity + "\u00a0\u00d7\u00a0" + item.name; }).join(", ") }),
+      el("p", { class: "past-when", text: "\u2713 " + (pickup ? "Picked up " : "Delivered ") + (order.deliveredAt ? shortTime(order.deliveredAt) : "") }),
+      el("dl", { class: "details" },
+        order.address ? el("dt", { text: pickup ? "Pickup" : "Address" }) : null,
+        order.address ? el("dd", { text: order.address }) : null,
+        order.phone ? el("dt", { text: "Phone" }) : null,
+        order.phone ? el("dd", {}, el("a", { href: "tel:" + order.phone, text: order.phone })) : null,
+        order.email ? el("dt", { text: "Email" }) : null,
+        order.email ? el("dd", {}, el("a", { href: "mailto:" + order.email, text: order.email })) : null,
+        el("dt", { text: order.kind === "moved" ? "Moved from" : "Paid" }),
+        el("dd", { text: order.kind === "moved" ? (order.movedFromLabel || "another day") : money(order.totalCents) + paidExtras(order) })
+      ),
+      undo
     );
   }
 

@@ -123,8 +123,9 @@ Each order has two separate buttons:
   button stays available until you leave the page.
 
 **Move to another day** (under each paid order) moves the whole order, or
-just some of its loaves, to another delivery day, or for a pickup order, to
-another pickup drop. The moved loaves show up on the new day marked "Moved",
+just some of its loaves, to any day you pick, past or future, even one with
+nothing else scheduled. A pickup order can go to another pickup drop, or to
+"Another day (no drop)" for a pickup you arrange with the customer. The moved loaves show up on the new day marked "Moved",
 and can be delivered, emailed or moved again on their own; moving them back to
 the order's own day puts them back on it. Loaves already handed over can't be
 moved. The day's loaf counts, prep and the website's sold-out checks all

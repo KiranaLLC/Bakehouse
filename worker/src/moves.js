@@ -3,7 +3,7 @@
 MOVED ORDERS
 
 A paid order, or some of its loaves, can be moved
-to another delivery day or pickup drop from the
+to another day (or, for pickup, another drop) from the
 orders page. Stripe keeps the order as it was
 paid; each move is a row in the order_moves table
 (schema.sql) that takes loaves off the order and
@@ -52,6 +52,8 @@ function toMove(row) {
     items: parseItems(row.items),
     deliveryDate: row.delivery_date || "",
     dropId: row.drop_id === null || row.drop_id === undefined ? "" : String(row.drop_id),
+    // A pickup can also move to a day with no drop (pickup arranged directly).
+    fulfillment: row.fulfillment === "pickup" || row.drop_id ? "pickup" : "delivery",
     fromDate: row.from_date || "",
     name: row.name || "",
     email: row.email || "",
@@ -114,7 +116,9 @@ export function applyMoves(bookings, moves, { key, wanted }) {
   });
 
   for (const move of moves) {
-    const target = key === "date" ? move.deliveryDate : move.dropId;
+    // Delivery days count delivery orders only; a pickup on a day with no drop
+    // isn't counted against anything.
+    const target = key === "date" ? (move.fulfillment === "delivery" ? move.deliveryDate : "") : move.dropId;
     if (!target || !wanted.has(target)) continue;
     adjusted.push({ id: move.partId, [key]: target, created: 0, loaves: sumItems(move.items), status: "moved", invoice: true });
   }
@@ -129,13 +133,27 @@ WRITING MOVES (orders page only)
 ==================================================
 */
 
+/*
+  The fulfillment column came after the table, so
+  a database made from an older schema.sql gets it
+  added here the first time it's needed.
+*/
+async function ensureFulfillmentColumn(env) {
+  try {
+    await env.DB.prepare("ALTER TABLE order_moves ADD COLUMN fulfillment TEXT NOT NULL DEFAULT ''").run();
+  } catch (error) {
+    if (!/duplicate column/i.test(error.message || "")) throw error;
+  }
+}
+
 export async function insertMove(env, move) {
+  await ensureFulfillmentColumn(env);
   const row = await env.DB.prepare(`INSERT INTO order_moves
-      (order_id, items, delivery_date, drop_id, from_date, name, email, phone, address, notes, created_at)
-      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) RETURNING id`)
+      (order_id, items, delivery_date, drop_id, fulfillment, from_date, name, email, phone, address, notes, created_at)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) RETURNING id`)
     .bind(move.orderId, JSON.stringify(move.items), move.deliveryDate || "", move.dropId ? Number(move.dropId) : null,
-      move.fromDate || "", move.name || "", move.email || "", move.phone || "", move.address || "", move.notes || "",
-      new Date().toISOString())
+      move.fulfillment || "", move.fromDate || "", move.name || "", move.email || "", move.phone || "", move.address || "",
+      move.notes || "", new Date().toISOString())
     .first();
   return `mv_${row.id}`;
 }
@@ -149,8 +167,9 @@ export async function updateMoveItems(env, move, items) {
 }
 
 export async function updateMoveTarget(env, move, { deliveryDate, dropId, fromDate }) {
-  await env.DB.prepare("UPDATE order_moves SET delivery_date = ?2, drop_id = ?3, from_date = ?4 WHERE id = ?1")
-    .bind(move.id, deliveryDate || "", dropId ? Number(dropId) : null, fromDate || "").run();
+  await ensureFulfillmentColumn(env);
+  await env.DB.prepare("UPDATE order_moves SET delivery_date = ?2, drop_id = ?3, from_date = ?4, fulfillment = ?5 WHERE id = ?1")
+    .bind(move.id, deliveryDate || "", dropId ? Number(dropId) : null, fromDate || "", move.fulfillment).run();
 }
 
 export async function setMoveDelivered(env, move, { deliveredItems, deliveredAt }) {

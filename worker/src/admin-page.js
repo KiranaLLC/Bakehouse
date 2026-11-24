@@ -582,22 +582,31 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       var hint = el("p", { class: "move-hint" });
       var where;
 
+      // Any day at all; a pickup order can also go to an upcoming drop.
+      var day = el("input", { type: "date", id: "move-day-" + order.id });
+      day.addEventListener("change", function () {
+        var booked = loafCount(state.orders.filter(function (other) { return other.deliveryDate === day.value; }));
+        hint.textContent = day.value ? plural(booked, "loaf").replace("loafs", "loaves") + " already on the orders list that day." : "";
+      });
+      var drops = [];
       if (pickup) {
-        var drops = ((state.drops && state.drops.drops) || []).filter(function (drop) {
+        drops = ((state.drops && state.drops.drops) || []).filter(function (drop) {
           return !drop.cancelled && drop.pickupDate >= state.today && String(drop.id) !== String(order.dropId);
         });
         where = el("select", { id: "move-to-" + order.id },
-          el("option", { value: "", text: drops.length ? "Choose a drop" : "No other upcoming drops" }),
+          el("option", { value: "", text: "Choose a drop or another day" }),
           ...drops.map(function (drop) {
             return el("option", { value: String(drop.id), text: drop.when + " · " + drop.booked + " of " + drop.loafLimit + " loaves booked" + (drop.booked >= drop.loafLimit ? " (full)" : "") });
-          })
+          }),
+          el("option", { value: "day", text: "Another day (no drop)" })
         );
-      } else {
-        where = el("input", { type: "date", id: "move-to-" + order.id, min: state.today || "" });
+        day.hidden = true;
         where.addEventListener("change", function () {
-          var booked = loafCount(state.orders.filter(function (other) { return other.deliveryDate === where.value && other.fulfillment !== "pickup"; }));
-          hint.textContent = where.value ? plural(booked, "loaf").replace("loafs", "loaves") + " already to deliver that day." : "";
+          day.hidden = where.value !== "day";
+          if (day.hidden) { day.value = ""; hint.textContent = ""; }
         });
+      } else {
+        where = day;
       }
 
       var inputs = movable.map(function (entry, index) {
@@ -606,8 +615,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       });
 
       var editor = el("div", { class: "part-editor" },
-        el("label", { class: "move-label", for: where.id, text: pickup ? "Move to which pickup drop?" : "Move to which day?" }),
+        el("label", { class: "move-label", for: where.id, text: pickup ? "Move to which pickup drop or day?" : "Move to which day?" }),
         where,
+        pickup ? day : null,
         hint,
         el("p", { text: "Loaves to move (leave them all for the whole order):" }),
         ...inputs.map(function (entry) {
@@ -627,7 +637,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         var items = {};
         inputs.forEach(function (entry) { items[entry.item.name] = Number(entry.field.value || 0); });
         var body = { items: items };
-        if (pickup) body.dropId = where.value; else body.deliveryDate = where.value;
+        if (pickup && where.value && where.value !== "day") body.dropId = where.value;
+        else body.deliveryDate = day.value;
         save.disabled = true;
         save.textContent = "Moving…";
         api("POST", "orders/" + order.id + "/move", body).then(function (result) {
@@ -635,7 +646,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
             .map(function (entry) { return { name: entry.item.name, quantity: items[entry.item.name] }; });
           editor.replaceChildren(
             el("p", { class: "move-done", text: plural(result.moved, "loaf").replace("loafs", "loaves") + " moved to " + result.to + "." }),
-            order.email ? el("a", { class: "move-email", href: movedEmail(order, moved, result.to, pickup ? where.options[where.selectedIndex].text.split(" · ")[0] : ""), text: "Email " + firstName(order) + " about the new day" }) : null,
+            order.email ? el("a", { class: "move-email", href: movedEmail(order, moved, result.to, !pickup ? "" : body.dropId ? where.options[where.selectedIndex].text.split(" · ")[0] : result.to + " (we'll confirm the time and place with you)"), text: "Email " + firstName(order) + " about the new day" }) : null,
             el("div", { class: "part-buttons" }, el("button", { type: "button", text: "Done", onclick: load }))
           );
         }).catch(function (problem) {

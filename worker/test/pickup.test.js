@@ -411,10 +411,9 @@ test("a paid pickup order can move to another drop, and both drops' counts follo
   const second = await makeDrop({ loafLimit: 5, pickupDate: addDays(today, 12) });
   const id = paidPickup(first.id, 4, { name: "Rae Kim" });
 
-  // Delivery days can't be picked for a pickup order.
-  const noDrop = await callOrders("POST", `/admin/api/orders/${id}/move`, { deliveryDate: addDays(today, 6), items: { "House White": 1 } });
-  assert.equal(noDrop.status, 400);
-  assert.match(noDrop.body.error, /pickup drop/);
+  const nowhere = await callOrders("POST", `/admin/api/orders/${id}/move`, { items: { "House White": 1 } });
+  assert.equal(nowhere.status, 400);
+  assert.match(nowhere.body.error, /pickup drop or a day/);
 
   const moved = await callOrders("POST", `/admin/api/orders/${id}/move`, { dropId: second.id, items: { "House White": 3 } });
   assert.equal(moved.status, 200, JSON.stringify(moved.body));
@@ -436,4 +435,33 @@ test("a paid pickup order can move to another drop, and both drops' counts follo
   assert.match(part.address, /Verve Coffee Roasters/);
   assert.match(part.pickupWhen, /\S/);
   assert.equal(body.orders.find(o => o.id === id).loaves, 1);
+});
+
+test("a pickup order can move to a day with no drop, without using up any capacity", async () => {
+  const drop = await makeDrop({ loafLimit: 5 });
+  const id = paidPickup(drop.id, 3, { name: "Ivy Tan" });
+  const day = addDays(today, 9);
+
+  const moved = await callOrders("POST", `/admin/api/orders/${id}/move`, { deliveryDate: day, items: { "House White": 2 } });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+
+  const { body } = await callOrders("GET", "/admin/api/orders");
+  const part = body.orders.find(({ kind }) => kind === "moved");
+  assert.equal(part.fulfillment, "pickup");
+  assert.equal(part.deliveryDate, day);
+  assert.equal(part.dropId, "");
+  assert.match(part.pickupWhen, /arranged with the customer/);
+  assert.match(part.address, /Verve Coffee Roasters/);
+  assert.equal(body.orders.find(o => o.id === id).loaves, 1);
+
+  // The drop frees up the two loaves.
+  const drops = (await callOrders("GET", "/admin/api/drops")).body.drops;
+  assert.equal(drops.find(({ id: dropId }) => dropId === drop.id).booked, 1);
+
+  // And it can go back to the drop.
+  const back = await callOrders("POST", `/admin/api/orders/${part.id}/move`, { dropId: drop.id, items: { "House White": 2 } });
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  const after = (await callOrders("GET", "/admin/api/orders")).body.orders;
+  assert.equal(after.some(({ kind }) => kind === "moved"), false);
+  assert.equal(after.find(o => o.id === id).loaves, 3);
 });

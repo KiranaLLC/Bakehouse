@@ -533,7 +533,6 @@ test("moves are checked: a day, at least one loaf, not the same day, not past", 
     [{ items: { "House White": 1 } }, /Pick a day/],
     [{ deliveryDate: addDays(today, 5), items: {} }, /at least one loaf/],
     [{ deliveryDate: date, items: { "House White": 1 } }, /already on that day/],
-    [{ deliveryDate: addDays(today, -1), items: { "House White": 1 } }, /today or a day after/],
     [{ deliveryDate: addDays(today, 5), items: { "House White": 3 } }, /0 to 2/]
   ];
   for (const [body, error] of cases) {
@@ -548,9 +547,11 @@ test("moves are checked: a day, at least one loaf, not the same day, not past", 
 
 test("capacity follows moves: loaves leave the old day and count on the new one", () => {
   const moves = [
-    { partId: "mv_1", orderId: "cs_a", items: { "House White": 2 }, deliveryDate: "2026-11-20", dropId: "" },
-    { partId: "mv_2", orderId: "cs_old", items: { Pesto: 1 }, deliveryDate: "2026-11-20", dropId: "" },
-    { partId: "mv_3", orderId: "cs_b", items: { Pesto: 3 }, deliveryDate: "", dropId: "7" }
+    { partId: "mv_1", orderId: "cs_a", items: { "House White": 2 }, deliveryDate: "2026-11-20", dropId: "", fulfillment: "delivery" },
+    { partId: "mv_2", orderId: "cs_old", items: { Pesto: 1 }, deliveryDate: "2026-11-20", dropId: "", fulfillment: "delivery" },
+    { partId: "mv_3", orderId: "cs_b", items: { Pesto: 3 }, deliveryDate: "", dropId: "7", fulfillment: "pickup" },
+    // A pickup on a day with no drop doesn't count against deliveries.
+    { partId: "mv_4", orderId: "cs_d", items: { Pesto: 5 }, deliveryDate: "2026-11-20", dropId: "", fulfillment: "pickup" }
   ];
   const bookings = [{ id: "cs_a", date: "2026-11-15", created: 5, loaves: 3 }, { id: "cs_c", date: "2026-11-20", created: 6, loaves: 4 }];
   const counted = applyMoves(bookings, moves, { key: "date", wanted: new Set(["2026-11-15", "2026-11-20"]) });
@@ -593,4 +594,17 @@ test("past orders lists delivered orders newest first, with totals", async () =>
 test("past orders need signing in", async () => {
   const { status } = await call("GET", "/admin/api/past-orders");
   assert.equal(status, 401);
+});
+
+test("an order can move to any day, even a past one or one with nothing else on it", async () => {
+  const cookie = await signIn();
+  const useEnv = withDb();
+  addOrder({ id: "cs_anyday", date: addDays(today, 3), items: "house_white:1" });
+  const past = addDays(today, -2);
+  const moved = await call("POST", "/admin/api/orders/cs_anyday/move", { cookie, useEnv, body: { deliveryDate: past, items: { "House White": 1 } } });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  const part = (await call("GET", "/admin/api/orders", { cookie, useEnv })).body.orders.find(({ kind }) => kind === "moved");
+  assert.equal(part.deliveryDate, past);
+  assert.equal(part.pastDue, true);
+  assert.equal(part.fulfillment, "delivery");
 });

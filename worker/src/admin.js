@@ -488,8 +488,9 @@ async function describeMovedTo(moves, dropFor) {
   day. Its id is "mv_<number>".
 */
 function describeMove(move, today, drop) {
-  const pickup = Boolean(move.dropId);
-  const date = pickup ? drop?.pickupDate || "" : move.deliveryDate;
+  const pickup = move.fulfillment === "pickup";
+  // A pickup moved to a day with no drop keeps the day it was given.
+  const date = move.dropId ? drop?.pickupDate || "" : move.deliveryDate;
   const items = withDelivered(Object.entries(move.items).map(([name, quantity]) => ({ name, quantity })), move.deliveredItems);
   return {
     id: move.partId,
@@ -497,7 +498,7 @@ function describeMove(move, today, drop) {
     orderId: move.orderId,
     fulfillment: pickup ? "pickup" : "delivery",
     dropId: move.dropId,
-    pickupWhen: drop ? formatPickupWhen(drop) : "",
+    pickupWhen: drop ? formatPickupWhen(drop) : pickup && date ? `${formatDeliveryDate(date)} (arranged with the customer)` : "",
     unpaid: false,
     created: Math.floor(Date.parse(move.createdAt) / 1000) || 0,
     deliveryDate: date,
@@ -506,7 +507,7 @@ function describeMove(move, today, drop) {
     name: move.name,
     phone: move.phone,
     email: move.email,
-    address: pickup ? (drop ? `${drop.locationName}, ${drop.locationAddress}` : "") : move.address,
+    address: drop ? `${drop.locationName}, ${drop.locationAddress}` : move.address,
     notes: move.notes,
     items,
     loaves: items.reduce((total, { quantity }) => total + quantity, 0),
@@ -869,8 +870,12 @@ async function setDelivered(id, delivered, env, stripe) {
 MOVING AN ORDER
 
 Moves a paid order, or some of its loaves, to
-another delivery day (delivery orders) or another
-pickup drop (pickup orders). Stripe isn't changed:
+any day, past or future, whether or not anything
+else is scheduled then. A pickup order can also
+go to a pickup drop; on a day with no drop, the
+pickup is arranged with the customer directly.
+Delivery stays delivery and pickup stays pickup.
+Stripe isn't changed:
 the move is saved in the database (see moves.js),
 and the order page, prep and capacity all follow
 it. Loaves already handed over can't be moved.
@@ -897,20 +902,23 @@ async function moveOrder(id, input, env, stripe) {
   const original = source.kind === "moved" ? await describeAny(source.orderId, today, env, stripe).catch(() => null) : source;
   const pickup = source.fulfillment === "pickup";
 
-  // Where to.
+  // Where to: any day at all, or for a pickup order, a pickup drop.
   let target;
-  if (pickup) {
-    const drop = /^\d+$/.test(String(input?.dropId || "")) ? await getDrop(env, Number(input.dropId)) : null;
-    if (!drop || drop.cancelled) return { ok: false, error: "Pick a pickup drop to move it to." };
-    if (drop.pickupDate < today) return { ok: false, error: "That drop has already happened." };
-    target = { dropId: String(drop.id), date: drop.pickupDate };
+  if (pickup && input?.dropId) {
+    const drop = /^\d+$/.test(String(input.dropId)) ? await getDrop(env, Number(input.dropId)) : null;
+    if (!drop || drop.cancelled) return { ok: false, error: "That pickup drop isn't available." };
+    target = { dropId: String(drop.id), deliveryDate: "", date: drop.pickupDate };
   } else {
     const date = String(input?.deliveryDate || "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { ok: false, error: "Pick a day to move it to." };
-    if (date < today) return { ok: false, error: "Pick today or a day after." };
-    target = { deliveryDate: date, date };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+      return { ok: false, error: pickup ? "Pick a pickup drop or a day to move it to." : "Pick a day to move it to." };
+    }
+    target = { dropId: "", deliveryDate: date, date };
   }
-  const sameTarget = order => order && (pickup ? String(order.dropId) === target.dropId : order.deliveryDate === target.deliveryDate);
+  // The same place in the schedule: the same drop, or the same day with no drop.
+  const sameTarget = order => order && (target.dropId
+    ? String(order.dropId || "") === target.dropId
+    : !order.dropId && order.deliveryDate === target.deliveryDate);
   if (sameTarget(source)) return { ok: false, error: "It's already on that day." };
 
   // Which loaves: up to what's still to hand over, for each.
@@ -937,7 +945,7 @@ async function moveOrder(id, input, env, stripe) {
 
   // Another moved part of the same order already on that day takes them.
   const orderId = sourceMove ? sourceMove.orderId : id;
-  const join = moves.find(move => move.orderId === orderId && move.partId !== id && !move.deliveredAt && sameTarget({ dropId: move.dropId, deliveryDate: move.deliveryDate }));
+  const join = moves.find(move => move.orderId === orderId && move.partId !== id && !move.deliveredAt && sameTarget({ dropId: move.dropId, deliveryDate: move.dropId ? "" : move.deliveryDate }));
 
   if (sourceMove && sameTarget(original)) {
     // Back onto the order itself.
@@ -946,19 +954,20 @@ async function moveOrder(id, input, env, stripe) {
     await updateMoveItems(env, join, addOn(join.items, items));
     if (sourceMove) await updateMoveItems(env, sourceMove, takeOff(sourceMove.items, items));
   } else if (everything) {
-    await updateMoveTarget(env, sourceMove, { ...target, fromDate: source.deliveryDate });
+    await updateMoveTarget(env, { ...sourceMove, fulfillment: source.fulfillment }, { ...target, fromDate: source.deliveryDate });
   } else {
     await insertMove(env, {
       orderId,
       items,
       deliveryDate: target.deliveryDate,
       dropId: target.dropId,
+      fulfillment: source.fulfillment,
       fromDate: source.deliveryDate,
       name: source.name,
       email: source.email,
       phone: source.phone,
-      // A pickup part's place comes from its drop.
-      address: pickup ? "" : source.address,
+      // At a drop, the place comes from the drop; on another day, it's where they'd pick up before.
+      address: source.address,
       notes: source.notes
     });
     if (sourceMove) await updateMoveItems(env, sourceMove, takeOff(sourceMove.items, items));

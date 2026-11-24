@@ -80,7 +80,8 @@ CREATE TABLE IF NOT EXISTS order_moves (
   order_id TEXT NOT NULL,                 -- cs_... (website order) or in_... (invoice)
   items TEXT NOT NULL,                    -- JSON: {"House White":1}
   delivery_date TEXT NOT NULL DEFAULT '', -- YYYY-MM-DD, for a delivery
-  drop_id INTEGER,                        -- for a pickup
+  drop_id INTEGER,                        -- for a pickup at a drop
+  fulfillment TEXT NOT NULL DEFAULT '',   -- "pickup" or "delivery" ('' = pickup if drop_id is set)
   from_date TEXT NOT NULL DEFAULT '',     -- the day it was on before
   name TEXT NOT NULL DEFAULT '',
   email TEXT NOT NULL DEFAULT '',

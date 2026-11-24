@@ -244,7 +244,7 @@ export const API = Object.freeze({
 });
 
 /*
-  Service fee added to every order (delivery and
+  Payment processing fee added to every order (delivery and
   pickup) to cover card processing: a percentage of
   the loaves and delivery after any discount, plus a
   flat amount. Not charged on the tip, or when the
@@ -258,8 +258,8 @@ export const API = Object.freeze({
 export const SERVICE_FEE = Object.freeze({
   percent: 3,
   flatCents: 30,
-  label: "Service fee",
-  note: "A service fee of 3% + 30¢ is added to every order to cover payment processing."
+  label: "Payment processing fee",
+  note: "A payment processing fee of 3% + 30¢ is added to every order to cover card fees."
 });
 
 export const TIP = Object.freeze({

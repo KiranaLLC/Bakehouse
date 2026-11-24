@@ -1012,9 +1012,9 @@ function findDiscount(code, env) {
 
 }
 
-// The service fee as a Stripe line item, its purpose in the name.
+// The payment processing fee as a Stripe line item.
 function serviceFeeLine(cents) {
-  return { price_data: { currency: "usd", product_data: { name: `${SERVICE_FEE.label} (covers payment processing)` }, unit_amount: cents }, quantity: 1 };
+  return { price_data: { currency: "usd", product_data: { name: SERVICE_FEE.label }, unit_amount: cents }, quantity: 1 };
 }
 
 function parseTip(tipCents) {

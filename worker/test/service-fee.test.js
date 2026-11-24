@@ -19,5 +19,5 @@ test("no service fee when there's nothing to pay, or when it's turned off", () =
 
 test("the note says what the fee is and what it's for", () => {
   assert.match(SERVICE_FEE.note, /3% \+ 30¢/);
-  assert.match(SERVICE_FEE.note, /payment processing/);
+  assert.match(SERVICE_FEE.note, /payment processing fee/);
 });

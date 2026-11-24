@@ -1846,9 +1846,9 @@ document.getElementById("discount-code").addEventListener("keydown", event => {
 
 /*
 ==================================================
-SERVICE FEE NOTICE
+PAYMENT PROCESSING FEE NOTICE
 
-California requires the service fee and its
+California requires the payment processing fee and its
 purpose to be shown wherever prices are: next to
 the menu and above the payment button.
 ==================================================

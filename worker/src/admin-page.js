@@ -537,11 +537,11 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     order's loaves, to another delivery day or
     pickup drop. Loaves already handed over stay.
   */
-  // " (incl. $2.00 tip, $1.26 service fee)"
+  // " (incl. $2.00 tip, $1.26 processing fee)"
   function paidExtras(order) {
     var parts = [];
     if (order.tipCents) parts.push(money(order.tipCents) + " tip");
-    if (order.serviceFeeCents) parts.push(money(order.serviceFeeCents) + " service fee");
+    if (order.serviceFeeCents) parts.push(money(order.serviceFeeCents) + " processing fee");
     return parts.length ? " (incl. " + parts.join(", ") + ")" : "";
   }
 

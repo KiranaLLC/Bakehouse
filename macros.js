@@ -166,7 +166,7 @@ export const PRODUCTS = Object.freeze({
     maxQuantity: 6
   },
   sticky_toffee: {
-    name: "Sticky Toffee",
+    name: "Sticky Toffee Pudding",
     description: "The classic holiday dessert, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/sticky-toffee.jpg",

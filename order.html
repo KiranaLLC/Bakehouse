@@ -133,6 +133,19 @@
       object-fit: cover;
     }
 
+    /* A loaf with no photo yet: its name on a plain tile. */
+    .product-tile {
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: var(--deep-brown);
+      color: var(--cream);
+      font-family: 'Luxurious Script', cursive;
+      font-size: 3rem;
+      line-height: 1.1;
+      text-align: center;
+    }
+
     .product-info {
       padding: 22px;
     }
@@ -1900,14 +1913,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261127",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261127",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261127"
+      "./macros.js": "./macros.js?v=20261127b",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261127b",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261127b"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261127"></script>
-<script type="module" src="./past-flavours.js?v=20261127"></script>
+<script type="module" src="./order.js?v=20261127b"></script>
+<script type="module" src="./past-flavours.js?v=20261127b"></script>
 
 </body>
 

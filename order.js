@@ -114,12 +114,14 @@ function renderProducts() {
 
       card.innerHTML = `
 
+        ${product.image ? `
         <img
           src="${product.image}"
           alt="${product.name}"
           class="product-image"
           loading="lazy"
-        />
+        />` : `
+        <div class="product-image product-tile" aria-hidden="true">${product.name}</div>`}
 
         <div class="product-info">
 

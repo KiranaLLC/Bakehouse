@@ -102,6 +102,15 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Milk Chocolate Chips", "Unsweetened Cocoa Powder", "Vanilla Essence"],
     maxQuantity: 6
   },
+  eggnog: {
+    name: "Eggnog",
+    description: "We swapped all the water in this loaf for eggnog.",
+    price: 1600,
+    // No photo yet: the card shows the name on a plain tile until one is added.
+    image: "",
+    ingredients: ["Clover Eggnog"],
+    maxQuantity: 6
+  },
   everything_seasoning: {
     name: "Everything Seasoning",
     description: "The everything bagel inspired sourdough bread.",
@@ -109,6 +118,14 @@ export const PRODUCTS = Object.freeze({
     image: "./img/menu/everything-seasoning.jpg",
     imageCenter: 48,
     ingredients: ["Sesame Seeds", "Black Sesame Seeds", "Poppy Seeds", "Dehydrated Garlic", "Dehydrated Onion", "Salt"],
+    maxQuantity: 6
+  },
+  frangipane: {
+    name: "Frangipane",
+    description: "An almond croissant, reimagined as a sourdough.",
+    price: 1600,
+    image: "",
+    ingredients: ["Almond Paste", "Slivered Almonds"],
     maxQuantity: 6
   },
   french_onion_soup: {
@@ -145,6 +162,14 @@ export const PRODUCTS = Object.freeze({
     image: "./img/menu/pesto.jpg",
     imageCenter: 56,
     ingredients: ["Organic Basil Pesto", "Olive Oil"],
+    maxQuantity: 6
+  },
+  sticky_toffee: {
+    name: "Sticky Toffee",
+    description: "The classic holiday dessert, baked into a sourdough.",
+    price: 1600,
+    image: "",
+    ingredients: ["Dates", "Nutmeg", "Ginger", "Vanilla Essence"],
     maxQuantity: 6
   },
   // pumpkin_spice: {

@@ -106,8 +106,8 @@ export const PRODUCTS = Object.freeze({
     name: "Eggnog",
     description: "We swapped all the water in this loaf for eggnog.",
     price: 1600,
-    // No photo yet: the card shows the name on a plain tile until one is added.
-    image: "",
+    image: "./img/menu/eggnog.jpg",
+    imageCenter: 51,
     ingredients: ["Clover Eggnog"],
     maxQuantity: 6
   },
@@ -124,7 +124,8 @@ export const PRODUCTS = Object.freeze({
     name: "Frangipane",
     description: "An almond croissant, reimagined as a sourdough.",
     price: 1600,
-    image: "",
+    image: "./img/menu/frangipane.jpg",
+    imageCenter: 47,
     ingredients: ["Almond Paste", "Slivered Almonds"],
     maxQuantity: 6
   },
@@ -159,8 +160,8 @@ export const PRODUCTS = Object.freeze({
     name: "Pesto",
     description: "Basil pesto mixed right into the dough, for an herby, golden-green sourdough.",
     price: 1600,
-    image: "./img/menu/pesto.jpg",
-    imageCenter: 56,
+    image: "./img/menu/pesto-2.jpg",
+    imageCenter: 48,
     ingredients: ["Organic Basil Pesto", "Olive Oil"],
     maxQuantity: 6
   },
@@ -168,7 +169,8 @@ export const PRODUCTS = Object.freeze({
     name: "Sticky Toffee",
     description: "The classic holiday dessert, baked into a sourdough.",
     price: 1600,
-    image: "",
+    image: "./img/menu/sticky-toffee.jpg",
+    imageCenter: 49,
     ingredients: ["Dates", "Nutmeg", "Ginger", "Vanilla Essence"],
     maxQuantity: 6
   },

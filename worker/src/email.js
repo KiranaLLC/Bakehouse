@@ -14,7 +14,7 @@ domain). Replies go to the bakery's Gmail.
 ==================================================
 */
 
-import { CONTACT, PRODUCTS } from "../../macros.js";
+import { CONTACT, PRODUCTS, productName } from "../../macros.js";
 
 export const BAKERY_EMAIL = "hellokiranabakehouse@gmail.com";
 const DEFAULT_FROM = "Kirana Bakehouse <hello@kiranabakehouse.com>";
@@ -95,7 +95,7 @@ function itemLines(items) {
 export function itemsFromMetadata(value) {
   return String(value || "").split(",").filter(Boolean).map(pair => {
     const [productId, quantity] = pair.split(":");
-    return { name: PRODUCTS[productId]?.name || productId, quantity: Number(quantity) || 1 };
+    return { name: productName(productId), quantity: Number(quantity) || 1 };
   });
 }
 

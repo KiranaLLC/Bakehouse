@@ -61,15 +61,6 @@ export const PRODUCTS = Object.freeze({
     ingredients: ["Bacon", "Sharp Cheddar Cheese"],
     maxQuantity: 6
   },
-  birds_eye: {
-    name: "Bird's Eye",
-    description: "Chili cheese garlic bread, with the kick of bird's eye chili.",
-    price: 1600,
-    image: "./img/menu/birds-eye.jpg",
-    imageCenter: 49,
-    ingredients: ["Bird's Eye Chili", "Garlic", "Mozzarella Cheese"],
-    maxQuantity: 6
-  },
   birthday: {
     name: "Birthday",
     description: "Rainbow sprinkles folded into a sourdough bread.",
@@ -101,14 +92,6 @@ export const PRODUCTS = Object.freeze({
     price: 1600,
     image: "./img/menu/cong-la.jpg",
     ingredients: ["Scallions", "Garlic", "Chili Oil"],
-    maxQuantity: 6
-  },
-  croissourdough: {
-    name: "Croissourdough",
-    description: "Sourdough laminated with butter like a croissant, for flaky, golden layers.",
-    price: 1600,
-    image: "./img/menu/croissourdough.jpg",
-    ingredients: ["Unsalted Butter"],
     maxQuantity: 6
   },
   double_chocolate: {
@@ -175,13 +158,31 @@ export const PRODUCTS = Object.freeze({
 });
 
 /*
+  Names of loaves no longer on the menu, by their old id, so orders placed
+  before they were retired still show the loaf's name (on the orders page
+  and in emails). Add a loaf here when you take it out of PRODUCTS.
+*/
+export const RETIRED_PRODUCTS = Object.freeze({
+  croissourdough: "Croissourdough",
+  birds_eye: "Bird's Eye"
+});
+
+// A loaf's name from its id, including retired loaves.
+export function productName(productId) {
+  if (Object.hasOwn(PRODUCTS, productId)) return PRODUCTS[productId].name;
+  if (Object.hasOwn(RETIRED_PRODUCTS, productId)) return RETIRED_PRODUCTS[productId];
+  return productId;
+}
+
+/*
   Loaves we've baked before, shown in "Past Flavours" on the home page
-  (newest first). To retire a loaf, move it from PRODUCTS to here; to bring
-  one back, move it the other way. image is optional: without one, the card
+  (newest first). To retire a loaf, move it from PRODUCTS to here (and add
+  it to RETIRED_PRODUCTS above); to bring one back, move it the other way. image is optional: without one, the card
   shows the loaf's name on a plain tile until a photo is added to img/menu/.
 */
 export const PAST_FLAVOURS = Object.freeze([
-  // { name: "Bird's Eye", description: "Chili cheese garlic bread, with the kick of bird's eye chili.", image: "./img/menu/birds-eye.jpg" },
+  { name: "Croissourdough", description: "Sourdough laminated with butter like a croissant, for flaky, golden layers.", image: "./img/menu/croissourdough.jpg" },
+  { name: "Bird's Eye", description: "Chili cheese garlic bread, with the kick of bird's eye chili.", image: "./img/menu/birds-eye.jpg" },
   { name: "Coconut Laddoo", description: "The classic Indian sweet, reimagined as a sourdough.", image: "./img/menu/coconut-laddoo.jpg" },
   { name: "Margherita", description: "Margherita pizza (not the drink!), reimagined as a sourdough.", image: "./img/menu/margherita.jpg" },
   { name: "Pumpkin Spice", description: "Autumn's favourite flavour, baked into a sourdough.", image: "./img/menu/pumpkin-spice.jpg" },

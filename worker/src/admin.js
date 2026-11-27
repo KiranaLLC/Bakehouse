@@ -34,7 +34,7 @@ the list.
 ==================================================
 */
 
-import { CONTACT, PICKUP, PRODUCTS } from "../../macros.js";
+import { CONTACT, PICKUP, PRODUCTS, productName } from "../../macros.js";
 import { bakeryTodayValue, formatDeliveryDate } from "../../delivery-rules.js";
 import { NON_LOAF_LINES, invoiceLoafItems } from "./capacity.js";
 import { ADMIN_PAGE } from "./admin-page.js";
@@ -568,7 +568,7 @@ async function orderItems(session, env, stripe) {
   if (session.metadata?.items) {
     return session.metadata.items.split(",").map(entry => {
       const [productId, quantity] = entry.split(":");
-      return { name: PRODUCTS[productId]?.name || productId, quantity: Number(quantity) || 0 };
+      return { name: productName(productId), quantity: Number(quantity) || 0 };
     }).filter(({ quantity }) => quantity > 0);
   }
 

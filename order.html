@@ -118,10 +118,38 @@
     }
 
     .product-card {
+      position: relative;
       background: #f7f0d9;
       border: 1px solid rgba(77, 26, 0, 0.2);
       border-radius: 14px;
       overflow: hidden;
+    }
+
+    /* "Seasonal", on the photo's top corner. */
+    .seasonal-label {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 1;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--terracotta);
+      color: #fff;
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: .85rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+    }
+
+    @media (max-width: 600px) {
+      .seasonal-label {
+        top: 8px;
+        left: 8px;
+        padding: 4px 9px;
+        font-size: .68rem;
+      }
     }
 
     /* A fixed 6:5 shape (about 300px tall, as before) so each photo's

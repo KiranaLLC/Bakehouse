@@ -114,6 +114,8 @@ function renderProducts() {
 
       card.innerHTML = `
 
+        ${product.seasonal ? `<span class="seasonal-label">Seasonal</span>` : ""}
+
         ${product.image ? `
         <img
           src="${product.image}"

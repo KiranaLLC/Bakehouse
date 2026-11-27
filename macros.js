@@ -107,6 +107,8 @@ export const PRODUCTS = Object.freeze({
     description: "We swapped all the water in this loaf for eggnog.",
     price: 1600,
     image: "./img/menu/eggnog.jpg",
+    // Shows a "Seasonal" label on the photo.
+    seasonal: true,
     imageCenter: 51,
     ingredients: ["Clover Eggnog"],
     maxQuantity: 6
@@ -170,6 +172,7 @@ export const PRODUCTS = Object.freeze({
     description: "The classic holiday dessert, baked into a sourdough.",
     price: 1600,
     image: "./img/menu/sticky-toffee.jpg",
+    seasonal: true,
     imageCenter: 49,
     ingredients: ["Dates", "Nutmeg", "Ginger", "Vanilla Essence"],
     maxQuantity: 6

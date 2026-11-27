@@ -117,7 +117,7 @@ export const PRODUCTS = Object.freeze({
     name: "Everything Seasoning",
     description: "The everything bagel inspired sourdough bread.",
     price: 1300,
-    image: "./img/menu/everything-seasoning.jpg",
+    image: "./img/menu/everything-seasoning-2.jpg",
     imageCenter: 48,
     ingredients: ["Sesame Seeds", "Black Sesame Seeds", "Poppy Seeds", "Dehydrated Garlic", "Dehydrated Onion", "Salt"],
     maxQuantity: 6

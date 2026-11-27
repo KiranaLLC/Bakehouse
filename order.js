@@ -114,12 +114,16 @@ function renderProducts() {
 
       card.innerHTML = `
 
+        ${product.seasonal ? `<span class="seasonal-label"><span class="big">Holiday</span><span class="small">Special</span></span>` : ""}
+
+        ${product.image ? `
         <img
           src="${product.image}"
           alt="${product.name}"
           class="product-image"
           loading="lazy"
-        />
+        />` : `
+        <div class="product-image product-tile" aria-hidden="true">${product.name}</div>`}
 
         <div class="product-info">
 

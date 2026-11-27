@@ -118,10 +118,64 @@
     }
 
     .product-card {
+      position: relative;
       background: #f7f0d9;
       border: 1px solid rgba(77, 26, 0, 0.2);
       border-radius: 14px;
       overflow: hidden;
+    }
+
+    /* "Holiday Special": a gold ribbon across the photo's top corner. */
+    .seasonal-label {
+      position: absolute;
+      top: 46px;
+      left: -58px;
+      z-index: 1;
+      width: 250px;
+      padding: 7px 0 6px;
+      transform: rotate(-45deg);
+      background: linear-gradient(90deg, #b8892e, #f6dc8a 45%, #e9c76a 60%, #b8892e);
+      color: #2a1a10;
+      font-family: 'Host Grotesk', sans-serif;
+      text-align: center;
+      text-transform: uppercase;
+      line-height: 1;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+      pointer-events: none;
+    }
+
+    .seasonal-label .big {
+      display: block;
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .seasonal-label .small {
+      display: block;
+      margin-top: 3px;
+      font-size: .66rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+    }
+
+    @media (max-width: 600px) {
+      .seasonal-label {
+        top: 26px;
+        left: -46px;
+        width: 170px;
+        padding: 5px 0 4px;
+      }
+
+      .seasonal-label .big {
+        font-size: .78rem;
+      }
+
+      .seasonal-label .small {
+        margin-top: 2px;
+        font-size: .5rem;
+      }
+    }
     }
 
     /* A fixed 6:5 shape (about 300px tall, as before) so each photo's
@@ -131,6 +185,19 @@
       width: 100%;
       aspect-ratio: 6 / 5;
       object-fit: cover;
+    }
+
+    /* A loaf with no photo yet: its name on a plain tile. */
+    .product-tile {
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: var(--deep-brown);
+      color: var(--cream);
+      font-family: 'Luxurious Script', cursive;
+      font-size: 3rem;
+      line-height: 1.1;
+      text-align: center;
     }
 
     .product-info {
@@ -1900,14 +1967,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261127",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261127",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261127"
+      "./macros.js": "./macros.js?v=20261127b",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261127b",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261127b"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261127"></script>
-<script type="module" src="./past-flavours.js?v=20261127"></script>
+<script type="module" src="./order.js?v=20261127b"></script>
+<script type="module" src="./past-flavours.js?v=20261127b"></script>
 
 </body>
 

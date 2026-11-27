@@ -107,7 +107,7 @@ export const PRODUCTS = Object.freeze({
     description: "We swapped all the water in this loaf for eggnog.",
     price: 1600,
     image: "./img/menu/eggnog.jpg",
-    // Shows a "Seasonal" label on the photo.
+    // Shows a gold "Holiday Special" ribbon on the photo.
     seasonal: true,
     imageCenter: 51,
     ingredients: ["Clover Eggnog"],

@@ -109,6 +109,9 @@ function renderOrderSummary(order) {
   if (order.amountDiscount > 0) {
     rows.push(row(`Discount${order.discountCode ? ` (${order.discountCode})` : ""}`, `−${formatMoney(order.amountDiscount)}`));
   }
+  if (order.amountGiftCard > 0) {
+    rows.push(row("Gift card", `−${formatMoney(order.amountGiftCard)}`));
+  }
 
   const total = row("Total paid", formatMoney(order.amountTotal));
   total.classList.add("summary-total");

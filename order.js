@@ -10,6 +10,7 @@ import {
   calculateDeliveryFee,
   calculateDiscount,
   calculateServiceFee,
+  planGiftCard,
   calculateSubtotal,
   describeDeliveryDays,
   formatMoney,
@@ -67,6 +68,9 @@ const tip = { percent: 0, customCents: null };
 
 // The applied discount code, e.g. { code: "BREADUCATION", percent: 20 }.
 let discount = null;
+
+// The applied gift card, e.g. { code: "KIRANA-7QKM-X2PD", balanceCents: 5000 }.
+let giftCard = null;
 
 /*
   Loaves still available per delivery date, from
@@ -405,9 +409,16 @@ function updateTotals() {
     document.getElementById("cart-discount").textContent = `−${formatMoney(discountCents)}`;
   }
 
-  // Worked out again on the server; follows the delivery fee once the address is in.
-  const serviceFee =
-    calculateServiceFee(SERVICE_FEE, subtotal + deliveryFee - discountCents);
+  // A gift card pays for loaves and delivery, then the tip; the fee is on
+  // what's left. Worked out again on the server.
+  const { giftCents, serviceFee } =
+    planGiftCard(giftCard ? giftCard.balanceCents : 0, { baseCents: subtotal + deliveryFee - discountCents, tipCents });
+
+  document.getElementById("cart-gift-line").hidden =
+    !giftCents;
+
+  document.getElementById("cart-gift").textContent =
+    `−${formatMoney(giftCents)}`;
 
   document.getElementById("cart-service-line").hidden =
     !serviceFee;
@@ -419,7 +430,7 @@ function updateTotals() {
     formatMoney(serviceFee);
 
   document.getElementById("cart-total").textContent =
-    formatMoney(subtotal + deliveryFee + tipCents - discountCents + serviceFee);
+    formatMoney(subtotal + deliveryFee + tipCents - discountCents - giftCents + serviceFee);
 
 }
 
@@ -492,6 +503,76 @@ function removeDiscount() {
 
 function showDiscountStatus(status, message) {
   const element = document.getElementById("discount-status");
+  element.className = `discount-status ${status}`;
+  element.textContent = message;
+}
+
+
+/*
+==================================================
+GIFT CARD
+
+The worker checks the code and what's left on it,
+and takes it off again at checkout. Anything left
+over stays on the card.
+==================================================
+*/
+
+async function applyGiftCard() {
+
+  const input = document.getElementById("gift-code");
+  const button = document.getElementById("gift-apply");
+  const code = input.value.trim();
+
+  if (!code) return;
+
+  if (!API.isConfigured) {
+    showGiftStatus("error", "Gift cards aren't available yet.");
+    return;
+  }
+
+  button.disabled = true;
+  showGiftStatus("", "Checking…");
+
+  try {
+    giftCard = await postJson(API.checkGiftCard, { code });
+    input.value = "";
+    showAppliedGiftCard();
+    updateTotals();
+    saveOrder();
+  } catch (error) {
+    showGiftStatus("error", error.message);
+  } finally {
+    button.disabled = false;
+  }
+
+}
+
+function showAppliedGiftCard() {
+
+  showGiftStatus("applied", `✓ Gift card ${giftCard.code} applied (${formatMoney(giftCard.balanceCents)} on the card). Anything left stays on it for next time.`);
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = "Remove";
+  remove.addEventListener("click", removeGiftCard);
+  document.getElementById("gift-status").appendChild(remove);
+
+  document.getElementById("gift-entry").hidden = true;
+  document.getElementById("gift-details").open = true;
+
+}
+
+function removeGiftCard() {
+  giftCard = null;
+  document.getElementById("gift-entry").hidden = false;
+  showGiftStatus("", "");
+  updateTotals();
+  saveOrder();
+}
+
+function showGiftStatus(status, message) {
+  const element = document.getElementById("gift-status");
   element.className = `discount-status ${status}`;
   element.textContent = message;
 }
@@ -937,7 +1018,7 @@ const SAVED_FIELDS = ["name", "phone", "line1", "line2", "city", "postalCode", "
 function saveOrder() {
   try {
     const values = Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]));
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount, fulfillment, dropId: selectedDropId }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount, giftCard, fulfillment, dropId: selectedDropId }));
   } catch {
     // Storage can be unavailable (e.g. private browsing). Nothing to do.
   }
@@ -962,6 +1043,11 @@ function restoreOrder() {
   if (typeof saved.dropId === "string") selectedDropId = saved.dropId;
 
   // The worker re-checks the code at checkout, so a stale one is caught there.
+  if (typeof saved.giftCard?.code === "string" && Number.isInteger(saved.giftCard.balanceCents)) {
+    giftCard = { code: saved.giftCard.code, balanceCents: saved.giftCard.balanceCents };
+    showAppliedGiftCard();
+  }
+
   if (typeof saved.discount?.code === "string" && Number.isInteger(saved.discount.percent)) {
     discount = { code: saved.discount.code, percent: saved.discount.percent };
     showAppliedDiscount();
@@ -1304,6 +1390,7 @@ async function checkout(event) {
         customer: { name: fields.name.value, phone: fields.phone.value },
         tipCents: getTipCents(calculateSubtotal(getCartItems())),
         discountCode: discount?.code,
+        giftCode: giftCard?.code,
         previousSessionId: getPendingSessionId() || undefined
       })
       : await postJson(API.createCheckoutSession, {
@@ -1314,6 +1401,7 @@ async function checkout(event) {
         notes: fields.notes.value,
         tipCents: getTipCents(calculateSubtotal(getCartItems())),
         discountCode: discount?.code,
+        giftCode: giftCard?.code,
         previousSessionId: getPendingSessionId() || undefined
       });
 
@@ -1840,6 +1928,15 @@ form.addEventListener(
 );
 
 document.getElementById("discount-apply").addEventListener("click", applyDiscountCode);
+
+document.getElementById("gift-apply").addEventListener("click", applyGiftCard);
+
+document.getElementById("gift-code").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyGiftCard();
+  }
+});
 
 document.getElementById("discount-code").addEventListener("keydown", event => {
   if (event.key === "Enter") {

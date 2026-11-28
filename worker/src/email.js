@@ -26,7 +26,7 @@ export function canEmail(env) {
 
 export class EmailError extends Error {}
 
-// message: { to, subject, text, headers? }. One email, one recipient.
+// message: { to, subject, text, html?, headers? }. One email, one recipient.
 export async function sendEmail(env, message) {
   await resend(env, "/emails", toResend(env, message));
 }
@@ -39,13 +39,14 @@ export async function sendEmails(env, messages) {
   return messages.length;
 }
 
-function toResend(env, { to, subject, text, headers }) {
+function toResend(env, { to, subject, text, html, headers }) {
   return {
     from: env.EMAIL_FROM || DEFAULT_FROM,
     to: [to],
     reply_to: BAKERY_EMAIL,
     subject,
     text,
+    ...(html ? { html } : {}),
     ...(headers ? { headers } : {})
   };
 }
@@ -226,6 +227,7 @@ export function orderConfirmationEmail(session) {
       "",
       pickup ? `Pickup: ${when}` : `Delivery: ${when}`,
       pickup ? `Where: ${meta.pickup_location}` : `To: ${meta.delivery_address || ""}`,
+      ...(Number(meta.gift_cents) > 0 ? [`Gift card used: $${(Number(meta.gift_cents) / 100).toFixed(2)}`] : []),
       `Total paid: $${((session.amount_total || 0) / 100).toFixed(2)}`,
       "",
       pickup ? "Your sourdough will be baked fresh that morning and waiting for you." : "Your sourdough will be baked fresh that morning.",

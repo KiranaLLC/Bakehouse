@@ -159,6 +159,18 @@ img {
   /* display: inline-block; */
 }
 
+/* Second header button: outlined, so Order Now stays the main one. */
+.order-btn.gift-btn {
+  background: transparent;
+  color: var(--cream);
+  box-shadow: inset 0 0 0 2px var(--cream);
+}
+
+.order-btn.gift-btn:hover {
+  background: var(--cream);
+  color: var(--deep-brown);
+}
+
 .order-btn:hover {
   background: var(--deep-brown);
   color: var(--cream);

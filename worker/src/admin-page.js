@@ -64,8 +64,37 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tabs button { flex: 1; padding: 10px; font: inherit; font-weight: 600; border-radius: 999px; border: 1px solid var(--deep-brown); background: transparent; color: var(--deep-brown); cursor: pointer; }
   .tabs button[aria-selected="true"] { background: var(--deep-brown); color: var(--cream); }
+  .tabs button { white-space: nowrap; }
+  /* Phones: five tabs scroll sideways instead of squashing. */
+  @media (max-width: 560px) {
+    .tabs { overflow-x: auto; gap: 6px; padding-bottom: 2px; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs button { flex: 0 0 auto; padding: 9px 16px; }
+  }
 
   .summary { color: var(--muted); margin: 0 0 16px; }
+
+  /* Gift cards */
+  .gift-card { padding: 14px 16px; }
+  .gift-card.used { opacity: .65; }
+  .gift-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .gift-code { font: 700 1.05rem ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em; color: var(--deep-brown); }
+  .gift-balance { margin: 6px 0 8px; }
+  .gift-balance strong { font-size: 1.3rem; color: var(--good); }
+  .gift-card.used .gift-balance strong { color: var(--muted); }
+  .gift-card dl { margin: 0 0 8px; display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; font-size: .92rem; }
+  .gift-card dt { color: var(--muted); }
+  .gift-card dd { margin: 0; overflow-wrap: anywhere; }
+  .gift-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .gift-issue { padding: 12px 16px; margin-bottom: 14px; }
+  .gift-issue summary { font-weight: 700; cursor: pointer; color: var(--deep-brown); }
+  .gift-issue[open] summary { margin-bottom: 8px; }
+  .issue-field { margin-bottom: 10px; }
+  .issue-field label { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 4px; }
+  .issue-field input, .issue-field textarea { width: 100%; padding: 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .issue-field .muted { font-size: .85rem; }
+  .issue-send { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-weight: 600; }
+  .issue-done { color: var(--good); font-weight: 600; margin: 0 0 12px; }
 
   /* Past orders */
   .past-search { width: 100%; padding: 12px 14px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-bottom: 8px; }
@@ -240,6 +269,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       <button id="tab-prep" type="button" role="tab" aria-selected="false">Prep</button>
       <button id="tab-drops" type="button" role="tab" aria-selected="false">Drops</button>
       <button id="tab-past" type="button" role="tab" aria-selected="false">Past</button>
+      <button id="tab-gifts" type="button" role="tab" aria-selected="false">Gift cards</button>
     </div>
     <p id="summary" class="summary"></p>
     <p id="load-error" class="error" role="alert" hidden></p>
@@ -247,6 +277,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     <section id="prep-view" hidden></section>
     <section id="drops-view" hidden></section>
     <section id="past-view" hidden></section>
+    <section id="gifts-view" hidden></section>
   </div>
 
   <p id="loading" class="empty">Loading…</p>
@@ -256,7 +287,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 <script>
 (function () {
 
-  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 90, pastQuery: "" };
+  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 90, pastQuery: "", gifts: null, giftsError: "", giftQuery: "" };
 
   // Where "a new drop is open" and reminder emails come from (they're sent to
   // customers as BCC, so nobody sees anyone else's address).
@@ -394,6 +425,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   $("refresh").addEventListener("click", function () {
     load();
     if (state.past) loadPast();
+    if (state.gifts) loadGifts();
   });
 
   /* ---------- Tabs ---------- */
@@ -405,6 +437,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     $("tab-drops").setAttribute("aria-selected", String(tab === "drops"));
     $("tab-past").setAttribute("aria-selected", String(tab === "past"));
     $("past-view").hidden = tab !== "past";
+    $("tab-gifts").setAttribute("aria-selected", String(tab === "gifts"));
+    var current = $("tab-" + tab);
+    if (current && current.scrollIntoView) current.scrollIntoView({ block: "nearest", inline: "nearest" });
+    $("gifts-view").hidden = tab !== "gifts";
     $("orders-view").hidden = tab !== "orders";
     $("prep-view").hidden = tab !== "prep";
     $("drops-view").hidden = tab !== "drops";
@@ -416,6 +452,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   $("tab-orders").addEventListener("click", function () { selectTab("orders"); });
   $("tab-prep").addEventListener("click", function () { selectTab("prep"); });
   $("tab-drops").addEventListener("click", function () { selectTab("drops"); });
+  $("tab-gifts").addEventListener("click", function () {
+    selectTab("gifts");
+    if (!state.gifts) loadGifts();
+  });
   $("tab-past").addEventListener("click", function () {
     selectTab("past");
     if (!state.past) loadPast();
@@ -449,12 +489,13 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   function render() {
     document.body.classList.toggle("wide", state.tab === "prep" || state.tab === "orders");
     var open = openOrders();
-    $("summary").textContent = open.length && state.tab !== "past"
+    $("summary").textContent = open.length && state.tab !== "past" && state.tab !== "gifts"
       ? plural(open.length, "order") + " to deliver · " + plural(loafCount(open), "loaf").replace("loafs", "loaves")
       : "";
     if (state.tab === "orders") renderOrders();
     else if (state.tab === "prep") renderPrep(open);
     else if (state.tab === "past") renderPast();
+    else if (state.tab === "gifts") renderGifts();
     else renderDrops();
   }
 
@@ -563,6 +604,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var parts = [];
     if (order.tipCents) parts.push(money(order.tipCents) + " tip");
     if (order.serviceFeeCents) parts.push(money(order.serviceFeeCents) + " processing fee");
+    if (order.giftCents) parts.push(money(order.giftCents) + " paid by gift card");
     return parts.length ? " (incl. " + parts.join(", ") + ")" : "";
   }
 
@@ -775,6 +817,179 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         undo
       )
     );
+  }
+
+  /* ---------- Gift cards ---------- */
+
+  function loadGifts() {
+    state.giftsError = "";
+    return api("GET", "gift-cards").then(function (data) {
+      state.gifts = data;
+      if (state.tab === "gifts") renderGifts();
+    }).catch(function (error) {
+      if (error.message === "signed-out") return;
+      state.giftsError = error.message;
+      if (state.tab === "gifts") renderGifts();
+    });
+  }
+
+  function renderGifts() {
+    var view = $("gifts-view");
+    if (state.giftsError) {
+      view.replaceChildren(el("p", { class: "error", text: state.giftsError }), el("button", { type: "button", text: "Try again", onclick: loadGifts }));
+      return;
+    }
+    if (!state.gifts) {
+      view.replaceChildren(el("p", { class: "empty", text: "Loading gift cards\u2026" }));
+      return;
+    }
+    if (!state.gifts.ready) {
+      view.replaceChildren(el("p", { class: "empty", text: "Gift cards need new tables in the pickup database. From the worker folder, run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql" }));
+      return;
+    }
+
+    var cards = state.gifts.cards;
+    var outstanding = cards.reduce(function (sum, card) { return sum + card.balanceCents; }, 0);
+    var search = el("input", { type: "search", class: "past-search", placeholder: "Search by code, name or email", value: state.giftQuery, "aria-label": "Search gift cards" });
+    var list = el("div", { id: "gift-list" });
+
+    view.replaceChildren(
+      el("p", { class: "summary", text: plural(cards.length, "gift card") + " \u00b7 " + money(outstanding) + " still to spend" }),
+      issueGiftForm(),
+      search,
+      list
+    );
+    search.addEventListener("input", function () {
+      state.giftQuery = search.value;
+      fillGifts(list);
+    });
+    fillGifts(list);
+  }
+
+  function fillGifts(list) {
+    var query = state.giftQuery.trim().toLowerCase();
+    var cards = state.gifts.cards.filter(function (card) {
+      if (!query) return true;
+      return [card.code, card.recipientName, card.recipientEmail, card.fromName, card.purchaserEmail, card.note].join(" ").toLowerCase().indexOf(query) !== -1;
+    });
+    if (!cards.length) {
+      list.replaceChildren(el("p", { class: "empty", text: query ? "No gift cards match." : "No gift cards yet. Bought ones show up here as soon as they're paid." }));
+      return;
+    }
+    list.replaceChildren(...cards.map(giftCardItem));
+  }
+
+  function giftCardItem(card) {
+    var used = card.balanceCents <= 0;
+    var copy = el("button", { type: "button", class: "linkish", text: "Copy code" });
+    copy.addEventListener("click", function () {
+      var done = function () { copy.textContent = "Copied"; };
+      if (navigator.clipboard) navigator.clipboard.writeText(card.code).then(done, function () { copy.textContent = card.code; });
+      else copy.textContent = card.code;
+    });
+    var actions = el("div", { class: "gift-actions" }, copy);
+    if (card.recipientEmail && state.gifts.emailReady) {
+      var send = el("button", { type: "button", class: "linkish", text: card.emailedAt ? "Email it again" : "Email it to them" });
+      send.addEventListener("click", function () {
+        send.disabled = true;
+        send.textContent = "Sending\u2026";
+        api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
+          send.textContent = "Sent";
+          card.emailedAt = new Date().toISOString();
+        }).catch(function (error) {
+          send.disabled = false;
+          send.textContent = "Email it again";
+          if (error.message !== "signed-out") alertInCard(send, error.message);
+        });
+      });
+      actions.append(send);
+    }
+
+    return el("article", { class: "card gift-card" + (used ? " used" : "") },
+      el("div", { class: "gift-top" },
+        el("code", { class: "gift-code", text: card.code }),
+        el("span", { class: "badge" + (card.source === "issued" ? " moved" : " pickup"), text: card.source === "issued" ? "Issued" : "Bought" }),
+        used ? el("span", { class: "badge", text: "Used up" }) : null
+      ),
+      el("p", { class: "gift-balance" },
+        el("strong", { text: money(card.balanceCents) }),
+        el("span", { text: " left of " + money(card.initialCents) + (card.timesUsed ? " \u00b7 used on " + plural(card.timesUsed, "order") : "") })
+      ),
+      el("dl", { class: "details" },
+        el("dt", { text: "For" }),
+        el("dd", { text: card.recipientName + (card.recipientEmail ? " (" + card.recipientEmail + ")" : "") }),
+        el("dt", { text: "From" }),
+        el("dd", { text: (card.fromName || "\u2013") + (card.purchaserEmail ? " (" + card.purchaserEmail + ")" : "") }),
+        card.message ? el("dt", { text: "Message" }) : null,
+        card.message ? el("dd", { text: "\u201c" + card.message + "\u201d" }) : null,
+        card.note ? el("dt", { text: "Note" }) : null,
+        card.note ? el("dd", { text: card.note }) : null,
+        el("dt", { text: "Made" }),
+        el("dd", { text: shortTime(card.createdAt) + (card.emailedAt ? " \u00b7 emailed " + shortTime(card.emailedAt) : card.recipientEmail ? " \u00b7 not emailed yet" : "") })
+      ),
+      actions
+    );
+  }
+
+  function issueGiftForm() {
+    var details = el("details", { class: "card gift-issue" });
+    var amount = el("input", { type: "number", id: "issue-amount", min: "1", max: "1000", step: "1", inputmode: "numeric", placeholder: "25" });
+    var name = el("input", { type: "text", id: "issue-name", maxlength: "60" });
+    var email = el("input", { type: "email", id: "issue-email", maxlength: "254" });
+    var message = el("textarea", { id: "issue-message", maxlength: "300", rows: "2" });
+    var note = el("input", { type: "text", id: "issue-note", maxlength: "200", placeholder: "Just for you, e.g. Sorry about the late delivery" });
+    var send = el("input", { type: "checkbox", id: "issue-send" });
+    send.checked = Boolean(state.gifts.emailReady);
+    send.disabled = !state.gifts.emailReady;
+    var error = el("p", { class: "error", role: "alert", hidden: "hidden" });
+    var done = el("p", { class: "issue-done", role: "status", hidden: "hidden" });
+    var button = el("button", { type: "button", text: "Make gift card" });
+
+    function field(label, input, hint) {
+      return el("div", { class: "issue-field" }, el("label", { for: input.id, text: label }), input, hint ? el("span", { class: "muted", text: hint }) : null);
+    }
+
+    button.addEventListener("click", function () {
+      error.hidden = true;
+      done.hidden = true;
+      button.disabled = true;
+      api("POST", "gift-cards", {
+        amountCents: Math.round(Number(amount.value || 0)) * 100,
+        recipientName: name.value,
+        recipientEmail: email.value,
+        message: message.value,
+        note: note.value,
+        send: send.checked
+      }).then(function (result) {
+        button.disabled = false;
+        state.gifts.cards.unshift(Object.assign({ timesUsed: 0 }, result.card, result.emailed ? { emailedAt: new Date().toISOString() } : {}));
+        renderGifts();
+        var again = $("gift-done-note");
+        if (again) {
+          again.textContent = "Made " + result.card.code + " for " + result.card.recipientName + (result.emailed ? ", and emailed it." : result.emailError ? ". The email didn't send: " + result.emailError : ". Copy the code to send it yourself.");
+          again.hidden = false;
+        }
+      }).catch(function (problem) {
+        button.disabled = false;
+        if (problem.message === "signed-out") return;
+        error.textContent = problem.message;
+        error.hidden = false;
+      });
+    });
+
+    details.append(
+      el("summary", { text: "Issue a gift card" }),
+      el("p", { class: "muted", text: "For giveaways, or to make up for a mistake. It works just like a bought one." }),
+      field("Amount ($)", amount),
+      field("Their name", name),
+      field("Their email (optional)", email),
+      field("Message to them (optional)", message),
+      field("Note for you (optional)", note),
+      el("label", { class: "issue-send", for: "issue-send" }, send, state.gifts.emailReady ? " Email it to them now" : " Email it to them now (needs email set up)"),
+      error,
+      el("div", { class: "part-buttons" }, button)
+    );
+    return el("div", {}, details, el("p", { id: "gift-done-note", class: "issue-done", role: "status", hidden: "hidden" }));
   }
 
   /* ---------- Past orders ---------- */

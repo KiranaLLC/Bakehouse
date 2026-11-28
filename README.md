@@ -280,8 +280,10 @@ files); replies go to the Gmail. To set it up:
 
 5. For the new-order alert, in Stripe: **Developers → Webhooks → Add endpoint**,
    URL `https://kirana-checkout.vanya-weng.workers.dev/api/stripe-webhook`,
-   events `checkout.session.completed` and
-   `checkout.session.async_payment_succeeded`. Copy its **Signing secret**
+   events `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded` and `checkout.session.expired`
+   (the last one gives a gift card's balance back straight away when someone
+   leaves the payment page; otherwise the hourly check does it). Copy its **Signing secret**
    (`whsec_…`) and save it:
 
    ```bash
@@ -306,6 +308,34 @@ add the same line there.
 
 To change it, edit `SERVICE_FEE` in `macros.js` (percent, flat amount and the
 note), then redeploy the checkout worker. Set both to 0 to turn it off.
+
+### Gift cards
+
+People buy gift cards on **gift.html** (linked from the home page header and
+footer, and from the order page): $25, $50, $100 or another amount ($15–$300),
+with the recipient's name and email and a message. They pay on Stripe's page
+(the payment processing fee applies), and the card is emailed to the recipient
+in a holiday design, with a copy to the buyer and a note to you. The thank-you
+page shows the code too, so it can be passed on by hand if email isn't set up.
+
+Codes look like `KIRANA-7QKM-X2PD`. On the order page, **Have a gift card?**
+takes a code: the card pays for loaves and delivery first, then the tip, and
+the processing fee is only charged on what's left to pay. Whatever isn't
+used stays on the card for next time. Cards never expire. A gift card and a
+discount code can be used together.
+
+While someone is paying, the amount is held on the card so it can't be spent
+twice; if they leave the payment page, it goes back on the card (from the
+Stripe webhook, the next time they try, or within the hour).
+
+The orders page has a **Gift cards** tab: every card, who it's for and from,
+what's left on it and how many orders it's paid for, with search. **Issue a
+gift card** makes a free one (giveaways, making up for a mistake), emailed to
+them if you give an address; **Email it again** resends any card.
+
+Needs the pickup database with the latest `schema.sql` applied, and email
+(Resend, above) for the emails. Amounts and limits are `GIFT_CARDS` in
+`macros.js`.
 
 ### Discount codes
 

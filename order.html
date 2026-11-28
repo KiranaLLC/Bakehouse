@@ -17,7 +17,7 @@
 
   <link
     rel="stylesheet"
-    href="./styles.css?v=1804"
+    href="./styles.css?v=1805"
   />
 
   <link
@@ -373,6 +373,16 @@
       min-height: 1.4em;
       margin-top: 8px;
       font-size: .95rem;
+    }
+
+    .gift-buy-link {
+      margin-top: 6px;
+      font-size: .85rem;
+      opacity: .8;
+    }
+
+    .gift-buy-link a {
+      color: inherit;
     }
 
     .discount-status.error {
@@ -1890,6 +1900,20 @@
       <p id="discount-status" class="discount-status" aria-live="polite"></p>
         </details>
 
+        <details id="gift-details" class="discount-section">
+          <summary>Have a gift card?</summary>
+
+      <label class="visually-hidden" for="gift-code">Gift card code</label>
+
+      <div id="gift-entry" class="discount-entry">
+        <input id="gift-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="KIRANA-XXXX-XXXX" />
+        <button type="button" id="gift-apply" class="tip-option">Apply</button>
+      </div>
+
+      <p id="gift-status" class="discount-status" aria-live="polite"></p>
+      <p class="gift-buy-link">Looking to give one? <a href="gift.html">Buy a gift card</a></p>
+        </details>
+
         <div class="summary-lines">
         <div class="cart-line">
       <span>Subtotal</span>
@@ -1909,6 +1933,11 @@
     <div class="cart-line" id="cart-discount-line" hidden>
       <span id="cart-discount-label">Discount</span>
       <span id="cart-discount">−$0.00</span>
+    </div>
+
+    <div class="cart-line" id="cart-gift-line" hidden>
+      <span id="cart-gift-label">Gift card</span>
+      <span id="cart-gift">−$0.00</span>
     </div>
 
     <div class="cart-line" id="cart-service-line" hidden>
@@ -1967,14 +1996,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261127b",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261127b",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261127b"
+      "./macros.js": "./macros.js?v=20261127g",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261127g",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261127g"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261127b"></script>
-<script type="module" src="./past-flavours.js?v=20261127b"></script>
+<script type="module" src="./order.js?v=20261127g"></script>
+<script type="module" src="./past-flavours.js?v=20261127g"></script>
 
 </body>
 

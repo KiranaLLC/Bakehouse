@@ -7,6 +7,9 @@ Runs on Cloudflare Workers. The website calls it to:
 
   POST /api/check-delivery          is this address in the delivery area?
   POST /api/check-discount          is this discount code valid?
+  POST /api/gift-cards/check        what's left on a gift card?
+  POST /api/gift-cards/checkout     buy a gift card (Stripe payment page)
+  GET  /api/gift-cards/purchase     a bought gift card, for the thank-you (?session_id=)
   POST /api/create-checkout-session start a Stripe payment for an order
   GET  /api/capacity                loaves still available on each delivery date
   GET  /api/drops                   upcoming pickup drops and whether they're open
@@ -48,6 +51,8 @@ import {
 import { stripe } from "./stripe.js";
 import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
 import { applyMoves, listMoves } from "./moves.js";
+import { GiftCardError, attachGiftUse, checkGiftCard, findGiftCard, holdGiftCard, planGiftCard, releaseGiftUse, settleGiftForSession, settleStaleGiftHolds } from "./gift-cards.js";
+import { createGiftCardCheckout, deliverBoughtGiftCard, getGiftCardPurchase } from "./gift-purchase.js";
 import { DropError, addPendingSubscriber, addSubscriber, claimEmail, confirmSubscriber, forgetEmail, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, logEmail, unsubscribeByToken } from "./drops.js";
 import { canEmail, confirmSubscriptionEmail, newOrderAlert, orderConfirmationEmail, sendEmail } from "./email.js";
 import { runScheduledEmails } from "./email-flows.js";
@@ -104,6 +109,12 @@ export default {
         result = await checkDelivery(await readJson(request));
       } else if (request.method === "POST" && url.pathname === API.checkDiscount) {
         result = findDiscount((await readJson(request)).code, env);
+      } else if (request.method === "POST" && url.pathname === API.checkGiftCard) {
+        result = await checkGiftCard(env, (await readJson(request)).code);
+      } else if (request.method === "POST" && url.pathname === API.buyGiftCard) {
+        result = await createGiftCardCheckout(await readJson(request), env, getSiteUrl(request, env));
+      } else if (request.method === "GET" && url.pathname === API.giftCardPurchase) {
+        result = await getGiftCardPurchase(url.searchParams.get("session_id"), env, getSiteUrl(request, env));
       } else if (request.method === "POST" && url.pathname === API.createCheckoutSession) {
         result = await createCheckoutSession(await readJson(request), env, getSiteUrl(request, env));
       } else if (request.method === "GET" && url.pathname === API.drops) {
@@ -124,7 +135,7 @@ export default {
 
     } catch (error) {
 
-      if (error instanceof OrderValidationError || error instanceof AddressNotFoundError || error instanceof DropError) {
+      if (error instanceof OrderValidationError || error instanceof AddressNotFoundError || error instanceof DropError || error instanceof GiftCardError) {
         return json({ error: error.message }, 400, corsHeaders);
       }
 
@@ -135,11 +146,16 @@ export default {
 
   },
 
-  // Every hour (wrangler.toml [triggers]): drop announcements and pickup reminders.
+  // Every hour (wrangler.toml [triggers]): drop announcements and pickup
+  // reminders, and settling gift card amounts held by unfinished payments.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runScheduledEmails(env, stripe).then(
       result => console.log("scheduled emails", JSON.stringify(result)),
       error => console.error("scheduled emails failed", error)
+    ));
+    ctx.waitUntil(settleStaleGiftHolds(env, stripe, CHECKOUT_HOLD_SECONDS).then(
+      settled => console.log("gift card holds settled", settled),
+      error => console.error("gift card holds failed", error)
     ));
   }
 
@@ -258,7 +274,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   const subtotal = calculateSubtotal(items);
   const deliveryFee = calculateDeliveryFee(zone, subtotal);
   const discountCents = discount ? calculateDiscount(discount.percent, subtotal, deliveryFee) : 0;
-  const serviceFee = calculateServiceFee(SERVICE_FEE, subtotal + deliveryFee - discountCents);
+  const { gift, giftCents, serviceFee } = await useGiftCard(env, body.giftCode, { baseCents: subtotal + deliveryFee - discountCents, tipCents });
 
   /*
   ==========================================
@@ -315,7 +331,9 @@ async function createCheckoutSession(body, env, siteUrl) {
     tip_cents: String(tipCents),
     discount_code: discount?.code || "",
     discount_cents: String(discountCents),
-    service_fee_cents: String(serviceFee)
+    service_fee_cents: String(serviceFee),
+    gift_card_code: gift && giftCents ? gift.code : "",
+    gift_cents: String(giftCents)
   };
 
   /*
@@ -329,7 +347,7 @@ async function createCheckoutSession(body, env, siteUrl) {
   ==========================================
   */
 
-  const discounts = await createDiscountCoupon(env, discount, discountCents);
+  const discounts = await createDiscountCoupon(env, discount, discountCents, giftCents);
 
   /*
   ==========================================
@@ -341,6 +359,8 @@ async function createCheckoutSession(body, env, siteUrl) {
   again.
   ==========================================
   */
+
+  return withGiftHold(env, gift, giftCents, metadata, async () => {
 
   const session = await stripe(env, "POST", "/checkout/sessions", {
     mode: "payment",
@@ -381,20 +401,62 @@ async function createCheckoutSession(body, env, siteUrl) {
     left => describeShortfall(left, loafCount, formatDeliveryDate(deliveryDate)),
     released);
 
-  return { url: session.url, id: session.id };
+  return session;
+
+  });
 
 }
 
-async function createDiscountCoupon(env, discount, discountCents) {
-  if (!discountCents) return undefined;
+// Stripe takes one coupon per payment, so a discount code and a gift card share one.
+async function createDiscountCoupon(env, discount, discountCents, giftCents = 0) {
+  if (!discountCents && !giftCents) return undefined;
+  const names = [];
+  if (discountCents) names.push(`${discount.code} (${discount.percent}% off)`);
+  if (giftCents) names.push("Gift card");
   const coupon = await stripe(env, "POST", "/coupons", {
-    amount_off: discountCents,
+    amount_off: discountCents + giftCents,
     currency: "usd",
     duration: "once",
     max_redemptions: 1,
-    name: `${discount.code} (${discount.percent}% off)`.slice(0, 40)
+    name: names.join(" + ").slice(0, 40)
   });
   return [{ coupon: coupon.id }];
+}
+
+/*
+==================================================
+GIFT CARDS AT CHECKOUT (see gift-cards.js)
+
+The card pays for loaves and delivery first, then
+the tip; the payment processing fee is only on
+what's left to pay by card.
+==================================================
+*/
+
+async function useGiftCard(env, code, { baseCents, tipCents }) {
+  const gift = code ? await findGiftCard(env, code) : null;
+  if (gift && gift.balanceCents <= 0) throw new GiftCardError("That gift card has been used up.");
+  const plan = planGiftCard(gift ? gift.balanceCents : 0, { baseCents, tipCents });
+  return { gift, giftCents: gift ? plan.giftCents : 0, serviceFee: plan.serviceFee };
+}
+
+/*
+  Holds the gift card amount while the payment
+  page is made, and gives it back if anything
+  goes wrong (including the order not fitting).
+  openSession returns the Stripe session.
+*/
+async function withGiftHold(env, gift, giftCents, metadata, openSession) {
+  const useId = gift && giftCents ? await holdGiftCard(env, gift, giftCents) : null;
+  if (useId) metadata.gift_use_id = String(useId);
+  try {
+    const session = await openSession();
+    if (useId) await attachGiftUse(env, useId, session.id);
+    return { url: session.url, id: session.id };
+  } catch (error) {
+    if (useId) await releaseGiftUse(env, useId).catch(() => {});
+    throw error;
+  }
 }
 
 /*
@@ -445,7 +507,7 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
 
   const subtotal = calculateSubtotal(items);
   const discountCents = discount ? calculateDiscount(discount.percent, subtotal, 0) : 0;
-  const serviceFee = calculateServiceFee(SERVICE_FEE, subtotal - discountCents);
+  const { gift, giftCents, serviceFee } = await useGiftCard(env, body.giftCode, { baseCents: subtotal - discountCents, tipCents });
 
   const lineItems = items.map(({ productId, quantity }) => ({
     price_data: { currency: "usd", product_data: { name: PRODUCTS[productId].name }, unit_amount: PRODUCTS[productId].price },
@@ -475,15 +537,21 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
     tip_cents: String(tipCents),
     discount_code: discount?.code || "",
     discount_cents: String(discountCents),
-    service_fee_cents: String(serviceFee)
+    service_fee_cents: String(serviceFee),
+    gift_card_code: gift && giftCents ? gift.code : "",
+    gift_cents: String(giftCents)
   };
+
+  const discounts = await createDiscountCoupon(env, discount, discountCents, giftCents);
+
+  return withGiftHold(env, gift, giftCents, metadata, async () => {
 
   const session = await stripe(env, "POST", "/checkout/sessions", {
     mode: "payment",
     // Holds this order's loaves only while the customer is paying.
     expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_HOLD_SECONDS,
     line_items: lineItems,
-    discounts: await createDiscountCoupon(env, discount, discountCents),
+    discounts,
     customer_creation: "always",
     payment_intent_data: {
       description: `Kirana Bakehouse pickup — ${pickupWhen}`,
@@ -505,7 +573,9 @@ async function createPickupCheckoutSession(body, env, siteUrl) {
       : `Sorry, the ${pickupWhen} pickup can't fit your order of ${loafCount} loaves. Please choose another pickup, or remove a few loaves.`,
     released);
 
-  return { url: session.url, id: session.id };
+  return session;
+
+  });
 
 }
 
@@ -660,6 +730,17 @@ async function handleStripeWebhook(request, env) {
   const paid = (event.type === "checkout.session.completed" && session?.payment_status !== "unpaid") ||
     event.type === "checkout.session.async_payment_succeeded";
 
+  // Gift cards: a finished or abandoned payment settles the card it used.
+  if (session?.metadata?.gift_use_id && (paid || event.type === "checkout.session.expired")) {
+    await settleGiftForSession(env, { ...session, status: paid ? "complete" : "expired" });
+  }
+
+  // A gift card bought: make it and email it (and nothing else for this payment).
+  if (paid && session?.metadata?.kind === "gift_card") {
+    await deliverBoughtGiftCard(env, session, env.SITE_URL || "");
+    return new Response("Gift card done.", { status: 200 });
+  }
+
   if (!paid || !session?.id || !canEmail(env)) return new Response("Ignored.", { status: 200 });
 
   // The bakery's alert, and the customer's confirmation: each once per order.
@@ -812,8 +893,10 @@ async function releaseCheckoutSession(sessionId, env) {
   if (typeof sessionId !== "string" || !isSessionId(sessionId)) return null;
 
   try {
-    await stripe(env, "POST", `/checkout/sessions/${sessionId}/expire`, {});
+    const session = await stripe(env, "POST", `/checkout/sessions/${sessionId}/expire`, {});
     forgetStripeLists();
+    // Its gift card amount goes back on the card.
+    await settleGiftForSession(env, session).catch(error => console.error("Couldn't release gift card", error));
     return sessionId;
   } catch {
     return null;
@@ -839,11 +922,15 @@ async function getOrderSummary(sessionId, env) {
 
   const session = await stripe(env, "GET", `/checkout/sessions/${sessionId}`, { "expand[]": "line_items" });
 
-  if (session.payment_status !== "paid") {
+  // "no_payment_required": a gift card or discount covered the whole order.
+  if (session.status !== "complete" || (session.payment_status !== "paid" && session.payment_status !== "no_payment_required")) {
     throw new OrderValidationError("We couldn't find a completed payment for this order.");
   }
 
+  await settleGiftForSession(env, session).catch(error => console.error("Couldn't settle gift card", error));
+
   const pickup = session.metadata.fulfillment === "pickup";
+  const giftCents = Number(session.metadata.gift_cents) || 0;
 
   return {
     email: session.customer_details?.email || "",
@@ -853,7 +940,9 @@ async function getOrderSummary(sessionId, env) {
     address: pickup ? session.metadata.pickup_location : session.metadata.delivery_address,
     items: session.line_items.data.map(item => ({ name: item.description, quantity: item.quantity, amountTotal: item.amount_subtotal ?? item.amount_total })),
     discountCode: session.metadata.discount_code || "",
-    amountDiscount: session.total_details?.amount_discount || 0,
+    // Stripe shows the discount and the gift card as one coupon; split them back out.
+    amountDiscount: Math.max(0, (session.total_details?.amount_discount || 0) - giftCents),
+    amountGiftCard: giftCents,
     amountTotal: session.amount_total
   };
 

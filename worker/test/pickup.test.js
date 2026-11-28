@@ -7,6 +7,7 @@
   schema.sql, so nothing here touches the network or a real account.
 */
 
+import { createGiftCard, findGiftCard } from "../src/gift-cards.js";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { forgetStripeLists } from "../src/stripe-cache.js";
@@ -30,6 +31,7 @@ let invoices;
 let updates;
 let beforeCreate;
 let nextId;
+let coupons;
 
 beforeEach(() => {
   forgetStripeLists();
@@ -39,6 +41,7 @@ beforeEach(() => {
   updates = [];
   beforeCreate = null;
   nextId = 1;
+  coupons = [];
   globalThis.fetch = fakeStripe;
 });
 
@@ -69,7 +72,8 @@ async function fakeStripe(input, init = {}) {
   }
 
   if (method === "POST" && url.pathname === "/v1/coupons") {
-    return Response.json({ id: "coupon_1" });
+    coupons.push(Object.fromEntries(params));
+    return Response.json({ id: `coupon_${coupons.length}` });
   }
 
   const expire = url.pathname.match(/^\/v1\/checkout\/sessions\/(\w+)\/expire$/);
@@ -464,4 +468,111 @@ test("a pickup order can move to a day with no drop, without using up any capaci
   const after = (await callOrders("GET", "/admin/api/orders")).body.orders;
   assert.equal(after.some(({ kind }) => kind === "moved"), false);
   assert.equal(after.find(o => o.id === id).loaves, 3);
+});
+
+
+/* ---------- Gift cards ---------- */
+
+
+test("a gift card pays for a pickup order, with the processing fee only on what's left", async () => {
+  const drop = await makeDrop({ loafLimit: 10 });
+  const card = await createGiftCard(env, { amountCents: 2000, source: "issued", recipientName: "Ana" });
+
+  // Can check it first.
+  const checked = await callCheckout("POST", "/api/gift-cards/check", { code: card.code.toLowerCase().replace(/-/g, " ") });
+  assert.deepEqual(checked.body, { code: card.code, balanceCents: 2000 });
+
+  // Two $12 loaves = $24, $20 card: $4 left + 3% + 30¢ fee.
+  const result = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 2, { giftCode: card.code }));
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  const session = sessions.at(-1);
+  assert.equal(session.metadata.gift_cents, "2000");
+  assert.equal(session.metadata.gift_card_code, card.code);
+  assert.equal(session.metadata.service_fee_cents, String(Math.round(400 * 0.03) + 30));
+  assert.equal(coupons.at(-1).amount_off, "2000");
+  assert.equal(coupons.at(-1).name, "Gift card");
+  // Held while they pay.
+  assert.equal((await findGiftCard(env, card.code)).balanceCents, 0);
+
+  // They come back and change their order: the earlier page ends and its hold goes back.
+  const again = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1, { giftCode: card.code, previousSessionId: session.id }));
+  assert.equal(again.status, 200, JSON.stringify(again.body));
+  // One $12 loaf, all on the card: $8 left on it, nothing to pay.
+  assert.equal(sessions.at(-1).metadata.gift_cents, "1200");
+  assert.equal(sessions.at(-1).metadata.service_fee_cents, "0");
+  assert.equal((await findGiftCard(env, card.code)).balanceCents, 800);
+});
+
+test("a gift card and a discount code share Stripe's one coupon", async () => {
+  env.DISCOUNT_CODES = "BREAD10=10";
+  const drop = await makeDrop({ loafLimit: 10 });
+  const card = await createGiftCard(env, { amountCents: 500, source: "issued", recipientName: "Ana" });
+  const result = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 2, { giftCode: card.code, discountCode: "BREAD10" }));
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  // 10% off $24 = $2.40, plus the $5 card.
+  assert.equal(coupons.at(-1).amount_off, String(240 + 500));
+  assert.match(coupons.at(-1).name, /BREAD10.*Gift card/);
+});
+
+test("a bad or used-up gift card stops checkout, and an order that doesn't fit gives the balance back", async () => {
+  const drop = await makeDrop({ loafLimit: 2 });
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1, { giftCode: "KIRANA-2222-2222" }))).body.error, /couldn't find/);
+  const empty = await createGiftCard(env, { amountCents: 500, source: "issued", recipientName: "Ana" });
+  await env.DB.prepare("UPDATE gift_cards SET balance_cents = 0 WHERE id = ?1").bind(empty.id).run();
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 1, { giftCode: empty.code }))).body.error, /used up/);
+
+  // Someone else takes the last loaves while this page is being made: the hold goes back.
+  const card = await createGiftCard(env, { amountCents: 5000, source: "issued", recipientName: "Ana" });
+  beforeCreate = () => sessions.push({ id: "cs_other", status: "complete", payment_status: "paid", created: Math.floor(Date.now() / 1000) - 1, metadata: { fulfillment: "pickup", drop_id: String(drop.id), loaf_count: "2" } });
+  const full = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 2, { giftCode: card.code }));
+  assert.equal(full.status, 400);
+  assert.equal((await findGiftCard(env, card.code)).balanceCents, 5000);
+});
+
+test("buying a gift card: Stripe page, then the card is made once and shown on the thank-you page", async () => {
+  const bad = await callCheckout("POST", "/api/gift-cards/checkout", { amountCents: 500, recipientName: "Ana", recipientEmail: "ana@example.com", fromName: "Bo" });
+  assert.match(bad.body.error, /\$15 to \$300/);
+  assert.match((await callCheckout("POST", "/api/gift-cards/checkout", { amountCents: 2500, recipientName: "Ana", recipientEmail: "nope", fromName: "Bo" })).body.error, /email/);
+
+  const bought = await callCheckout("POST", "/api/gift-cards/checkout", { amountCents: 5000, recipientName: "Ana", recipientEmail: "Ana@Example.com", fromName: "Bo", message: "Happy holidays!" });
+  assert.equal(bought.status, 200, JSON.stringify(bought.body));
+  const session = sessions.at(-1);
+  assert.equal(session.metadata.kind, "gift_card");
+  assert.equal(session.metadata.recipient_email, "ana@example.com");
+  assert.equal(session.params.get("line_items[0][price_data][unit_amount]"), "5000");
+  assert.equal(session.params.get("line_items[1][price_data][unit_amount]"), String(150 + 30));
+  // A gift card doesn't take up any loaves.
+  assert.equal(session.metadata.loaf_count, undefined);
+
+  // Not paid yet: nothing to show.
+  assert.equal((await callCheckout("GET", `/api/gift-cards/purchase?session_id=${session.id}`)).status, 400);
+
+  session.status = "complete";
+  session.payment_status = "paid";
+  session.customer_details = { email: "bo@example.com" };
+  const first = await callCheckout("GET", `/api/gift-cards/purchase?session_id=${session.id}`);
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  assert.match(first.body.code, /^KIRANA-/);
+  assert.equal(first.body.amountCents, 5000);
+  // No email set up in tests: it says so, and the code is right there.
+  assert.equal(first.body.emailed, false);
+  const second = await callCheckout("GET", `/api/gift-cards/purchase?session_id=${session.id}`);
+  assert.equal(second.body.code, first.body.code);
+  assert.equal((await findGiftCard(env, first.body.code)).balanceCents, 5000);
+});
+
+test("the orders page lists gift cards and can issue one", async () => {
+  const issued = await callOrders("POST", "/admin/api/gift-cards", { amountCents: 2500, recipientName: "Kim", recipientEmail: "kim@example.com", note: "Late delivery", send: true });
+  assert.equal(issued.status, 200, JSON.stringify(issued.body));
+  assert.equal(issued.body.card.source, "issued");
+  // No email set up: made, not sent, and it says why.
+  assert.equal(issued.body.emailed, false);
+  assert.match(issued.body.emailError, /isn't set up/);
+  assert.match((await callOrders("POST", "/admin/api/gift-cards", { amountCents: 0, recipientName: "Kim" })).body.error, /amount/);
+
+  const list = await callOrders("GET", "/admin/api/gift-cards");
+  assert.equal(list.body.ready, true);
+  assert.equal(list.body.emailReady, false);
+  assert.deepEqual(list.body.cards.map(({ recipientName, balanceCents, note }) => [recipientName, balanceCents, note]), [["Kim", 2500, "Late delivery"]]);
+  assert.match((await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/email`)).body.error, /isn't set up/);
 });

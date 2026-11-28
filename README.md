@@ -237,7 +237,13 @@ opening drafts in the Mail app, so this is optional.
 
 **The site never sends an email on its own.** Nothing goes out when someone
 signs up, places an order or buys a gift card, and there's no schedule. Every
-email is sent only when you press a send button on the orders page:
+email is sent only when you press a send button on the orders page. Each
+button first shows a **preview** of the exact email (who it goes to, the
+subject and the whole message), and you can change the wording there (for a
+gift card: the subject, greeting, first line and message; the code and amount
+stay). Nothing goes out until you press **Send with Resend**, and **Cancel**
+sends nothing. Drop emails keep each person's unsubscribe link at the bottom
+whatever you write:
 
 - **Email** on an order card: the "delivered" or "ready for pickup" email (it
   asks first), and shows when it was sent.
@@ -245,8 +251,9 @@ email is sent only when you press a send button on the orders page:
   next-drop list.
 - **Remind customers** on a drop: a pickup reminder to everyone who ordered
   from it.
-- **Email it to them** / **Email it again** on a gift card, or ticking
-  **Email it to them now** (never ticked for you) when issuing one.
+- **Email it to them** / **Email it again** on a gift card. Issuing a card
+  never emails it; tick **Preview the email to send next** (never ticked for
+  you) to see the preview straight after.
 
 Signing up for the next-drop list adds people straight away (no confirm
 email). Every drop email has an unsubscribe link, which asks before
@@ -337,7 +344,7 @@ check, whichever comes first, and only once.
 The orders page has a **Gift cards** tab: every card, who it's for and from,
 what's left on it and how many orders it's paid for, with search. **Issue a
 gift card** makes a free one (giveaways, making up for a mistake); it's only
-emailed if you tick **Email it to them now**. **Email it again** resends any card. **Cancel
+emailed if you then press **Send with Resend** on its preview. **Email it again** resends any card. **Cancel
 card** stops a card from being used (it asks once more first); its balance is
 kept, and **Restore card** turns it back on.
 

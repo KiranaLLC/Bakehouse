@@ -197,6 +197,49 @@ test("the safety lock: nothing can be sent without a send button press, even by 
 
 /* ---------- Send buttons on the orders page ---------- */
 
+test("previews show the exact email and who it goes to, and send nothing", async () => {
+  await signUp("pia@example.com");
+  await signUp("quinn@example.com");
+  const drop = await makeDrop();
+  const order = paidOrder({ dropId: drop.id, email: "rae@example.com", name: "Rae Lin" });
+
+  const announce = await callOrders("POST", `/admin/api/drops/${drop.id}/announce/preview`);
+  assert.equal(announce.status, 200, JSON.stringify(announce.body));
+  assert.deepEqual(announce.body.recipients.sort(), ["pia@example.com", "quinn@example.com"]);
+  assert.match(announce.body.message.subject, /Pickup drop/);
+
+  const remind = await callOrders("POST", `/admin/api/drops/${drop.id}/remind/preview`);
+  assert.deepEqual(remind.body.recipients, ["rae@example.com"]);
+  assert.match(remind.body.message.subject, /Reminder: your pickup/);
+
+  const one = await callOrders("POST", `/admin/api/orders/${order}/email/preview`);
+  assert.deepEqual(one.body.recipients, ["rae@example.com"]);
+  assert.match(one.body.message.text, /^Hi Rae,/);
+
+  assert.equal(emails.length, 0);
+});
+
+test("edited wording from the preview is what gets sent (and the unsubscribe link stays)", async () => {
+  await signUp("sol@example.com");
+  const drop = await makeDrop();
+  const order = paidOrder({ dropId: drop.id, email: "tam@example.com", name: "Tam Ng" });
+
+  const preview = await callOrders("POST", `/admin/api/drops/${drop.id}/announce/preview`);
+  assert.doesNotMatch(preview.body.editable.text, /Unsubscribe/);
+  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/announce`, { subject: "Bread this Saturday!", text: "Hi all,\n\nNew bread." })).body.sent, 1);
+  assert.equal(emails[0].subject, "Bread this Saturday!");
+  assert.match(emails[0].text, /^Hi all,\n\nNew bread\.\n\nDon't want these emails\? Unsubscribe: https:/);
+  assert.ok(emails[0].headers["List-Unsubscribe"]);
+
+  await callOrders("POST", `/admin/api/orders/${order}/email`, { subject: "Ready!", text: "Hi Tam, it's ready." });
+  assert.equal(emails[1].subject, "Ready!");
+  assert.equal(emails[1].text, "Hi Tam, it's ready.");
+
+  const blank = await callOrders("POST", `/admin/api/orders/${order}/email`, { subject: " ", text: "x" });
+  assert.equal(blank.status, 400);
+  assert.equal(emails.length, 2);
+});
+
 test("a drop is only announced when the orders page button is pressed", async () => {
   await signUp("quiet@example.com");
   const drop = await makeDrop();

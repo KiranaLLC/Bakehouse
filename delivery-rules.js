@@ -2,7 +2,7 @@
  * Delivery and pricing rules shared by the order page and the checkout
  * server, so what the customer sees is exactly what they are charged.
  */
-import { DELIVERY, DELIVERY_SERVICE, MONEY, PRODUCTS } from "./macros.js";
+import { DELIVERY, DELIVERY_SERVICE, MONEY, PRODUCTS, SERVICE_FEE } from "./macros.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -102,3 +102,55 @@ export function calculateDeliveryFee(zone, subtotalCents) {
   if (!zone || zone.feeCents === 0) return 0;
   return subtotalCents >= zone.freeOverCents ? 0 : zone.feeCents;
 }
+
+/*
+==================================================
+GIFT CARDS
+
+Used by the order page (for its totals) and the
+worker (for the real charge), so they agree.
+==================================================
+*/
+
+// Stripe can't charge a card less than this.
+export const STRIPE_MINIMUM_CENTS = 50;
+
+/*
+  How much of a card an order uses, and the
+  payment processing fee on what's left.
+    baseCents:      loaves + delivery − discount
+    tipCents:       the tip
+    giftCardsCents: gift cards being bought in the
+                    same order (a gift card can't pay
+                    for those, but they carry the fee)
+  Returns { giftCents, serviceFee, totalCents }.
+  Never leaves a card payment under Stripe's 50¢
+  minimum: the card covers the whole order, or
+  leaves at least 50¢ to pay.
+*/
+export function planGiftCard(balanceCents, { baseCents, tipCents, giftCardsCents = 0 }, fee = SERVICE_FEE) {
+  const base = Math.max(0, baseCents);
+  const tip = Math.max(0, tipCents);
+  const bought = Math.max(0, giftCardsCents);
+  const balance = Math.max(0, balanceCents);
+
+  let onBase = Math.min(balance, base);
+  let onTip = Math.min(balance - onBase, tip);
+  const totalFor = () => {
+    const serviceFee = calculateServiceFee(fee, base - onBase + bought);
+    return { serviceFee, totalCents: base - onBase + bought + serviceFee + tip - onTip };
+  };
+
+  let { serviceFee, totalCents } = totalFor();
+  for (let tries = 0; totalCents > 0 && totalCents < STRIPE_MINIMUM_CENTS && tries < 10; tries += 1) {
+    let short = STRIPE_MINIMUM_CENTS - totalCents;
+    const fromTip = Math.min(onTip, short);
+    onTip -= fromTip;
+    short -= fromTip;
+    onBase -= Math.min(onBase, short);
+    ({ serviceFee, totalCents } = totalFor());
+  }
+
+  return { giftCents: onBase + onTip, serviceFee, totalCents };
+}
+

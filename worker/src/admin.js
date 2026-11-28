@@ -14,6 +14,9 @@ sites, which Safari would block).
   POST /admin/api/orders/<id>/delivered      { delivered: true | false }
   POST /admin/api/orders/<id>/partial        { items: { "<loaf name>": <loaves delivered so far> } }
   GET  /admin/api/past-orders?days=90        delivered and picked-up orders
+  GET  /admin/api/gift-cards                 every gift card and its balance
+  POST /admin/api/gift-cards                 { amountCents, recipientName, recipientEmail?, message?, note?, send? }: issue one
+  POST /admin/api/gift-cards/<id>/email      email a gift card to its recipient (again)
   POST /admin/api/orders/<id>/move           { items: { "<loaf name>": <loaves to move> }, deliveryDate | dropId }
   GET  /admin/api/drops                      pickup drops (recent and upcoming)
   POST /admin/api/drops                      create a drop
@@ -56,6 +59,9 @@ import {
 import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
+import { GiftCardError, createGiftCard, getGiftCard, listGiftCards } from "./gift-cards.js";
+import { emailGiftCard } from "./gift-orders.js";
+import { canEmail as canSendEmail } from "./email.js";
 import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
 
 const COOKIE_NAME = "kirana_admin";
@@ -102,6 +108,11 @@ export async function handleAdmin(request, env, { stripe }) {
 
     if (request.method === "GET" && path === "/admin/api/orders") {
       return json(await listOpenOrders(env, stripe));
+    }
+
+    if (path.startsWith("/admin/api/gift-cards")) {
+      const gifts = await handleGiftCards(request, path, env);
+      if (gifts) return gifts;
     }
 
     if (request.method === "GET" && path === "/admin/api/past-orders") {
@@ -346,6 +357,74 @@ function orderDate(session) {
 
 /*
 ==================================================
+GIFT CARDS (see gift-cards.js)
+
+Every card with what's left on it, and issuing a
+card from here (a giveaway, or making up for a
+mistake), emailed to them if there's an address.
+==================================================
+*/
+
+async function handleGiftCards(request, path, env) {
+  try {
+    if (request.method === "GET" && path === "/admin/api/gift-cards") {
+      return json({ ...(env.DB ? await listGiftCards(env) : { ready: false, cards: [] }), emailReady: canSendEmail(env) });
+    }
+    if (request.method === "POST" && path === "/admin/api/gift-cards") {
+      const body = await request.json().catch(() => ({}));
+      const card = await issueGiftCard(env, body);
+      let emailed = false;
+      let emailError = "";
+      if (body.send && card.recipientEmail) {
+        try {
+          await emailGiftCard(env, card);
+          emailed = true;
+        } catch (error) {
+          emailError = error.message;
+        }
+      }
+      return json({ ok: true, card, emailed, emailError });
+    }
+    const match = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/email$/);
+    if (request.method === "POST" && match) {
+      const card = await getGiftCard(env, match[1]);
+      if (!card) return json({ error: "That gift card wasn't found." }, 404);
+      if (!canSendEmail(env)) return json({ error: "Email isn't set up yet, so copy the code and send it yourself." }, 400);
+      await emailGiftCard(env, card);
+      return json({ ok: true });
+    }
+  } catch (error) {
+    if (error instanceof GiftCardError || error instanceof EmailError) return json({ error: error.message }, 400);
+    if (/no such table: gift_card/i.test(error.message || "")) {
+      return json({ error: "Gift cards need new tables in the pickup database. Run: npx wrangler d1 execute kirana-pickup --remote --file=schema.sql" }, 400);
+    }
+    throw error;
+  }
+  return null;
+}
+
+async function issueGiftCard(env, input) {
+  const amountCents = Number(input?.amountCents);
+  if (!Number.isInteger(amountCents) || amountCents < 100 || amountCents > 100000) {
+    throw new GiftCardError("Enter an amount from $1 to $1,000.");
+  }
+  const recipientName = String(input?.recipientName ?? "").trim().slice(0, 60);
+  const recipientEmail = String(input?.recipientEmail ?? "").trim().toLowerCase().slice(0, 254);
+  if (!recipientName) throw new GiftCardError("Who is it for? Add their name.");
+  if (recipientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) throw new GiftCardError("That email address doesn't look right.");
+  return createGiftCard(env, {
+    amountCents,
+    source: "issued",
+    fromName: "Kirana Bakehouse",
+    recipientName,
+    recipientEmail,
+    message: String(input?.message ?? "").trim().slice(0, 300),
+    note: String(input?.note ?? "").trim().slice(0, 200)
+  });
+}
+
+/*
+==================================================
 PAST ORDERS
 
 Orders already delivered or picked up, newest
@@ -551,7 +630,9 @@ async function describeOrder(session, today, env, stripe) {
     loavesDelivered: items.reduce((total, { delivered }) => total + delivered, 0),
     totalCents: session.amount_total || 0,
     tipCents: Number(metadata.tip_cents) || 0,
-    serviceFeeCents: Number(metadata.service_fee_cents) || 0
+    serviceFeeCents: Number(metadata.service_fee_cents) || 0,
+    giftCents: Number(metadata.gift_cents) || 0,
+    giftCardsBoughtCents: Number(metadata.gift_cards_cents) || 0
   };
 
 }

@@ -271,7 +271,25 @@ export const API = Object.freeze({
   capacity: "/api/capacity",
   drops: "/api/drops",
   subscribe: "/api/subscribe",
-  orderSummary: "/api/order-summary"
+  orderSummary: "/api/order-summary",
+  checkGiftCard: "/api/gift-cards/check"
+});
+
+/*
+  Gift cards: an item on the order page. The
+  amounts offered as buttons, and the range for
+  "Other", in cents. Cards can only be used on
+  purchases made through the website.
+*/
+export const GIFT_CARDS = Object.freeze({
+  amounts: [2500, 5000, 10000],
+  minCents: 1500,
+  maxCents: 30000,
+  maxQuantity: 10,
+  messageMaxLength: 300,
+  name: "Gift Card",
+  description: "Choose your amount. We'll email it to you, or straight to them.",
+  terms: "This gift card can only be used on purchases made through our website."
 });
 
 /*

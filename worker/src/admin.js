@@ -17,6 +17,7 @@ sites, which Safari would block).
   GET  /admin/api/gift-cards                 every gift card and its balance
   POST /admin/api/gift-cards                 { amountCents, recipientName, recipientEmail?, message?, note?, send? }: issue one
   POST /admin/api/gift-cards/<id>/email      email a gift card to its recipient (again)
+  POST /admin/api/gift-cards/<id>/cancel     { cancelled: true|false }: cancel or restore a card
   POST /admin/api/orders/<id>/move           { items: { "<loaf name>": <loaves to move> }, deliveryDate | dropId }
   GET  /admin/api/drops                      pickup drops (recent and upcoming)
   POST /admin/api/drops                      create a drop
@@ -59,7 +60,7 @@ import {
 import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
-import { GiftCardError, createGiftCard, getGiftCard, listGiftCards } from "./gift-cards.js";
+import { GiftCardError, createGiftCard, getGiftCard, listGiftCards, setGiftCardCancelled } from "./gift-cards.js";
 import { emailGiftCard } from "./gift-orders.js";
 import { canEmail as canSendEmail } from "./email.js";
 import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
@@ -384,6 +385,11 @@ async function handleGiftCards(request, path, env) {
         }
       }
       return json({ ok: true, card, emailed, emailError });
+    }
+    const cancelMatch = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/cancel$/);
+    if (request.method === "POST" && cancelMatch) {
+      const body = await request.json().catch(() => ({}));
+      return json({ ok: true, card: await setGiftCardCancelled(env, cancelMatch[1], body.cancelled !== false) });
     }
     const match = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/email$/);
     if (request.method === "POST" && match) {

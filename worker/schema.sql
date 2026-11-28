@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS gift_cards (
   message TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',          -- the bakery's own note (issued cards)
   emailed_at TEXT NOT NULL DEFAULT '',
+  cancelled_at TEXT NOT NULL DEFAULT '',  -- cancelled on the orders page: can't be used
   created_at TEXT NOT NULL
 );
 

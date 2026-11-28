@@ -68,3 +68,23 @@ test("a bought card is made once, however many times it's asked for", async () =
   assert.notEqual(one.code, three.code);
   await assert.rejects(findGiftCard(env, "KIRANA-2222-2222"), /couldn't find/);
 });
+
+test("a cancelled card can't be used, keeps its balance, and can be restored", async () => {
+  const { setGiftCardCancelled } = await import("../src/gift-cards.js");
+  const env = { DB: createFakeD1() };
+  // An older database, made before cards could be cancelled.
+  await env.DB.prepare("ALTER TABLE gift_cards DROP COLUMN cancelled_at").run();
+  const card = await createGiftCard(env, { amountCents: 1500, source: "issued", recipientName: "Vanya" });
+  assert.equal((await checkGiftCard(env, card.code)).balanceCents, 1500);
+
+  const cancelled = await setGiftCardCancelled(env, card.id, true);
+  assert.ok(cancelled.cancelledAt);
+  assert.equal(cancelled.balanceCents, 1500);
+  await assert.rejects(checkGiftCard(env, card.code), /cancelled/);
+  await assert.rejects(findGiftCard(env, card.code), /cancelled/);
+
+  const restored = await setGiftCardCancelled(env, card.id, false);
+  assert.equal(restored.cancelledAt, "");
+  assert.equal((await checkGiftCard(env, card.code)).balanceCents, 1500);
+  await assert.rejects(setGiftCardCancelled(env, 9999, true), /wasn't found/);
+});

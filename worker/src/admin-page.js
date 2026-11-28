@@ -86,6 +86,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .gift-card dt { color: var(--muted); }
   .gift-card dd { margin: 0; overflow-wrap: anywhere; }
   .gift-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .gift-waiting { background: #fff4d6; border: 1px solid #e6c77a; color: #7a5200; border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; font-weight: 600; }
   .badge.cancelled { color: var(--terracotta); }
   .linkish.danger { color: var(--terracotta); }
   .gift-issue { padding: 12px 16px; margin-bottom: 14px; }
@@ -773,6 +774,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return wrap;
   }
 
+  // Every send asks first. Nothing goes out unless you press OK.
+  var CHECK = "Send with Resend? This emails right away and can't be undone.\n\n";
+
   // With email set up, the button sends the email itself; otherwise it opens a draft.
   function emailControl(order, className) {
     if (!state.emailReady) return el("a", { class: className, href: deliveredEmail(order), text: "Email " + firstName(order) });
@@ -780,7 +784,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var button = el("button", { class: className + (order.emailedAt ? " sent" : ""), type: "button", text: label });
     button.addEventListener("click", function () {
       var what = order.fulfillment === "pickup" ? "\u201cready for pickup\u201d" : "\u201cdelivered\u201d";
-      if (!window.confirm("Send the " + what + " email to " + order.email + "?")) return;
+      if (!window.confirm(CHECK + "Send the " + what + " email to " + order.email + "?")) return;
       button.disabled = true;
       button.textContent = "Sending\u2026";
       api("POST", "orders/" + order.id + "/email", {}).then(function (result) {
@@ -854,8 +858,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var search = el("input", { type: "search", class: "past-search", placeholder: "Search by code, name or email", value: state.giftQuery, "aria-label": "Search gift cards" });
     var list = el("div", { id: "gift-list" });
 
+    var waiting = cards.filter(function (card) { return card.source === "purchase" && card.recipientEmail && !card.emailedAt && !card.cancelledAt; }).length;
     view.replaceChildren(
       el("p", { class: "summary", text: plural(cards.length, "gift card") + " \u00b7 " + money(outstanding) + " still to spend" }),
+      waiting ? el("p", { class: "gift-waiting", text: plural(waiting, "bought gift card") + " not emailed yet. Nothing is sent automatically: press \u201cEmail it to them\u201d on each one when you're ready." }) : null,
       issueGiftForm(),
       search,
       list
@@ -913,6 +919,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     if (card.recipientEmail && state.gifts.emailReady && !cancelled) {
       var send = el("button", { type: "button", class: "linkish", text: card.emailedAt ? "Email it again" : "Email it to them" });
       send.addEventListener("click", function () {
+        if (!window.confirm(CHECK + "Email this gift card to " + card.recipientEmail + "?")) return;
         send.disabled = true;
         send.textContent = "Sending\u2026";
         api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
@@ -962,7 +969,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var message = el("textarea", { id: "issue-message", maxlength: "300", rows: "2" });
     var note = el("input", { type: "text", id: "issue-note", maxlength: "200", placeholder: "Just for you, e.g. Sorry about the late delivery" });
     var send = el("input", { type: "checkbox", id: "issue-send" });
-    send.checked = Boolean(state.gifts.emailReady);
+    // Never ticked for you: it only emails if you tick it yourself.
+    send.checked = false;
     send.disabled = !state.gifts.emailReady;
     var error = el("p", { class: "error", role: "alert", hidden: "hidden" });
     var done = el("p", { class: "issue-done", role: "status", hidden: "hidden" });
@@ -973,6 +981,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }
 
     button.addEventListener("click", function () {
+      if (send.checked && !window.confirm(CHECK + "Make this gift card and email it to " + email.value + "?")) return;
       error.hidden = true;
       done.hidden = true;
       button.disabled = true;
@@ -1468,7 +1477,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var button = el("button", { type: "button", text: label + " (" + count + ")" });
     button.addEventListener("click", function () {
       var what = kind === "announce" ? "the \u201cnew drop is open\u201d email to " + plural(count, "person").replace("persons", "people") + " on the list" : "a pickup reminder to " + plural(count, "customer");
-      if (!window.confirm("Send " + what + "?")) return;
+      if (!window.confirm(CHECK + "Send " + what + "?")) return;
       button.disabled = true;
       button.textContent = "Sending\u2026";
       api("POST", "drops/" + drop.id + "/" + kind, {}).then(reloadDrops).catch(function (error) {
@@ -1482,7 +1491,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   function sentLine(drop) {
     var parts = [];
-    if (drop.announce === false && !drop.announced) parts.push("Opens quietly: no automatic email to the list");
     if (drop.announced) parts.push("New-drop email sent to " + plural(drop.announced.recipients, "person").replace("persons", "people") + " " + shortTime(drop.announced.sentAt));
     if (drop.reminded) parts.push("Reminder sent to " + plural(drop.reminded.recipients, "customer") + " " + shortTime(drop.reminded.sentAt));
     return parts.length ? el("p", { class: "sent-note", text: parts.join(" \u00b7 ") }) : null;
@@ -1582,9 +1590,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       field("Ordering opens (Pacific time)", f.opens, true),
       field("Ordering closes (Pacific time)", f.closes, true),
       field("Loaves available", f.limit),
-      data.emailReady ? el("label", { class: "check", for: "drop-announce" }, f.announce,
-        el("span", null, "Email the notify list when ordering opens",
-          el("small", { text: "Untick to open this drop quietly. You can still email the list from the drop's card." }))) : null,
       error,
       el("div", { class: "buttons" }, save, cancel)
     );

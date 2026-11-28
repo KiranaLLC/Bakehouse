@@ -51,9 +51,7 @@ import { forgetStripeLists, listSessionsSince } from "./stripe-cache.js";
 import { applyMoves, listMoves } from "./moves.js";
 import { GiftCardError, attachGiftUse, checkGiftCard, findGiftCard, holdGiftCard, planGiftCard, releaseGiftUse, settleGiftForSession, settleStaleGiftHolds } from "./gift-cards.js";
 import { fulfillGiftCardOrder, fulfillPendingGiftCardOrders, giftCardLineItems, giftCardLinesTotal, parseGiftCardLines, saveGiftCardOrder } from "./gift-orders.js";
-import { DropError, addPendingSubscriber, addSubscriber, claimEmail, confirmSubscriber, forgetEmail, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, logEmail, unsubscribeByToken } from "./drops.js";
-import { canEmail, confirmSubscriptionEmail, newOrderAlert, orderConfirmationEmail, sendEmail } from "./email.js";
-import { runScheduledEmails } from "./email-flows.js";
+import { DropError, addSubscriber, confirmSubscriber, getDrop, getDropBookings, hasDatabase, listDropBookings, listDrops, unsubscribeByToken } from "./drops.js";
 import { dropStatus, formatMoment, formatPickupWhen } from "../../pickup-rules.js";
 import {
   CHECKOUT_HOLD_SECONDS,
@@ -140,18 +138,14 @@ export default {
 
   },
 
-  // Every hour (wrangler.toml [triggers]): drop announcements and pickup
-  // reminders, and settling gift card amounts held by unfinished payments.
+  // Every hour (wrangler.toml [triggers]): settling gift card amounts held
+  // by unfinished payments, and making paid gift cards. Never sends email.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runScheduledEmails(env, stripe).then(
-      result => console.log("scheduled emails", JSON.stringify(result)),
-      error => console.error("scheduled emails failed", error)
-    ));
     ctx.waitUntil(settleStaleGiftHolds(env, stripe, CHECKOUT_HOLD_SECONDS).then(
       settled => console.log("gift card holds settled", settled),
       error => console.error("gift card holds failed", error)
     ));
-    ctx.waitUntil(fulfillPendingGiftCardOrders(env, env.SITE_URL || "").then(
+    ctx.waitUntil(fulfillPendingGiftCardOrders(env).then(
       done => console.log("gift card orders finished", done),
       error => console.error("gift card orders failed", error)
     ));
@@ -689,29 +683,9 @@ async function subscribe(body, env, workerOrigin) {
     throw new OrderValidationError("Sorry, sign-ups aren't open yet. Please email hellokiranabakehouse@gmail.com.");
   }
 
-  if (!canEmail(env)) return addSubscriber(env, body);
-
-  let pending;
-  try {
-    pending = await addPendingSubscriber(env, body);
-  } catch (error) {
-    if (error instanceof DropError) throw error;
-    // The email tables aren't there yet (schema.sql not re-run): sign up directly.
-    console.error(error);
-    return addSubscriber(env, body);
-  }
-  // The same answer either way, so the form can't be used to find out who's on the list,
-  // and no email if they're already on it or were sent a confirm link a few minutes ago.
-  if (pending.alreadySubscribed || pending.recentlySent) return { ok: true, confirm: true };
-
-  try {
-    await sendEmail(env, confirmSubscriptionEmail({ to: pending.email, confirmUrl: `${workerOrigin}/api/subscribe/confirm?token=${pending.token}` }));
-  } catch (error) {
-    console.error(error);
-    throw new OrderValidationError("Sorry, we couldn't send the confirmation email. Please try again, or email hellokiranabakehouse@gmail.com.");
-  }
-
-  return { ok: true, confirm: true };
+  // No email is ever sent on its own (the bakery sends every email by hand
+  // from the orders page), so signing up adds them straight to the list.
+  return addSubscriber(env, body);
 
 }
 
@@ -789,33 +763,13 @@ async function handleStripeWebhook(request, env) {
     await settleGiftForSession(env, { ...session, status: paid ? "complete" : "expired" });
   }
 
-  // Gift cards bought: make them and email them (Stripe tries again if an email fails).
+  // Gift cards bought: make them (no email; the orders page sends them by hand).
   if (paid && Number(session?.metadata?.gift_cards_cents) > 0) {
-    await fulfillGiftCardOrder(env, session, env.SITE_URL || "", { throwOnEmailError: true });
-  }
-  // Just gift cards: their emails are the confirmation.
-  if (session?.metadata?.kind === "gift_cards") return new Response("Gift cards done.", { status: 200 });
-
-  if (!paid || !session?.id || !canEmail(env)) return new Response("Ignored.", { status: 200 });
-
-  // The bakery's alert, and the customer's confirmation: each once per order.
-  const emails = [[`alert:${session.id}`, newOrderAlert(session)]];
-  if (session.customer_details?.email) emails.push([`confirm:${session.id}`, orderConfirmationEmail(session)]);
-
-  for (const [key, message] of emails) {
-    if (hasDatabase(env) && !await claimEmail(env, key).catch(() => true)) continue;
-    try {
-      await sendEmail(env, message);
-      if (hasDatabase(env)) await logEmail(env, key, 1).catch(() => {});
-    } catch (error) {
-      if (hasDatabase(env)) await forgetEmail(env, key).catch(() => {});
-      console.error(error);
-      // Stripe tries again later; whatever already went out isn't sent twice.
-      return new Response("Email failed.", { status: 500 });
-    }
+    await fulfillGiftCardOrder(env, session);
   }
 
-  return new Response("Sent.", { status: 200 });
+  // Nothing else: the site never emails on its own.
+  return new Response("Done.", { status: 200 });
 
 }
 
@@ -986,7 +940,7 @@ async function getOrderSummary(sessionId, env) {
 
   // Gift cards bought in this order: made now if the webhook hasn't yet.
   const giftCards = Number(session.metadata.gift_cards_cents) > 0
-    ? (await fulfillGiftCardOrder(env, session, env.SITE_URL || "").catch(error => { console.error("Couldn't make gift cards", error); return []; }))
+    ? (await fulfillGiftCardOrder(env, session).catch(error => { console.error("Couldn't make gift cards", error); return []; }))
       .map(card => ({ code: card.code, amountCents: card.initialCents, recipientName: card.recipientName, recipientEmail: card.recipientEmail, emailed: card.emailed }))
     : [];
 

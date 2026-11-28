@@ -3,34 +3,24 @@
 DROP EMAILS (both workers)
 
 "A new drop is open" goes to everyone confirmed
-on the next-drop list; "reminder: pickup tomorrow"
-goes to everyone with a paid order for the drop.
-
-The checkout worker sends both on its own, from an
-hourly schedule (see SCHEDULE below); the orders
-page's buttons send them by hand at any time. The
-email log stops the schedule from sending one
-that's already gone out.
+on the next-drop list, and "reminder: pickup
+tomorrow" to everyone with a paid order for the
+drop. Both only when the bakery presses the
+button on the orders page: the site never sends
+email on its own.
 ==================================================
 */
 
-import { API, PICKUP } from "../../macros.js";
-import { dayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
-import { canEmail, dropOpenEmail, pickupReminderEmail, sendEmails } from "./email.js";
-import { claimEmail, forgetEmail, getQuietDropIds, hasDatabase, listDrops, listSubscribers, logEmail, unsubscribeToken } from "./drops.js";
+import { API } from "../../macros.js";
+import { formatMoment, formatPickupWhen } from "../../pickup-rules.js";
+import { dropOpenEmail, pickupReminderEmail, sendEmails } from "./email.js";
+import { claimEmail, forgetEmail, listSubscribers, logEmail, unsubscribeToken } from "./drops.js";
 import { listSessionsSince } from "./stripe-cache.js";
 import { CHECKOUT_HOLD_SECONDS, loavesFromMetadata } from "./capacity.js";
 import { listMoves, movedOutByOrder, sumItems } from "./moves.js";
 
 const SITE = "https://www.kiranabakehouse.com";
 
-// When the hourly schedule sends each email (bakery time).
-export const SCHEDULE = Object.freeze({
-  // "A new drop is open" for a drop that opened in the last day.
-  announceWithinHours: 24,
-  // "Pickup tomorrow" reminders, from this hour the day before.
-  reminderFromHour: 17
-});
 
 export const announceKey = drop => `announce:${drop.id}`;
 export const remindKey = drop => `remind:${drop.id}`;
@@ -143,49 +133,3 @@ export async function remindDrop(env, stripe, drop, { force = false } = {}) {
     to => pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) }), { force });
 }
 
-/*
-==================================================
-SCHEDULE
-
-Runs every hour on the checkout worker:
-
-  - "A new drop is open" for drops that opened in
-    the last day, to anyone on the list who hasn't
-    had it (people who join that day get it too),
-    unless the drop is set not to email the list.
-  - Reminders from 5 pm the day before pickup until
-    the pickup window ends, to any customer who
-    hasn't had one (late orders get one too).
-==================================================
-*/
-
-export async function runScheduledEmails(env, stripe, now = Date.now()) {
-
-  if (!canEmail(env) || !hasDatabase(env)) return { announced: 0, reminded: 0 };
-
-  const local = utcToLocal(new Date(now).toISOString(), PICKUP.timeZone);
-  const hour = Number(local.time.slice(0, 2));
-  const drops = await listDrops(env, { fromDate: local.date });
-  const quiet = await getQuietDropIds(env);
-  let announced = 0;
-  let reminded = 0;
-
-  for (const drop of drops) {
-
-    const opened = Date.parse(drop.opensAt);
-    const isOpen = opened <= now && now < Date.parse(drop.closesAt);
-    if (isOpen && now - opened < SCHEDULE.announceWithinHours * 36e5 && !quiet.has(drop.id)) {
-      announced += await announceDrop(env, drop, { now });
-    }
-
-    const eveningBefore = dayBefore(drop.pickupDate) === local.date && hour >= SCHEDULE.reminderFromHour;
-    const pickupDayBeforeEnd = drop.pickupDate === local.date && local.time < drop.windowEnd;
-    if (eveningBefore || pickupDayBeforeEnd) {
-      reminded += await remindDrop(env, stripe, drop);
-    }
-
-  }
-
-  return { announced, reminded };
-
-}

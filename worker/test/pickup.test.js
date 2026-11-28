@@ -556,12 +556,15 @@ test("gift cards on their own: one payment, no day, cards made once and shown on
   session.amount_total = 10330;
   session.customer_details = { email: "bo@example.com", name: "Bo Chen" };
   session.line_items = { data: [] };
+  // Even with email set up, buying gift cards sends nothing (the fake network
+  // refuses any call to Resend): the bakery emails them by hand.
+  env.RESEND_API_KEY = "re_test_fake";
   const first = await callCheckout("GET", `/api/order-summary?session_id=${session.id}`);
   assert.equal(first.status, 200, JSON.stringify(first.body));
   assert.equal(first.body.kind, "gift_cards");
   assert.equal(first.body.giftCards.length, 3);
-  assert.deepEqual(first.body.giftCards.map(({ amountCents, recipientEmail }) => [amountCents, recipientEmail]), [[5000, "ana@example.com"], [2500, ""], [2500, ""]]);
-  // No email in tests: not emailed, and the codes are right there.
+  assert.deepEqual(first.body.giftCards.map(({ amountCents, recipientEmail }) => [amountCents, recipientEmail]), [[5000, "ana@example.com"], [2500, "bo@example.com"], [2500, "bo@example.com"]]);
+  // Not emailed, and the codes are right there.
   assert.ok(first.body.giftCards.every(({ code, emailed }) => /^KIRANA-/.test(code) && !emailed));
   const again = await callCheckout("GET", `/api/order-summary?session_id=${session.id}`);
   assert.deepEqual(again.body.giftCards.map(({ code }) => code), first.body.giftCards.map(({ code }) => code));
@@ -569,6 +572,7 @@ test("gift cards on their own: one payment, no day, cards made once and shown on
   assert.equal(card.fromName, "Bo");
   assert.equal(card.message, "Happy birthday!");
   assert.equal((await findGiftCard(env, first.body.giftCards[1].code)).fromName, "Bo Chen");
+  delete env.RESEND_API_KEY;
 });
 
 test("gift cards with loaves: one payment; a gift card can't pay for them, but the fee covers them", async () => {

@@ -441,8 +441,9 @@ order back on the list.
 ==================================================
 */
 
-const PAST_DAYS_DEFAULT = 90;
-const PAST_DAYS_MAX = 730;
+// The Past tab only goes back this far.
+const PAST_DAYS_DEFAULT = 30;
+const PAST_DAYS_MAX = 30;
 
 async function listPastOrders(env, stripe, daysParam) {
 

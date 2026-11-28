@@ -105,7 +105,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .past-top h3 { margin: 0; font-size: 1.05rem; }
   .card.past .items { margin: 6px 0 4px; font-weight: 600; }
   .past-when { margin: 0 0 8px; color: var(--good); font-size: .9rem; font-weight: 600; }
-  .past-more { display: block; margin: 16px auto 32px; padding: 10px 18px; font: inherit; font-weight: 600; border-radius: 999px; border: 1px solid var(--deep-brown); background: transparent; color: var(--deep-brown); cursor: pointer; }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
 
   /* Day headings */
@@ -289,7 +288,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 <script>
 (function () {
 
-  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 90, pastQuery: "", gifts: null, giftsError: "", giftQuery: "" };
+  var state = { orders: [], delivered: {}, tab: "orders", drops: null, dropsError: "", editing: null, subscribers: null, past: null, pastError: "", pastDays: 30, pastQuery: "", gifts: null, giftsError: "", giftQuery: "" };
 
   // Where "a new drop is open" and reminder emails come from (they're sent to
   // customers as BCC, so nobody sees anyone else's address).
@@ -1049,16 +1048,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var data = state.past;
     var search = el("input", { type: "search", id: "past-search", class: "past-search", placeholder: "Search by name, email, phone or loaf", value: state.pastQuery, "aria-label": "Search past orders" });
     var list = el("div", { id: "past-list" });
-    var more = data.days < data.maxDays
-      ? el("button", { type: "button", class: "past-more", text: state.pastLoading ? "Loading\u2026" : "Show older orders" })
-      : el("p", { class: "summary", text: "That's everything from the last " + Math.round(data.maxDays / 365) + " years." });
-    if (more.tagName === "BUTTON") {
-      more.disabled = Boolean(state.pastLoading);
-      more.addEventListener("click", function () {
-        state.pastDays = data.days < 180 ? 180 : data.days < 365 ? 365 : data.maxDays;
-        loadPast();
-      });
-    }
+    var more = el("p", { class: "summary", text: "Showing orders from the last " + data.days + " days." });
 
     view.replaceChildren(
       el("p", { class: "summary", text: "Last " + data.days + " days: " + plural(data.totals.orders, "order") + " \u00b7 " +

@@ -774,6 +774,9 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return wrap;
   }
 
+  // Every send asks first. Nothing goes out unless you press OK.
+  var CHECK = "Send with Resend? This emails right away and can't be undone.\n\n";
+
   // With email set up, the button sends the email itself; otherwise it opens a draft.
   function emailControl(order, className) {
     if (!state.emailReady) return el("a", { class: className, href: deliveredEmail(order), text: "Email " + firstName(order) });
@@ -781,7 +784,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var button = el("button", { class: className + (order.emailedAt ? " sent" : ""), type: "button", text: label });
     button.addEventListener("click", function () {
       var what = order.fulfillment === "pickup" ? "\u201cready for pickup\u201d" : "\u201cdelivered\u201d";
-      if (!window.confirm("Send the " + what + " email to " + order.email + "?")) return;
+      if (!window.confirm(CHECK + "Send the " + what + " email to " + order.email + "?")) return;
       button.disabled = true;
       button.textContent = "Sending\u2026";
       api("POST", "orders/" + order.id + "/email", {}).then(function (result) {
@@ -916,7 +919,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     if (card.recipientEmail && state.gifts.emailReady && !cancelled) {
       var send = el("button", { type: "button", class: "linkish", text: card.emailedAt ? "Email it again" : "Email it to them" });
       send.addEventListener("click", function () {
-        if (!window.confirm("Email this gift card to " + card.recipientEmail + "?")) return;
+        if (!window.confirm(CHECK + "Email this gift card to " + card.recipientEmail + "?")) return;
         send.disabled = true;
         send.textContent = "Sending\u2026";
         api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
@@ -978,7 +981,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }
 
     button.addEventListener("click", function () {
-      if (send.checked && !window.confirm("Make this gift card and email it to " + email.value + "?")) return;
+      if (send.checked && !window.confirm(CHECK + "Make this gift card and email it to " + email.value + "?")) return;
       error.hidden = true;
       done.hidden = true;
       button.disabled = true;
@@ -1474,7 +1477,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var button = el("button", { type: "button", text: label + " (" + count + ")" });
     button.addEventListener("click", function () {
       var what = kind === "announce" ? "the \u201cnew drop is open\u201d email to " + plural(count, "person").replace("persons", "people") + " on the list" : "a pickup reminder to " + plural(count, "customer");
-      if (!window.confirm("Send " + what + "?")) return;
+      if (!window.confirm(CHECK + "Send " + what + "?")) return;
       button.disabled = true;
       button.textContent = "Sending\u2026";
       api("POST", "drops/" + drop.id + "/" + kind, {}).then(reloadDrops).catch(function (error) {

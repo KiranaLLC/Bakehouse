@@ -587,6 +587,8 @@ function giftOtherCents() {
 function renderGiftProduct() {
   document.getElementById("gift-product-name").textContent = GIFT_CARDS.name;
   document.getElementById("gift-product-description").textContent = GIFT_CARDS.description;
+  document.getElementById("gift-product-terms").textContent = GIFT_CARDS.terms;
+  document.getElementById("gift-dialog-note").textContent = GIFT_CARDS.terms;
   document.getElementById("gift-product-price").textContent = `${wholeDollars(GIFT_CARDS.minCents)} – ${wholeDollars(GIFT_CARDS.maxCents)}`;
   const other = document.getElementById("gift-other-input");
   other.min = String(GIFT_CARDS.minCents / 100);
@@ -696,8 +698,8 @@ function setUpGiftDialog() {
 GIFT CARD
 
 The worker checks the code and what's left on it,
-and takes it off again at checkout. Anything left
-over stays on the card.
+and takes it off again at checkout. What isn't
+used stays on the card.
 ==================================================
 */
 
@@ -733,7 +735,7 @@ async function applyGiftCard() {
 
 function showAppliedGiftCard() {
 
-  showGiftStatus("applied", `✓ Gift card ${giftCard.code} applied (${formatMoney(giftCard.balanceCents)} on the card). Anything left stays on it for next time.`);
+  showGiftStatus("applied", `✓ Gift card ${giftCard.code} applied (${formatMoney(giftCard.balanceCents)} on the card).`);
 
   const remove = document.createElement("button");
   remove.type = "button";

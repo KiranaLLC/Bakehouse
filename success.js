@@ -177,7 +177,7 @@ function giftCardList(cards) {
   }
   const hint = document.createElement("p");
   hint.className = "gift-codes-hint";
-  hint.textContent = "We've also emailed you every code. Gift cards can only be used for orders on our website.";
+  hint.textContent = "We've also emailed you every code. Gift cards can only be used on purchases made through our website.";
   return [title, list, hint];
 }
 

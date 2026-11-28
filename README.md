@@ -312,7 +312,7 @@ note), then redeploy the checkout worker. Set both to 0 to turn it off.
 ### Gift cards
 
 **Gift Card** is an item on the order page, under the menu. It opens a pop-up:
-an amount ($25, $50, $100 or another amount from $10 to $300), how many, and
+an amount ($25, $50, $100 or another amount from $15 to $300), how many, and
 optionally **Send it to someone** (their name, email, a message, and who it's
 from). It goes in the cart, and is paid for together with any loaves, or on
 its own (then no day, address or tip is needed). The payment processing fee
@@ -324,7 +324,8 @@ with every code from their order (to pass on any without an email), and you
 get a note. The thank-you page shows the codes too, so nothing depends on
 email.
 
-Gift cards can only be used for orders on the website, and don't expire. On
+Gift cards can only be used on purchases made through the website, and don't
+expire. On
 the order page, **Have a gift card?** takes a code: the card pays for loaves
 and delivery first, then the tip, and the processing fee is only charged on
 what's left to pay. Whatever isn't used stays on the card. A gift card and a

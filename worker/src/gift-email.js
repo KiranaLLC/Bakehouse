@@ -12,7 +12,7 @@ colors for mail apps that show it.
 ==================================================
 */
 
-import { CONTACT } from "../../macros.js";
+import { CONTACT, GIFT_CARDS } from "../../macros.js";
 import { BAKERY_EMAIL, firstName } from "./email.js";
 
 export const SITE = "https://www.kiranabakehouse.com";
@@ -23,8 +23,8 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
-export const GIFT_CARD_TERMS =
-  "This gift card can only be used for orders on our website. Enter the code in the Gift card box when you check out; anything left stays on the card for your next order.";
+export const GIFT_CARD_TERMS = GIFT_CARDS.terms;
+const HOW_TO_USE = "Enter the code in the Gift card box when you check out.";
 
 const siteName = siteUrl => (siteUrl || SITE).replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
 
@@ -34,7 +34,7 @@ export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
   const amount = dollars(card.initialCents);
   const greeting = card.recipientName ? firstName(card.recipientName) : "there";
   const from = card.fromName || "Kirana Bakehouse";
-  const terms = GIFT_CARD_TERMS.replace("our website", `our website, ${siteName(siteUrl)}`);
+  const terms = `${GIFT_CARD_TERMS.replace("our website.", `our website, ${siteName(siteUrl)}.`)} ${HOW_TO_USE}`;
 
   const text = [
     `Hi ${greeting},`,
@@ -123,8 +123,9 @@ export function buyerGiftCardsEmail(cards, buyerEmail, siteUrl = SITE) {
       "",
       ...lines,
       "",
-      ...(toPassOn ? ["To give a card, pass on its code. They enter it in the Gift card box when they order.", ""] : []),
-      GIFT_CARD_TERMS.replace("our website", `our website, ${siteName(siteUrl)}`),
+      ...(toPassOn ? ["To give a card, pass on its code. They enter it in the Gift card box when they check out.", ""] : []),
+      (cards.length === 1 ? GIFT_CARD_TERMS : GIFT_CARD_TERMS.replace("This gift card", "These gift cards"))
+        .replace("our website.", `our website, ${siteName(siteUrl)}.`),
       "",
       "Stripe sends your receipt separately.",
       "",

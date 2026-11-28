@@ -534,7 +534,7 @@ test("gift cards on their own: one payment, no day, cards made once and shown on
     { amountCents: 5000, quantity: 1, recipientName: "Ana", recipientEmail: "Ana@Example.com", message: "Happy birthday!", fromName: "Bo" },
     { amountCents: 2500, quantity: 2 }
   ];
-  assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: [{ amountCents: 500 }] })).body.error, /\$10 to \$300/);
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: [{ amountCents: 500 }] })).body.error, /\$15 to \$300/);
   assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: [{ amountCents: 2500, recipientEmail: "nope" }] })).body.error, /doesn't look right/);
   assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: lines, giftCode: "KIRANA-2222-2222" })).body.error, /can't be used to buy gift cards/);
 

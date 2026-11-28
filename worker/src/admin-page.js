@@ -93,11 +93,19 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .preview-to details { display: inline; }
   .preview-body { margin-top: 10px; border: 1px solid #e3d5bd; border-radius: 10px; background: #fff; }
   .preview-text { white-space: pre-wrap; font: inherit; margin: 0; padding: 14px; }
+  .preview-plain { border: 0; background: transparent; }
+  .preview-label { display: block; margin: 8px 0; font-weight: 600; }
+  .preview-label span { display: block; margin-bottom: 4px; }
+  .preview-input, .preview-area { width: 100%; box-sizing: border-box; font: inherit; font-weight: 400; padding: 9px 11px; border: 1px solid #cbb898; border-radius: 8px; background: #fff; color: inherit; }
+  .preview-area { resize: vertical; line-height: 1.45; }
+  .preview-refresh { margin: 6px 0 10px; }
+  .preview-refresh .secondary { padding: 6px 14px; }
+  .preview-plain .preview-frame { border: 1px solid #e3d5bd; }
   .preview-frame { width: 100%; height: 60vh; border: 0; border-radius: 10px; display: block; }
   .preview-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
   .preview-send { background: #4a1f00; color: #fff; border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; }
   .preview-send:disabled { opacity: 0.5; }
-  .preview-actions .secondary { background: transparent; border: 1px solid #4a1f00; color: #4a1f00; border-radius: 999px; padding: 10px 18px; font-weight: 600; }
+  .preview-panel .secondary { background: transparent; border: 1px solid #4a1f00; color: #4a1f00; border-radius: 999px; padding: 10px 18px; font-weight: 600; }
   .gift-waiting { background: #fff4d6; border: 1px solid #e6c77a; color: #7a5200; border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; font-weight: 600; }
   .badge.cancelled { color: var(--terracotta); }
   .linkish.danger { color: var(--terracotta); }
@@ -798,24 +806,39 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var cancel = el("button", { type: "button", class: "secondary", text: "Cancel" });
     var go = el("button", { type: "button", class: "preview-send", text: "Send with Resend", disabled: "" });
     var panel = el("div", { class: "preview-panel", role: "dialog", "aria-modal": "true", "aria-label": "Email preview" },
-      el("p", { class: "preview-note", text: "Preview · nothing has been sent" }),
+      el("p", { class: "preview-note", text: "Preview · nothing has been sent. You can change the wording below." }),
       to, subject, box, problem,
       el("div", { class: "preview-actions" }, cancel, go));
     var shade = el("div", { class: "preview-shade" }, panel);
+    var getEdits = function () { return {}; };
+    function busy() { return Boolean(go.dataset.busy); }
     function close() { shade.remove(); document.removeEventListener("keydown", onKey); }
-    function onKey(event) { if (event.key === "Escape" && !go.dataset.busy) close(); }
+    function onKey(event) { if (event.key === "Escape" && !busy()) close(); }
     cancel.addEventListener("click", close);
-    shade.addEventListener("click", function (event) { if (event.target === shade && !go.dataset.busy) close(); });
     document.addEventListener("keydown", onKey);
     document.body.append(shade);
+
+    function input(value, attrs) {
+      var node = el("input", Object.assign({ type: "text", class: "preview-input" }, attrs || {}));
+      node.value = value || "";
+      return node;
+    }
+    function area(value, rows) {
+      var node = el("textarea", { class: "preview-area", rows: String(rows || 14) });
+      node.value = value || "";
+      return node;
+    }
+    function label(text, control) {
+      return el("label", { class: "preview-label" }, el("span", { text: text }), control);
+    }
 
     api("POST", previewPath, {}).then(function (data) {
       var people = data.recipients || [];
       var message = data.message || {};
+      var editable = data.editable || { subject: message.subject, text: message.text };
       if (!people.length) {
         to.replaceChildren(el("strong", { text: "To: " }), "nobody yet");
         box.replaceChildren(el("p", { class: "muted", text: "There's no one to send this to." }));
-        subject.replaceChildren(el("strong", { text: "Subject: " }), message.subject || "");
         return;
       }
       if (people.length === 1) {
@@ -823,13 +846,45 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       } else {
         to.replaceChildren(el("strong", { text: "To: " }), people.length + " people, each getting their own copy ",
           el("details", {}, el("summary", { text: "see who" }), el("p", { class: "muted", text: people.join(", ") })));
-        box.before(el("p", { class: "muted", text: "Shown as " + people[0] + " will get it." }));
       }
-      subject.replaceChildren(el("strong", { text: "Subject: " }), message.subject || "");
-      if (message.html) {
-        box.replaceChildren(el("iframe", { class: "preview-frame", sandbox: "", title: "Email preview", srcdoc: message.html }));
+
+      var subjectBox = input(editable.subject || message.subject);
+      subject.replaceChildren(label("Subject", subjectBox));
+
+      if (data.kind === "gift") {
+        // The gift card: edit the words, then see it as it will look.
+        var hi = input(editable.hi);
+        var intro = input(editable.intro);
+        var note = area(editable.message, 3);
+        var frame = el("iframe", { class: "preview-frame", sandbox: "", title: "Email preview", srcdoc: message.html });
+        var refresh = el("button", { type: "button", class: "secondary", text: "Update preview" });
+        getEdits = function () { return { subject: subjectBox.value, hi: hi.value, intro: intro.value, message: note.value }; };
+        refresh.addEventListener("click", function () {
+          refresh.disabled = true;
+          api("POST", previewPath, getEdits()).then(function (fresh) {
+            frame.setAttribute("srcdoc", fresh.message.html);
+            refresh.disabled = false;
+          }).catch(function (error) {
+            refresh.disabled = false;
+            problem.textContent = error.message;
+            problem.hidden = false;
+          });
+        });
+        box.classList.add("preview-plain");
+        box.replaceChildren(
+          label("Greeting", hi), label("First line", intro), label("Message", note),
+          el("div", { class: "preview-refresh" }, refresh, el("span", { class: "muted", text: " The code and amount can't be changed." })),
+          frame);
       } else {
-        box.replaceChildren(el("pre", { class: "preview-text", text: message.text || "" }));
+        var text = area(editable.text, Math.min(22, Math.max(10, String(editable.text || "").split("\n").length + 2)));
+        var reset = el("button", { type: "button", class: "linkish", text: "Undo my changes" });
+        reset.addEventListener("click", function () { subjectBox.value = editable.subject || ""; text.value = editable.text || ""; });
+        getEdits = function () { return { subject: subjectBox.value, text: text.value }; };
+        box.classList.add("preview-plain");
+        box.replaceChildren(label("Email", text),
+          editable.footer ? el("p", { class: "muted", text: editable.footer }) : null,
+          people.length > 1 ? el("p", { class: "muted", text: "Everyone gets this same wording." }) : null,
+          reset);
       }
       go.textContent = people.length === 1 ? "Send with Resend" : "Send to " + people.length + " people with Resend";
       go.disabled = false;
@@ -841,11 +896,12 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     });
 
     go.addEventListener("click", function () {
+      problem.hidden = true;
       go.disabled = true;
       cancel.disabled = true;
       go.dataset.busy = "1";
       go.textContent = "Sending…";
-      Promise.resolve(send()).then(close).catch(function (error) {
+      Promise.resolve(send(getEdits())).then(close).catch(function (error) {
         delete go.dataset.busy;
         cancel.disabled = false;
         go.textContent = "Try again";
@@ -857,14 +913,15 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     });
   }
 
+
   // With email set up, the button sends the email itself; otherwise it opens a draft.
   function emailControl(order, className) {
     if (!state.emailReady) return el("a", { class: className, href: deliveredEmail(order), text: "Email " + firstName(order) });
     var label = (order.emailedAt ? "Email again" : "Email " + firstName(order));
     var button = el("button", { class: className + (order.emailedAt ? " sent" : ""), type: "button", text: label });
     button.addEventListener("click", function () {
-      previewEmail("orders/" + order.id + "/email/preview", function () {
-        return api("POST", "orders/" + order.id + "/email", {}).then(function (result) {
+      previewEmail("orders/" + order.id + "/email/preview", function (edits) {
+        return api("POST", "orders/" + order.id + "/email", edits).then(function (result) {
           order.emailedAt = result.sentAt;
           render();
         });
@@ -1198,8 +1255,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function previewGiftCard(card) {
-    previewEmail("gift-cards/" + card.id + "/email/preview", function () {
-      return api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
+    previewEmail("gift-cards/" + card.id + "/email/preview", function (edits) {
+      return api("POST", "gift-cards/" + card.id + "/email", edits).then(function () {
         card.emailedAt = new Date().toISOString();
         renderGifts();
       });
@@ -1550,8 +1607,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   function sendButton(drop, kind, count, label) {
     var button = el("button", { type: "button", text: label + " (" + count + ")" });
     button.addEventListener("click", function () {
-      previewEmail("drops/" + drop.id + "/" + kind + "/preview", function () {
-        return api("POST", "drops/" + drop.id + "/" + kind, {}).then(reloadDrops);
+      previewEmail("drops/" + drop.id + "/" + kind + "/preview", function (edits) {
+        return api("POST", "drops/" + drop.id + "/" + kind, edits).then(reloadDrops);
       });
     });
     return button;

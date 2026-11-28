@@ -599,6 +599,10 @@ test("the orders page lists gift cards and can issue one", async () => {
   const preview = await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/email/preview`);
   assert.deepEqual(preview.body.recipients, ["kim@example.com"]);
   assert.match(preview.body.message.html, new RegExp(issued.body.card.code));
+  const edited = await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/email/preview`, { subject: "For you", hi: "Hello Kim!", intro: "Sorry about Tuesday.", message: "" });
+  assert.equal(edited.body.message.subject, "For you");
+  assert.match(edited.body.message.html, /Hello Kim!/);
+  assert.match(edited.body.message.text, /Sorry about Tuesday\./);
   assert.match((await callOrders("POST", "/admin/api/gift-cards", { amountCents: 0, recipientName: "Kim" })).body.error, /amount/);
 
   const list = await callOrders("GET", "/admin/api/gift-cards");

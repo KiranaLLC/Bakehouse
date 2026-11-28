@@ -105,6 +105,29 @@ export function itemsFromMetadata(value) {
   });
 }
 
+/*
+  Changes typed into the preview on the orders page: a new subject and/or
+  body. Checked here so a blank or huge email can't go out.
+*/
+export function cleanEdits(body) {
+  if (!body || typeof body !== "object") return null;
+  const edits = {};
+  for (const key of ["subject", "text", "hi", "intro", "message"]) {
+    if (body[key] === undefined || body[key] === null) continue;
+    const value = String(body[key]).replace(/\r\n/g, "\n");
+    if (key === "subject" && !value.trim()) throw new EmailError("The subject can't be empty.");
+    if (key === "text" && !value.trim()) throw new EmailError("The email can't be empty.");
+    if (value.length > (key === "text" ? 10000 : 1000)) throw new EmailError("That's too long for one email.");
+    edits[key] = key === "subject" ? value.replace(/\s+/g, " ").trim() : value;
+  }
+  return Object.keys(edits).length ? edits : null;
+}
+
+export function applyEdits(message, edits) {
+  if (!edits) return message;
+  return { ...message, ...(edits.subject ? { subject: edits.subject } : {}), ...(edits.text ? { text: edits.text } : {}) };
+}
+
 export function firstName(name) {
   return String(name || "").trim().split(/\s+/)[0] || "there";
 }

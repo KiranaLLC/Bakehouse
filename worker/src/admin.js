@@ -57,7 +57,7 @@ import {
   setDropCancelled,
   updateDrop
 } from "./drops.js";
-import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
+import { EmailError, applyEdits, canEmail, cleanEdits, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, previewDropEmail, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 import { GiftCardError, createGiftCard, getGiftCard, listGiftCards, setGiftCardCancelled } from "./gift-cards.js";
@@ -149,12 +149,13 @@ export async function handleAdmin(request, env, { stripe }) {
     const orderPreview = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/email\/preview$/);
     if (request.method === "POST" && orderPreview) {
       const message = await customerEmail(orderPreview[1], env, stripe);
-      return json({ recipients: [message.to], message });
+      return json({ recipients: [message.to], message, editable: { subject: message.subject, text: message.text } });
     }
 
     const emailMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/email$/);
     if (request.method === "POST" && emailMatch) {
-      return json(await emailCustomer(emailMatch[1], env, stripe));
+      const body = await request.json().catch(() => ({}));
+      return json(await emailCustomer(emailMatch[1], env, stripe, cleanEdits(body)));
     }
 
     const dropRoute = await handleDropRoutes(request, path, env, stripe);
@@ -397,15 +398,17 @@ async function handleGiftCards(request, path, env) {
     if (request.method === "POST" && giftPreview) {
       const card = await getGiftCard(env, giftPreview[1]);
       if (!card) return json({ error: "That gift card wasn't found." }, 404);
-      const message = previewGiftCardEmail(env, card);
-      return json({ recipients: [message.to], message });
+      const body = await request.json().catch(() => ({}));
+      const { editable, ...message } = previewGiftCardEmail(env, card, { edits: cleanEdits(body) });
+      return json({ recipients: [message.to], message, editable, kind: "gift" });
     }
     const match = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/email$/);
     if (request.method === "POST" && match) {
       const card = await getGiftCard(env, match[1]);
       if (!card) return json({ error: "That gift card wasn't found." }, 404);
       if (!canSendEmail(env)) return json({ error: "Email isn't set up yet, so copy the code and send it yourself." }, 400);
-      await emailGiftCard(env, card);
+      const body = await request.json().catch(() => ({}));
+      await emailGiftCard(env, card, { edits: cleanEdits(body) });
       return json({ ok: true });
     }
   } catch (error) {
@@ -688,9 +691,9 @@ Stripe so the email matches it.
 ==================================================
 */
 
-async function emailCustomer(id, env, stripe) {
+async function emailCustomer(id, env, stripe, edits) {
   if (!canEmail(env)) throw new EmailError("Email isn't set up yet, so use the draft instead.");
-  const message = await customerEmail(id, env, stripe);
+  const message = applyEdits(await customerEmail(id, env, stripe), edits);
   await sendEmail(env, message);
   if (hasDatabase(env)) await logEmail(env, `order:${id}`, 1).catch(() => {});
   return { ok: true, sentAt: new Date().toISOString() };
@@ -1143,7 +1146,8 @@ async function handleDropRoutes(request, path, env, stripe) {
     const drop = await getDrop(env, Number(sendMatch[1]));
     if (!drop) return json({ error: "That drop doesn't exist." }, 404);
     try {
-      const sent = sendMatch[2] === "announce" ? await announceDrop(env, drop, { force: true }) : await remindDrop(env, stripe, drop, { force: true });
+      const edits = cleanEdits(body);
+      const sent = sendMatch[2] === "announce" ? await announceDrop(env, drop, { force: true, edits }) : await remindDrop(env, stripe, drop, { force: true, edits });
       return json({ ok: true, sent });
     } catch (error) {
       if (/no such table/i.test(error.message || "")) {

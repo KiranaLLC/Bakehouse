@@ -239,8 +239,11 @@ opening drafts in the Mail app, so this is optional.
 signs up, places an order or buys a gift card, and there's no schedule. Every
 email is sent only when you press a send button on the orders page. Each
 button first shows a **preview** of the exact email (who it goes to, the
-subject and the whole message); nothing goes out until you press **Send with
-Resend** there, and **Cancel** sends nothing:
+subject and the whole message), and you can change the wording there (for a
+gift card: the subject, greeting, first line and message; the code and amount
+stay). Nothing goes out until you press **Send with Resend**, and **Cancel**
+sends nothing. Drop emails keep each person's unsubscribe link at the bottom
+whatever you write:
 
 - **Email** on an order card: the "delivered" or "ready for pickup" email (it
   asks first), and shows when it was sent.

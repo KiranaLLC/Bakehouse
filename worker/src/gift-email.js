@@ -29,21 +29,24 @@ const HOW_TO_USE = "Enter the code in the Gift card box when you check out.";
 const siteName = siteUrl => (siteUrl || SITE).replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
 
 // The gift card, to whoever it's for (or the buyer, when it's for them to pass on).
-export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
+// edits (from the preview): { subject, hi, intro, message } replace those parts.
+export function giftCardEmail(card, siteUrl = SITE, { to, edits } = {}) {
   const orderUrl = `${siteUrl || SITE}/order.html`;
   const amount = dollars(card.initialCents);
   const greeting = card.recipientName ? firstName(card.recipientName) : "there";
   const from = card.fromName || "Kirana Bakehouse";
   // Issued by the bakery itself: "from us", not "Kirana Bakehouse sent you a Kirana Bakehouse…".
   const fromBakery = card.source === "issued" || /^kirana bakehouse$/i.test(from);
-  const intro = fromBakery ? `Here's a ${amount} gift card from us.` : `${from} sent you a ${amount} gift card.`;
+  const hi = edits?.hi ?? `Hi ${greeting},`;
+  const intro = edits?.intro ?? (fromBakery ? `Here's a ${amount} gift card from us.` : `${from} sent you a ${amount} gift card.`);
+  const message = edits?.message ?? card.message ?? "";
   const terms = `${GIFT_CARD_TERMS.replace("our website.", `our website, ${siteName(siteUrl)}.`)} ${HOW_TO_USE}`;
 
   const text = [
-    `Hi ${greeting},`,
+    hi,
     "",
     intro,
-    ...(card.message ? ["", `"${card.message}"`, `– ${fromBakery ? "Kirana Bakehouse" : from}`] : []),
+    ...(message ? ["", `"${message}"`, `– ${fromBakery ? "Kirana Bakehouse" : from}`] : []),
     "",
     `Your code: ${card.code}`,
     `Balance: ${dollars(card.balanceCents)}`,
@@ -68,11 +71,11 @@ export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:${cream};border-radius:16px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:${brown};">
   <tr><td style="background:${brown};padding:20px 24px;text-align:center;color:${cream};font-size:22px;font-weight:bold;letter-spacing:1px;">Kirana Bakehouse</td></tr>
   <tr><td style="padding:26px 28px 6px;text-align:center;">
-    <div style="font-size:20px;font-weight:bold;">Hi ${escapeHtml(greeting)},</div>
+    <div style="font-size:20px;font-weight:bold;">${escapeHtml(hi)}</div>
     <div style="font-size:15px;color:#6b5a4a;margin-top:8px;">${escapeHtml(intro)}</div>
   </td></tr>
-  ${card.message ? `<tr><td style="padding:12px 36px 2px;text-align:center;">
-    <div style="font-size:17px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(card.message)}&rdquo;</div>
+  ${message ? `<tr><td style="padding:12px 36px 2px;text-align:center;">
+    <div style="font-size:17px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(message)}&rdquo;</div>
     <div style="font-size:14px;color:#6b5a4a;margin-top:6px;">&ndash; ${escapeHtml(from)}</div>
   </td></tr>` : ""}
   <tr><td style="padding:18px 24px;">
@@ -99,7 +102,8 @@ export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
 
   return {
     to: to || card.recipientEmail,
-    subject: fromBakery ? `A ${amount} gift card from Kirana Bakehouse` : `${from} sent you a ${amount} Kirana Bakehouse gift card`,
+    editable: { subject: edits?.subject ?? null, hi, intro, message },
+    subject: edits?.subject ?? (fromBakery ? `A ${amount} gift card from Kirana Bakehouse` : `${from} sent you a ${amount} Kirana Bakehouse gift card`),
     text,
     html
   };

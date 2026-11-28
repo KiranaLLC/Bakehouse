@@ -13,7 +13,7 @@ email on its own.
 
 import { API } from "../../macros.js";
 import { formatMoment, formatPickupWhen } from "../../pickup-rules.js";
-import { dropOpenEmail, pickupReminderEmail, sendEmails } from "./email.js";
+import { applyEdits, dropOpenEmail, pickupReminderEmail, sendEmails } from "./email.js";
 import { claimEmail, forgetEmail, listSubscribers, logEmail, unsubscribeToken } from "./drops.js";
 import { listSessionsSince } from "./stripe-cache.js";
 import { CHECKOUT_HOLD_SECONDS, loavesFromMetadata } from "./capacity.js";
@@ -96,24 +96,32 @@ function openingLine(drop, now) {
     : `Ordering is open now and closes ${formatMoment(drop.closesAt)}.`;
 }
 
-function announceMessage(env, drop, now) {
+// The unsubscribe line is always added back at the end, for each person.
+function withAnnounceEdits(message, edits) {
+  if (!edits) return message;
+  const lines = message.text.split("\n");
+  const footer = lines.at(-1);
+  return { ...message, subject: edits.subject || message.subject, text: edits.text ? `${edits.text.trimEnd()}\n\n${footer}` : message.text };
+}
+
+function announceMessage(env, drop, now, edits) {
   const opening = openingLine(drop, now);
-  return async email => dropOpenEmail({
+  return async email => withAnnounceEdits(dropOpenEmail({
     to: email,
     when: formatPickupWhen(drop),
     place: placeLines(drop),
     opening,
     orderUrl: orderPageUrl(env),
     unsubscribeUrl: `${API.origin}/api/unsubscribe?token=${await unsubscribeToken(env, email)}`
-  });
+  }), edits);
 }
 
-export async function announceDrop(env, drop, { now = Date.now(), force = false } = {}) {
+export async function announceDrop(env, drop, { now = Date.now(), force = false, edits = null } = {}) {
   const people = (await listSubscribers(env)).map(({ email }) => email);
-  return sendToEach(env, announceKey(drop), people, announceMessage(env, drop, now), { force });
+  return sendToEach(env, announceKey(drop), people, announceMessage(env, drop, now, edits), { force });
 }
 
-const remindMessage = drop => to => pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) });
+const remindMessage = (drop, edits) => to => applyEdits(pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) }), edits);
 
 // Preview: who it would go to, and the email as the first of them would get
 // it. Sends nothing.
@@ -125,7 +133,12 @@ export async function previewDropEmail(env, stripe, drop, kind, { now = Date.now
   const message = kind === "announce"
     ? dropOpenEmail({ to: sample, when: formatPickupWhen(drop), place: placeLines(drop), opening: openingLine(drop, now), orderUrl: orderPageUrl(env), unsubscribeUrl: `${API.origin}/api/unsubscribe?token=(each person's own link)` })
     : remindMessage(drop)(sample);
-  return { recipients, message };
+  // What can be edited: for "new drop" emails, everything but each person's
+  // unsubscribe line (always added back at the end).
+  const editable = kind === "announce"
+    ? { subject: message.subject, text: message.text.split("\n").slice(0, -2).join("\n"), footer: "Each person's own unsubscribe link is added at the bottom." }
+    : { subject: message.subject, text: message.text };
+  return { recipients, message, editable };
 }
 
 // Emails of everyone with a paid order for this drop, each once.
@@ -147,8 +160,8 @@ export async function dropCustomerEmails(env, stripe, drop) {
   return [...emails];
 }
 
-export async function remindDrop(env, stripe, drop, { force = false } = {}) {
+export async function remindDrop(env, stripe, drop, { force = false, edits = null } = {}) {
   const emails = await dropCustomerEmails(env, stripe, drop);
-  return sendToEach(env, remindKey(drop), emails, remindMessage(drop), { force });
+  return sendToEach(env, remindKey(drop), emails, remindMessage(drop, edits), { force });
 }
 

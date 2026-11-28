@@ -577,7 +577,7 @@ test("past orders lists delivered orders newest first, with totals", async () =>
 
   const { status, body } = await call("GET", "/admin/api/past-orders", { cookie });
   assert.equal(status, 200, JSON.stringify(body));
-  assert.equal(body.days, 90);
+  assert.equal(body.days, 30);
   assert.deepEqual(body.orders.map(({ id }) => id), ["cs_past_new", "cs_past_old"]);
   assert.ok(body.orders.every(({ deliveredAt }) => deliveredAt));
   assert.equal(body.totals.orders, 2);
@@ -586,7 +586,8 @@ test("past orders lists delivered orders newest first, with totals", async () =>
   // Undo puts it back on the open list and off the past list.
   await call("POST", "/admin/api/orders/cs_past_new/delivered", { cookie, body: { delivered: false } });
   const after = (await call("GET", "/admin/api/past-orders?days=9999", { cookie })).body;
-  assert.equal(after.days, 730);
+  // Never further back than 30 days.
+  assert.equal(after.days, 30);
   assert.deepEqual(after.orders.map(({ id }) => id), ["cs_past_old"]);
   assert.ok((await call("GET", "/admin/api/orders", { cookie })).body.orders.some(({ id }) => id === "cs_past_new"));
 });

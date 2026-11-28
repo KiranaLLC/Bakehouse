@@ -95,8 +95,8 @@ website links to it. Bookmark it on your phone. It has two views:
   that were never marked delivered stay at the top, marked "Past date".
 - **Prep**: how many of each loaf to bake for each delivery date.
 - **Past**: orders already delivered or picked up, newest first, with
-  totals (orders, loaves, money paid) for the last 90 days. Search by name,
-  email, phone or loaf; **Show older orders** goes back up to two years.
+  totals (orders, loaves, money paid), for orders from the last 30 days.
+  Search by name, email, phone or loaf.
   Marked one delivered by mistake? Put it back on Orders from here.
 
 **Invoices** you create in Stripe (e.g. for catering) appear too, marked

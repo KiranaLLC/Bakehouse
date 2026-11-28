@@ -213,8 +213,8 @@
       aspect-ratio: 6 / 5;
     }
 
-    .gift-product .gift-card-brand {
-      font-size: clamp(1.5rem, 5.5vw, 2.6rem);
+    .gift-product .gift-card-logo {
+      width: 52%;
     }
 
     .gift-dialog {
@@ -241,10 +241,14 @@
       text-align: center;
     }
 
-    .gift-card-brand {
-      font-family: 'Luxurious Script', cursive;
-      font-size: 2.6rem;
-      line-height: 1;
+    /* The logo file has lots of empty space above and below the wordmark: trim it. */
+    .gift-card-logo {
+      display: block;
+      width: 200px;
+      max-width: 60%;
+      aspect-ratio: 900 / 300;
+      object-fit: cover;
+      margin-bottom: 4px;
     }
 
     .gift-card-kind {
@@ -259,7 +263,7 @@
     }
 
     .gift-product-terms {
-      font-size: .85rem;
+      font-size: .9em;
       opacity: .75;
       margin: -4px 0 10px;
     }
@@ -2039,7 +2043,7 @@
         <article class="product-card gift-product">
           <button type="button" class="gift-art-button" data-gift-open aria-label="Choose a gift card amount">
             <div class="product-image gift-card-art" aria-hidden="true">
-              <span class="gift-card-brand">Kirana Bakehouse</span>
+              <img class="gift-card-logo" src="./img/kirana_cream_logo.svg" alt="Kirana" />
               <span class="gift-card-kind">Gift Card</span>
             </div>
           </button>
@@ -2302,7 +2306,7 @@
   <form method="dialog" id="gift-dialog-form" novalidate>
     <button type="button" class="gift-dialog-close" id="gift-dialog-close" aria-label="Close">×</button>
     <div class="gift-card-art gift-dialog-art" aria-hidden="true">
-      <span class="gift-card-brand">Kirana Bakehouse</span>
+      <img class="gift-card-logo" src="./img/kirana_cream_logo.svg" alt="Kirana" />
       <span class="gift-card-kind">Gift Card</span>
       <span class="gift-card-amount" id="gift-dialog-art-amount"></span>
     </div>

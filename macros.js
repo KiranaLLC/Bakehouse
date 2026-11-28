@@ -272,22 +272,24 @@ export const API = Object.freeze({
   drops: "/api/drops",
   subscribe: "/api/subscribe",
   orderSummary: "/api/order-summary",
-  checkGiftCard: "/api/gift-cards/check",
-  buyGiftCard: "/api/gift-cards/checkout",
-  giftCardPurchase: "/api/gift-cards/purchase"
+  checkGiftCard: "/api/gift-cards/check"
 });
 
 /*
-  Gift cards (gift.html): the amounts offered as
-  buttons, and the range for "Other amount", in
-  cents. Cards never expire, and any balance left
-  after an order stays on the code.
+  Gift cards: an item on the order page. The
+  amounts offered as buttons, and the range for
+  "Other", in cents. Cards can only be used on the
+  website, and any balance left after an order
+  stays on the code.
 */
 export const GIFT_CARDS = Object.freeze({
   amounts: [2500, 5000, 10000],
-  minCents: 1500,
+  minCents: 1000,
   maxCents: 30000,
-  messageMaxLength: 300
+  maxQuantity: 10,
+  messageMaxLength: 300,
+  name: "Gift Card",
+  description: "Choose your amount. We'll email it to you, or straight to them."
 });
 
 /*

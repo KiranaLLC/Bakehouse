@@ -61,8 +61,10 @@ test("holding, using and releasing a balance", async () => {
 
 test("a bought card is made once, however many times it's asked for", async () => {
   const env = { DB: createFakeD1() };
-  const one = await createGiftCard(env, { amountCents: 2500, source: "purchase", stripeSessionId: "cs_buy" });
-  const two = await createGiftCard(env, { amountCents: 2500, source: "purchase", stripeSessionId: "cs_buy" });
+  const one = await createGiftCard(env, { amountCents: 2500, source: "purchase", stripeSessionId: "cs_buy", purchaseKey: "cs_buy:0:0" });
+  const two = await createGiftCard(env, { amountCents: 2500, source: "purchase", stripeSessionId: "cs_buy", purchaseKey: "cs_buy:0:0" });
+  const three = await createGiftCard(env, { amountCents: 2500, source: "purchase", stripeSessionId: "cs_buy", purchaseKey: "cs_buy:0:1" });
   assert.equal(one.code, two.code);
+  assert.notEqual(one.code, three.code);
   await assert.rejects(findGiftCard(env, "KIRANA-2222-2222"), /couldn't find/);
 });

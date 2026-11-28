@@ -5,7 +5,7 @@ DELIVERY ORDERING SYSTEM
 ==================================================
 */
 
-import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, PRODUCTS, SERVICE_FEE, TIP } from "./macros.js";
+import { API, BASE_INGREDIENTS, DELIVERY, DELIVERY_SERVICE, GIFT_CARDS, PRODUCTS, SERVICE_FEE, TIP } from "./macros.js";
 import {
   calculateDeliveryFee,
   calculateDiscount,
@@ -71,6 +71,10 @@ let discount = null;
 
 // The applied gift card, e.g. { code: "KIRANA-7QKM-X2PD", balanceCents: 5000 }.
 let giftCard = null;
+
+// Gift cards being bought:
+// [{ amountCents, quantity, recipientName, recipientEmail, message, fromName }]
+const giftCart = [];
 
 /*
   Loaves still available per delivery date, from
@@ -308,7 +312,29 @@ function updateCart() {
 
   });
 
-  if (items.length === 0) {
+  giftCart.forEach((line, index) => {
+    const item = document.createElement("div");
+    item.className = "cart-item";
+    const label = document.createElement("span");
+    label.textContent = `Gift card ${formatMoney(line.amountCents)}${line.recipientName ? ` for ${line.recipientName}` : ""} × ${line.quantity}`;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "cart-remove";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${label.textContent}`);
+    remove.addEventListener("click", () => {
+      giftCart.splice(index, 1);
+      updateCart();
+      saveOrder();
+    });
+    label.append(" ", remove);
+    const price = document.createElement("span");
+    price.textContent = formatMoney(line.amountCents * line.quantity);
+    item.append(label, price);
+    cartElement.appendChild(item);
+  });
+
+  if (items.length === 0 && giftCart.length === 0) {
 
     cartElement.innerHTML = `
 
@@ -362,6 +388,17 @@ function updateTotals() {
   const subtotal =
     calculateSubtotal(getCartItems());
 
+  const giftCardsCents =
+    getGiftCartCents();
+
+  document.querySelector(".order-summary").classList.toggle("gift-only", isGiftCardsOnly());
+
+  document.getElementById("cart-giftcards-line").hidden =
+    !giftCardsCents;
+
+  document.getElementById("cart-giftcards").textContent =
+    formatMoney(giftCardsCents);
+
   const feeElement =
     document.getElementById("cart-delivery-fee");
 
@@ -370,7 +407,12 @@ function updateTotals() {
   document.getElementById("cart-delivery-label").textContent =
     isPickup() ? "Pickup" : "Delivery";
 
-  if (isPickup()) {
+  if (isGiftCardsOnly()) {
+
+    // Nothing to deliver.
+    feeElement.textContent = "–";
+
+  } else if (isPickup()) {
 
     feeElement.textContent = "Free";
 
@@ -412,7 +454,7 @@ function updateTotals() {
   // A gift card pays for loaves and delivery, then the tip; the fee is on
   // what's left. Worked out again on the server.
   const { giftCents, serviceFee } =
-    planGiftCard(giftCard ? giftCard.balanceCents : 0, { baseCents: subtotal + deliveryFee - discountCents, tipCents });
+    planGiftCard(giftCard && !isGiftCardsOnly() ? giftCard.balanceCents : 0, { baseCents: subtotal + deliveryFee - discountCents, tipCents, giftCardsCents });
 
   document.getElementById("cart-gift-line").hidden =
     !giftCents;
@@ -430,7 +472,7 @@ function updateTotals() {
     formatMoney(serviceFee);
 
   document.getElementById("cart-total").textContent =
-    formatMoney(subtotal + deliveryFee + tipCents - discountCents - giftCents + serviceFee);
+    formatMoney(subtotal + deliveryFee + tipCents - discountCents - giftCents + giftCardsCents + serviceFee);
 
 }
 
@@ -505,6 +547,147 @@ function showDiscountStatus(status, message) {
   const element = document.getElementById("discount-status");
   element.className = `discount-status ${status}`;
   element.textContent = message;
+}
+
+
+/*
+==================================================
+GIFT CARDS FOR SALE
+
+The Gift Card item opens a pop-up: amount, how
+many, and (optionally) who it's for. Added to the
+cart, they're paid for with the loaves, or on
+their own. The worker makes and emails the cards
+once paid (worker/src/gift-orders.js).
+==================================================
+*/
+
+const giftForm = {
+  amountCents: GIFT_CARDS.amounts[0],
+  other: false,
+  quantity: 1
+};
+
+function getGiftCartCents() {
+  return giftCart.reduce((sum, line) => sum + line.amountCents * line.quantity, 0);
+}
+
+// Gift cards in the cart, and no loaves.
+function isGiftCardsOnly() {
+  return giftCart.length > 0 && getCartItems().length === 0;
+}
+
+const wholeDollars = cents => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
+
+function giftOtherCents() {
+  const dollars = Number(document.getElementById("gift-other-input").value);
+  return Number.isFinite(dollars) && dollars > 0 ? Math.round(dollars) * 100 : 0;
+}
+
+function renderGiftProduct() {
+  document.getElementById("gift-product-name").textContent = GIFT_CARDS.name;
+  document.getElementById("gift-product-description").textContent = GIFT_CARDS.description;
+  document.getElementById("gift-product-price").textContent = `${wholeDollars(GIFT_CARDS.minCents)} – ${wholeDollars(GIFT_CARDS.maxCents)}`;
+  const other = document.getElementById("gift-other-input");
+  other.min = String(GIFT_CARDS.minCents / 100);
+  other.max = String(GIFT_CARDS.maxCents / 100);
+  other.placeholder = `${GIFT_CARDS.minCents / 100}–${GIFT_CARDS.maxCents / 100}`;
+  document.getElementById("gift-message").maxLength = GIFT_CARDS.messageMaxLength;
+  document.querySelectorAll("[data-gift-open]").forEach(button => button.addEventListener("click", openGiftDialog));
+}
+
+function renderGiftAmounts() {
+  const group = document.getElementById("gift-amounts");
+  const choose = (cents, other) => {
+    giftForm.other = other;
+    giftForm.amountCents = other ? giftOtherCents() : cents;
+    renderGiftAmounts();
+    updateGiftDialog();
+    if (other) setTimeout(() => document.getElementById("gift-other-input").focus(), 0);
+  };
+  const buttons = GIFT_CARDS.amounts.map(cents => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = wholeDollars(cents);
+    button.setAttribute("aria-pressed", String(!giftForm.other && giftForm.amountCents === cents));
+    button.addEventListener("click", () => choose(cents, false));
+    return button;
+  });
+  const other = document.createElement("button");
+  other.type = "button";
+  other.textContent = "Other";
+  other.setAttribute("aria-pressed", String(giftForm.other));
+  other.addEventListener("click", () => choose(0, true));
+  group.replaceChildren(...buttons, other);
+  document.getElementById("gift-other").hidden = !giftForm.other;
+}
+
+function updateGiftDialog() {
+  const amount = giftForm.other ? giftOtherCents() : giftForm.amountCents;
+  document.getElementById("gift-dialog-art-amount").textContent = amount ? wholeDollars(amount) : "";
+  document.getElementById("gift-quantity").textContent = String(giftForm.quantity);
+  document.getElementById("gift-minus").disabled = giftForm.quantity <= 1;
+  document.getElementById("gift-plus").disabled = giftForm.quantity >= GIFT_CARDS.maxQuantity;
+  document.getElementById("gift-add-total").textContent = formatMoney(amount * giftForm.quantity);
+}
+
+function openGiftDialog() {
+  const dialog = document.getElementById("gift-dialog");
+  giftForm.amountCents = GIFT_CARDS.amounts[0];
+  giftForm.other = false;
+  giftForm.quantity = 1;
+  document.getElementById("gift-dialog-form").reset();
+  document.getElementById("gift-send").open = false;
+  document.getElementById("gift-dialog-error").hidden = true;
+  renderGiftAmounts();
+  updateGiftDialog();
+  dialog.showModal();
+}
+
+function addGiftCardToCart(event) {
+  event.preventDefault();
+  const error = document.getElementById("gift-dialog-error");
+  const amountCents = giftForm.other ? giftOtherCents() : giftForm.amountCents;
+  const fail = (message, field) => {
+    error.textContent = message;
+    error.hidden = false;
+    if (field) field.focus();
+  };
+
+  if (!amountCents || amountCents < GIFT_CARDS.minCents || amountCents > GIFT_CARDS.maxCents) {
+    return fail(`Choose an amount from ${wholeDollars(GIFT_CARDS.minCents)} to ${wholeDollars(GIFT_CARDS.maxCents)}.`, document.getElementById("gift-other-input"));
+  }
+  const email = document.getElementById("gift-to-email");
+  if (email.value.trim() && !email.checkValidity()) {
+    return fail("That email address doesn't look right.", email);
+  }
+  if (giftCart.length >= 10) {
+    return fail("That's as many gift cards as one order can take.");
+  }
+
+  giftCart.push({
+    amountCents,
+    quantity: giftForm.quantity,
+    recipientName: document.getElementById("gift-to-name").value.trim(),
+    recipientEmail: email.value.trim(),
+    message: document.getElementById("gift-message").value.trim(),
+    fromName: document.getElementById("gift-from").value.trim()
+  });
+  document.getElementById("gift-dialog").close();
+  updateCart();
+  saveOrder();
+}
+
+function setUpGiftDialog() {
+  renderGiftProduct();
+  const dialog = document.getElementById("gift-dialog");
+  document.getElementById("gift-dialog-close").addEventListener("click", () => dialog.close());
+  // A click on the dark backdrop closes it too.
+  dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
+  document.getElementById("gift-minus").addEventListener("click", () => { giftForm.quantity = Math.max(1, giftForm.quantity - 1); updateGiftDialog(); });
+  document.getElementById("gift-plus").addEventListener("click", () => { giftForm.quantity = Math.min(GIFT_CARDS.maxQuantity, giftForm.quantity + 1); updateGiftDialog(); });
+  document.getElementById("gift-other-input").addEventListener("input", () => { giftForm.amountCents = giftOtherCents(); updateGiftDialog(); });
+  document.getElementById("gift-dialog-form").addEventListener("submit", addGiftCardToCart);
 }
 
 
@@ -1018,7 +1201,7 @@ const SAVED_FIELDS = ["name", "phone", "line1", "line2", "city", "postalCode", "
 function saveOrder() {
   try {
     const values = Object.fromEntries(SAVED_FIELDS.map(name => [name, fields[name].value]));
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount, giftCard, fulfillment, dropId: selectedDropId }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, values, tip, discount, giftCard, giftCart, fulfillment, dropId: selectedDropId }));
   } catch {
     // Storage can be unavailable (e.g. private browsing). Nothing to do.
   }
@@ -1041,6 +1224,13 @@ function restoreOrder() {
   // Applied once the drops load (pickup is only offered if they do).
   if (saved.fulfillment === "pickup") wantedFulfillment = "pickup";
   if (typeof saved.dropId === "string") selectedDropId = saved.dropId;
+
+  // Gift cards being bought (the worker checks them again at checkout).
+  if (Array.isArray(saved.giftCart)) {
+    saved.giftCart.slice(0, 10).forEach(line => {
+      if (Number.isInteger(line?.amountCents) && Number.isInteger(line?.quantity)) giftCart.push(line);
+    });
+  }
 
   // The worker re-checks the code at checkout, so a stale one is caught there.
   if (typeof saved.giftCard?.code === "string" && Number.isInteger(saved.giftCard.balanceCents)) {
@@ -1255,6 +1445,13 @@ function validateForm() {
 
   Object.values(fields).forEach(field => field.removeAttribute("aria-invalid"));
 
+  // Just gift cards: no day, address or phone needed (Stripe asks for an email).
+  if (isGiftCardsOnly()) {
+    return giftCard
+      ? { message: "A gift card can't be used to buy gift cards. Remove it to continue.", field: document.getElementById("gift-details") }
+      : null;
+  }
+
   // Step 1 comes first: pickup drop or delivery day.
   if (isPickup() && !selectedDropId) {
     return { message: "Please choose a pickup drop.", field: document.getElementById("drop-picker") };
@@ -1365,6 +1562,25 @@ async function checkout(event) {
     ------------------------------------------
     */
 
+    if (isGiftCardsOnly()) {
+
+      const data = await postJson(API.createCheckoutSession, {
+        items: [],
+        giftCards: giftCart,
+        previousSessionId: getPendingSessionId() || undefined
+      });
+
+      try {
+        sessionStorage.setItem(PENDING_SESSION_KEY, data.id);
+      } catch {
+        // Storage unavailable: nothing is held for gift cards anyway.
+      }
+
+      window.location.href = data.url;
+      return;
+
+    }
+
     if (!isPickup()) {
 
       const check =
@@ -1391,6 +1607,7 @@ async function checkout(event) {
         tipCents: getTipCents(calculateSubtotal(getCartItems())),
         discountCode: discount?.code,
         giftCode: giftCard?.code,
+        giftCards: giftCart.length ? giftCart : undefined,
         previousSessionId: getPendingSessionId() || undefined
       })
       : await postJson(API.createCheckoutSession, {
@@ -1402,6 +1619,7 @@ async function checkout(event) {
         tipCents: getTipCents(calculateSubtotal(getCartItems())),
         discountCode: discount?.code,
         giftCode: giftCard?.code,
+        giftCards: giftCart.length ? giftCart : undefined,
         previousSessionId: getPendingSessionId() || undefined
       });
 
@@ -1858,6 +2076,8 @@ INITIALIZE
 */
 
 renderProducts();
+
+setUpGiftDialog();
 
 renderDeliveryDates();
 

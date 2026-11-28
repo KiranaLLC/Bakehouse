@@ -311,22 +311,31 @@ note), then redeploy the checkout worker. Set both to 0 to turn it off.
 
 ### Gift cards
 
-People buy gift cards on **gift.html** (linked from the home page header and
-footer, and from the order page): $25, $50, $100 or another amount ($15–$300),
-with the recipient's name and email and a message. They pay on Stripe's page
-(the payment processing fee applies), and the card is emailed to the recipient
-in a holiday design, with a copy to the buyer and a note to you. The thank-you
-page shows the code too, so it can be passed on by hand if email isn't set up.
+**Gift Card** is an item on the order page, under the menu. It opens a pop-up:
+an amount ($25, $50, $100 or another amount from $10 to $300), how many, and
+optionally **Send it to someone** (their name, email, a message, and who it's
+from). It goes in the cart, and is paid for together with any loaves, or on
+its own (then no day, address or tip is needed). The payment processing fee
+applies to gift cards too, and a gift card can't be used to buy gift cards.
 
-Codes look like `KIRANA-7QKM-X2PD`. On the order page, **Have a gift card?**
-takes a code: the card pays for loaves and delivery first, then the tip, and
-the processing fee is only charged on what's left to pay. Whatever isn't
-used stays on the card for next time. Cards never expire. A gift card and a
-discount code can be used together.
+Once paid, each card is made with a code like `KIRANA-7QKM-X2PD`. Cards with
+an email are sent to that person with the message; the buyer gets one email
+with every code from their order (to pass on any without an email), and you
+get a note. The thank-you page shows the codes too, so nothing depends on
+email.
 
-While someone is paying, the amount is held on the card so it can't be spent
-twice; if they leave the payment page, it goes back on the card (from the
-Stripe webhook, the next time they try, or within the hour).
+Gift cards can only be used for orders on the website, and don't expire. On
+the order page, **Have a gift card?** takes a code: the card pays for loaves
+and delivery first, then the tip, and the processing fee is only charged on
+what's left to pay. Whatever isn't used stays on the card. A gift card and a
+discount code can be used together. (California law: a customer can ask for
+cash back for a balance under $15.)
+
+While someone is paying with a gift card, the amount is held on the card so it
+can't be spent twice; if they leave the payment page, it goes back (from the
+Stripe webhook, the next time they try, or within the hour). Gift cards that
+were paid for are made by the webhook, the thank-you page, or the hourly
+check, whichever comes first, and only once.
 
 The orders page has a **Gift cards** tab: every card, who it's for and from,
 what's left on it and how many orders it's paid for, with search. **Issue a

@@ -116,6 +116,20 @@ function renderOrderSummary(order) {
   const total = row("Total paid", formatMoney(order.amountTotal));
   total.classList.add("summary-total");
 
+  const cards = giftCardList(order.giftCards || []);
+
+  // Just gift cards: nothing to bake or deliver.
+  if (order.kind === "gift_cards") {
+    document.getElementById("success-note").textContent =
+      "Thank you for sharing Kirana Bakehouse!";
+    const email = document.createElement("p");
+    email.className = "summary-delivery";
+    if (order.email) email.append(strong("Email: "), order.email);
+    summary.replaceChildren(heading, ...rows, total, ...(order.email ? [email] : []), ...cards);
+    summary.hidden = false;
+    return;
+  }
+
   const pickup = order.fulfillment === "pickup";
   const delivery = document.createElement("p");
   delivery.className = "summary-delivery";
@@ -133,8 +147,38 @@ function renderOrderSummary(order) {
     delivery.append(document.createElement("br"), strong("Email: "), order.email);
   }
 
-  summary.replaceChildren(heading, ...rows, total, delivery);
+  summary.replaceChildren(heading, ...rows, total, delivery, ...cards);
   summary.hidden = false;
+}
+
+/*
+  Gift cards bought in this order: each code, and
+  whether we emailed it to someone or it's the
+  buyer's to pass on.
+*/
+function giftCardList(cards) {
+  if (!cards.length) return [];
+  const title = document.createElement("h3");
+  title.className = "gift-codes-title";
+  title.textContent = cards.length === 1 ? "Your gift card" : "Your gift cards";
+  const list = document.createElement("ul");
+  list.className = "gift-codes";
+  for (const card of cards) {
+    const item = document.createElement("li");
+    const code = document.createElement("code");
+    code.textContent = card.code;
+    const note = document.createElement("span");
+    note.textContent = `${formatMoney(card.amountCents)}${card.recipientName ? ` for ${card.recipientName}` : ""}. ` +
+      (card.recipientEmail
+        ? (card.emailed ? `Emailed to ${card.recipientEmail}.` : `We'll email it to ${card.recipientEmail}.`)
+        : "Pass the code on, or use it yourself.");
+    item.append(code, note);
+    list.append(item);
+  }
+  const hint = document.createElement("p");
+  hint.className = "gift-codes-hint";
+  hint.textContent = "We've also emailed you every code. Gift cards can only be used for orders on our website.";
+  return [title, list, hint];
 }
 
 function row(label, value) {

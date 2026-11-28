@@ -17,7 +17,7 @@
 
   <link
     rel="stylesheet"
-    href="./styles.css?v=1805"
+    href="./styles.css?v=1804"
   />
 
   <link
@@ -185,6 +185,288 @@
       width: 100%;
       aspect-ratio: 6 / 5;
       object-fit: cover;
+    }
+
+    /* ---------- Gift cards ---------- */
+
+    .gift-cards-section {
+      margin-top: 40px;
+    }
+
+    .gift-cards-title {
+      font-family: 'Host Grotesk', sans-serif;
+      font-size: 1.5rem;
+      color: var(--deep-brown);
+      margin-bottom: 16px;
+    }
+
+    /* Just gift cards in the cart: nothing to deliver, tip or discount. */
+    .order-summary.gift-only #summary-when,
+    .order-summary.gift-only .tip-section,
+    .order-summary.gift-only #discount-details,
+    .order-summary.gift-only #gift-details,
+    .order-summary.gift-only .loaf-line {
+      display: none;
+    }
+
+    .gift-product .gift-card-art {
+      aspect-ratio: 6 / 5;
+    }
+
+    .gift-product .gift-card-brand {
+      font-size: clamp(1.5rem, 5.5vw, 2.6rem);
+    }
+
+    .gift-dialog {
+      margin: auto;
+    }
+
+    .gift-art-button {
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
+    }
+
+    .gift-card-art {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #4d1a00, #7a2e0c);
+      color: var(--cream);
+      text-align: center;
+    }
+
+    .gift-card-brand {
+      font-family: 'Luxurious Script', cursive;
+      font-size: 2.6rem;
+      line-height: 1;
+    }
+
+    .gift-card-kind {
+      font: 700 .85rem 'Host Grotesk', sans-serif;
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      opacity: .85;
+    }
+
+    .gift-card-amount {
+      font: 700 2.4rem 'Host Grotesk', sans-serif;
+    }
+
+    .gift-product-terms {
+      font-size: .85rem;
+      opacity: .75;
+      margin: -4px 0 10px;
+    }
+
+    .gift-choose {
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: 1px solid var(--deep-brown);
+      background: transparent;
+      color: var(--deep-brown);
+      font: 600 1rem 'Host Grotesk', sans-serif;
+      cursor: pointer;
+    }
+
+    .gift-choose:hover {
+      background: var(--deep-brown);
+      color: var(--cream);
+    }
+
+    .gift-dialog {
+      width: min(560px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      padding: 0;
+      border: 0;
+      border-radius: 18px;
+      background: #fbf6e6;
+      color: var(--deep-brown);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+    }
+
+    .gift-dialog::backdrop {
+      background: rgba(30, 15, 5, .55);
+    }
+
+    .gift-dialog form {
+      position: relative;
+      padding: 0 22px 22px;
+    }
+
+    .gift-dialog-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 1;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 0;
+      background: rgba(251, 246, 230, .9);
+      color: var(--deep-brown);
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .gift-dialog-art {
+      width: calc(100% + 44px);
+      max-width: none;
+      margin: 0 -22px 18px;
+      padding: 28px 20px;
+      min-height: 170px;
+    }
+
+    .gift-dialog-title {
+      font: 700 1.5rem 'Host Grotesk', sans-serif;
+      margin-bottom: 4px;
+    }
+
+    .gift-dialog-note {
+      font-size: .9rem;
+      opacity: .8;
+      margin-bottom: 16px;
+    }
+
+    .gift-dialog-group {
+      border: 0;
+      margin: 0 0 16px;
+      padding: 0;
+    }
+
+    .gift-dialog-group legend,
+    .gift-label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .gift-amounts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .gift-amounts button {
+      flex: 1 1 70px;
+      padding: 12px 8px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(77, 26, 0, .35);
+      background: #fff;
+      color: var(--deep-brown);
+      font: 700 1.05rem 'Host Grotesk', sans-serif;
+      cursor: pointer;
+    }
+
+    .gift-amounts button[aria-pressed="true"] {
+      background: var(--deep-brown);
+      border-color: var(--deep-brown);
+      color: var(--cream);
+    }
+
+    .gift-other {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-weight: 700;
+    }
+
+    .gift-other[hidden] {
+      display: none;
+    }
+
+    .gift-quantity {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .gift-quantity .gift-label {
+      margin: 0;
+    }
+
+    .gift-send summary {
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .gift-send[open] summary {
+      margin-bottom: 8px;
+    }
+
+    .gift-hint {
+      font-size: .85rem;
+      opacity: .8;
+      margin-bottom: 8px;
+    }
+
+    .gift-send label {
+      display: block;
+      font-size: .88rem;
+      font-weight: 600;
+      margin: 10px 0 4px;
+    }
+
+    .gift-dialog input[type="text"],
+    .gift-dialog input[type="email"],
+    .gift-dialog input[type="number"],
+    .gift-dialog textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(77, 26, 0, .3);
+      background: #fff;
+      font: inherit;
+      color: inherit;
+    }
+
+    .gift-other input {
+      width: 130px;
+    }
+
+    .gift-dialog-error {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fde8e4;
+      color: var(--terracotta);
+      font-weight: 600;
+    }
+
+    .gift-dialog-error[hidden] {
+      display: none;
+    }
+
+    .gift-add-button {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      padding: 15px 22px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--terracotta);
+      color: #fff;
+      font: 700 1.05rem 'Host Grotesk', sans-serif;
+      cursor: pointer;
+    }
+
+    .cart-item .cart-remove {
+      margin-left: 8px;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font-size: .85rem;
+      text-decoration: underline;
+      cursor: pointer;
+      opacity: .8;
     }
 
     /* A loaf with no photo yet: its name on a plain tile. */
@@ -1750,6 +2032,28 @@
       class="shop-grid"
     ></div>
 
+    <!-- Gift cards: an item that opens a pop-up (GIFT_CARDS in macros.js). -->
+    <section id="gift-cards" class="gift-cards-section" aria-labelledby="gift-cards-title">
+      <h3 id="gift-cards-title" class="gift-cards-title">Gift Cards</h3>
+      <div class="shop-grid">
+        <article class="product-card gift-product">
+          <button type="button" class="gift-art-button" data-gift-open aria-label="Choose a gift card amount">
+            <div class="product-image gift-card-art" aria-hidden="true">
+              <span class="gift-card-brand">Kirana Bakehouse</span>
+              <span class="gift-card-kind">Gift Card</span>
+            </div>
+          </button>
+          <div class="product-info">
+            <h2 class="product-name" id="gift-product-name">Gift Card</h2>
+            <p class="product-description" id="gift-product-description"></p>
+            <p class="gift-product-terms">Only for orders on our website.</p>
+            <div class="product-price" id="gift-product-price"></div>
+            <button type="button" class="gift-choose" data-gift-open>Choose amount</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <!-- Past flavours: not orderable, shown greyed out (PAST_FLAVOURS in macros.js). -->
     <details class="past-flavours">
       <summary class="past-flavours-title">
@@ -1911,21 +2215,21 @@
       </div>
 
       <p id="gift-status" class="discount-status" aria-live="polite"></p>
-      <p class="gift-buy-link">Looking to give one? <a href="gift.html">Buy a gift card</a></p>
+      <p class="gift-buy-link">Looking to give one? <a href="#gift-cards">Add a gift card</a> to your order.</p>
         </details>
 
         <div class="summary-lines">
-        <div class="cart-line">
+        <div class="cart-line loaf-line">
       <span>Subtotal</span>
       <span id="cart-subtotal">$0.00</span>
     </div>
 
-    <div class="cart-line">
+    <div class="cart-line loaf-line">
       <span id="cart-delivery-label">Delivery</span>
       <span id="cart-delivery-fee">Enter your address</span>
     </div>
 
-    <div class="cart-line">
+    <div class="cart-line loaf-line">
       <span>Tip</span>
       <span id="cart-tip">$0.00</span>
     </div>
@@ -1933,6 +2237,11 @@
     <div class="cart-line" id="cart-discount-line" hidden>
       <span id="cart-discount-label">Discount</span>
       <span id="cart-discount">−$0.00</span>
+    </div>
+
+    <div class="cart-line" id="cart-giftcards-line" hidden>
+      <span>Gift cards</span>
+      <span id="cart-giftcards">$0.00</span>
     </div>
 
     <div class="cart-line" id="cart-gift-line" hidden>
@@ -1988,6 +2297,58 @@
 </main>
 
 
+<!-- The gift card pop-up (order.js, GIFT CARDS FOR SALE). -->
+<dialog id="gift-dialog" class="gift-dialog" aria-labelledby="gift-dialog-title">
+  <form method="dialog" id="gift-dialog-form" novalidate>
+    <button type="button" class="gift-dialog-close" id="gift-dialog-close" aria-label="Close">×</button>
+    <div class="gift-card-art gift-dialog-art" aria-hidden="true">
+      <span class="gift-card-brand">Kirana Bakehouse</span>
+      <span class="gift-card-kind">Gift Card</span>
+      <span class="gift-card-amount" id="gift-dialog-art-amount"></span>
+    </div>
+    <h2 id="gift-dialog-title" class="gift-dialog-title">Gift Card</h2>
+    <p class="gift-dialog-note">Only for orders on our website. Anything left stays on the card for next time.</p>
+
+    <fieldset class="gift-dialog-group">
+      <legend>Amount</legend>
+      <div class="gift-amounts" id="gift-amounts"></div>
+      <div class="gift-other" id="gift-other" hidden>
+        <span aria-hidden="true">$</span>
+        <input type="number" id="gift-other-input" inputmode="numeric" step="1" aria-label="Other amount in dollars" />
+      </div>
+    </fieldset>
+
+    <div class="gift-dialog-group gift-quantity">
+      <span class="gift-label" id="gift-quantity-label">How many</span>
+      <div class="quantity-row" role="group" aria-labelledby="gift-quantity-label">
+        <button type="button" id="gift-minus" aria-label="One fewer">−</button>
+        <span id="gift-quantity" class="quantity" aria-live="polite">1</span>
+        <button type="button" id="gift-plus" aria-label="One more">+</button>
+      </div>
+    </div>
+
+    <details class="gift-dialog-group gift-send" id="gift-send">
+      <summary>Send it to someone (optional)</summary>
+      <p class="gift-hint">We'll email it to them with your message. Leave this blank and we'll email it to you to pass on.</p>
+      <label for="gift-to-name">Their name</label>
+      <input type="text" id="gift-to-name" maxlength="60" autocomplete="off" />
+      <label for="gift-to-email">Their email</label>
+      <input type="email" id="gift-to-email" maxlength="254" autocomplete="off" />
+      <label for="gift-message">Message</label>
+      <textarea id="gift-message" rows="3"></textarea>
+      <label for="gift-from">From (your name)</label>
+      <input type="text" id="gift-from" maxlength="60" autocomplete="name" />
+    </details>
+
+    <p id="gift-dialog-error" class="gift-dialog-error" role="alert" hidden></p>
+
+    <button type="submit" class="gift-add-button" id="gift-add">
+      <span>Add to cart</span>
+      <span id="gift-add-total">$0.00</span>
+    </button>
+  </form>
+</dialog>
+
 <!--
   Versioned script URLs, so browsers never pair a new page with an old cached
   script. Change the number (e.g. to today's date) whenever order.js,
@@ -1996,14 +2357,14 @@
 <script type="importmap">
   {
     "imports": {
-      "./macros.js": "./macros.js?v=20261127g",
-      "./delivery-rules.js": "./delivery-rules.js?v=20261127g",
-      "./pickup-rules.js": "./pickup-rules.js?v=20261127g"
+      "./macros.js": "./macros.js?v=20261127h",
+      "./delivery-rules.js": "./delivery-rules.js?v=20261127h",
+      "./pickup-rules.js": "./pickup-rules.js?v=20261127h"
     }
   }
 </script>
-<script type="module" src="./order.js?v=20261127g"></script>
-<script type="module" src="./past-flavours.js?v=20261127g"></script>
+<script type="module" src="./order.js?v=20261127h"></script>
+<script type="module" src="./past-flavours.js?v=20261127h"></script>
 
 </body>
 

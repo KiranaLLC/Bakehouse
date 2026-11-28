@@ -529,36 +529,61 @@ test("a bad or used-up gift card stops checkout, and an order that doesn't fit g
   assert.equal((await findGiftCard(env, card.code)).balanceCents, 5000);
 });
 
-test("buying a gift card: Stripe page, then the card is made once and shown on the thank-you page", async () => {
-  const bad = await callCheckout("POST", "/api/gift-cards/checkout", { amountCents: 500, recipientName: "Ana", recipientEmail: "ana@example.com", fromName: "Bo" });
-  assert.match(bad.body.error, /\$15 to \$300/);
-  assert.match((await callCheckout("POST", "/api/gift-cards/checkout", { amountCents: 2500, recipientName: "Ana", recipientEmail: "nope", fromName: "Bo" })).body.error, /email/);
+test("gift cards on their own: one payment, no day, cards made once and shown on the thank-you page", async () => {
+  const lines = [
+    { amountCents: 5000, quantity: 1, recipientName: "Ana", recipientEmail: "Ana@Example.com", message: "Happy birthday!", fromName: "Bo" },
+    { amountCents: 2500, quantity: 2 }
+  ];
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: [{ amountCents: 500 }] })).body.error, /\$10 to \$300/);
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: [{ amountCents: 2500, recipientEmail: "nope" }] })).body.error, /doesn't look right/);
+  assert.match((await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: lines, giftCode: "KIRANA-2222-2222" })).body.error, /can't be used to buy gift cards/);
 
-  const bought = await callCheckout("POST", "/api/gift-cards/checkout", { amountCents: 5000, recipientName: "Ana", recipientEmail: "Ana@Example.com", fromName: "Bo", message: "Happy holidays!" });
+  const bought = await callCheckout("POST", "/api/create-checkout-session", { items: [], giftCards: lines });
   assert.equal(bought.status, 200, JSON.stringify(bought.body));
   const session = sessions.at(-1);
-  assert.equal(session.metadata.kind, "gift_card");
-  assert.equal(session.metadata.recipient_email, "ana@example.com");
+  assert.equal(session.metadata.kind, "gift_cards");
+  assert.equal(session.metadata.gift_cards_cents, "10000");
   assert.equal(session.params.get("line_items[0][price_data][unit_amount]"), "5000");
-  assert.equal(session.params.get("line_items[1][price_data][unit_amount]"), String(150 + 30));
-  // A gift card doesn't take up any loaves.
+  assert.match(session.params.get("line_items[0][price_data][product_data][name]"), /Gift card \(\$50\) for Ana/);
+  assert.equal(session.params.get("line_items[1][quantity]"), "2");
+  // Fee on the whole $100.
+  assert.equal(session.params.get("line_items[2][price_data][unit_amount]"), String(300 + 30));
+  // No loaves held.
   assert.equal(session.metadata.loaf_count, undefined);
-
-  // Not paid yet: nothing to show.
-  assert.equal((await callCheckout("GET", `/api/gift-cards/purchase?session_id=${session.id}`)).status, 400);
 
   session.status = "complete";
   session.payment_status = "paid";
-  session.customer_details = { email: "bo@example.com" };
-  const first = await callCheckout("GET", `/api/gift-cards/purchase?session_id=${session.id}`);
+  session.amount_total = 10330;
+  session.customer_details = { email: "bo@example.com", name: "Bo Chen" };
+  session.line_items = { data: [] };
+  const first = await callCheckout("GET", `/api/order-summary?session_id=${session.id}`);
   assert.equal(first.status, 200, JSON.stringify(first.body));
-  assert.match(first.body.code, /^KIRANA-/);
-  assert.equal(first.body.amountCents, 5000);
-  // No email set up in tests: it says so, and the code is right there.
-  assert.equal(first.body.emailed, false);
-  const second = await callCheckout("GET", `/api/gift-cards/purchase?session_id=${session.id}`);
-  assert.equal(second.body.code, first.body.code);
-  assert.equal((await findGiftCard(env, first.body.code)).balanceCents, 5000);
+  assert.equal(first.body.kind, "gift_cards");
+  assert.equal(first.body.giftCards.length, 3);
+  assert.deepEqual(first.body.giftCards.map(({ amountCents, recipientEmail }) => [amountCents, recipientEmail]), [[5000, "ana@example.com"], [2500, ""], [2500, ""]]);
+  // No email in tests: not emailed, and the codes are right there.
+  assert.ok(first.body.giftCards.every(({ code, emailed }) => /^KIRANA-/.test(code) && !emailed));
+  const again = await callCheckout("GET", `/api/order-summary?session_id=${session.id}`);
+  assert.deepEqual(again.body.giftCards.map(({ code }) => code), first.body.giftCards.map(({ code }) => code));
+  const card = await findGiftCard(env, first.body.giftCards[0].code);
+  assert.equal(card.fromName, "Bo");
+  assert.equal(card.message, "Happy birthday!");
+  assert.equal((await findGiftCard(env, first.body.giftCards[1].code)).fromName, "Bo Chen");
+});
+
+test("gift cards with loaves: one payment; a gift card can't pay for them, but the fee covers them", async () => {
+  const drop = await makeDrop({ loafLimit: 10 });
+  const card = await createGiftCard(env, { amountCents: 5000, source: "issued", recipientName: "Ana" });
+  // Two $12 loaves and a $25 gift card, paying with a $50 card: it covers the loaves only.
+  const result = await callCheckout("POST", "/api/create-checkout-session", pickupOrder(drop.id, 2, { giftCode: card.code, giftCards: [{ amountCents: 2500, quantity: 1 }] }));
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  const session = sessions.at(-1);
+  assert.equal(session.metadata.gift_cents, "2400");
+  assert.equal(session.metadata.gift_cards_cents, "2500");
+  assert.equal(session.metadata.loaf_count, "2");
+  assert.equal(session.metadata.service_fee_cents, String(Math.round(2500 * 0.03) + 30));
+  const row = await env.DB.prepare("SELECT lines FROM gift_card_orders WHERE session_id = ?1").bind(session.id).first();
+  assert.deepEqual(JSON.parse(row.lines).map(({ amountCents, quantity }) => [amountCents, quantity]), [[2500, 1]]);
 });
 
 test("the orders page lists gift cards and can issue one", async () => {

@@ -3,8 +3,8 @@
 GIFT CARDS
 
 Codes like KIRANA-7QKM-X2PD with a balance in
-dollars, bought on the website or issued from the
-orders page. Saved in the pickup database
+dollars, bought on the order page or issued from
+the orders page. Only for orders on the website. Saved in the pickup database
 (gift_cards and gift_card_uses in schema.sql).
 
 Using a code at checkout:
@@ -176,19 +176,19 @@ export async function createGiftCard(env, card) {
   for (let tries = 0; tries < 5; tries += 1) {
     try {
       const row = await env.DB.prepare(`INSERT INTO gift_cards
-          (code, initial_cents, balance_cents, source, stripe_session_id, from_name, purchaser_email,
+          (code, initial_cents, balance_cents, source, stripe_session_id, purchase_key, from_name, purchaser_email,
            recipient_name, recipient_email, message, note, created_at)
-          VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) RETURNING *`)
-        .bind(newGiftCode(), card.amountCents, card.source, card.stripeSessionId || null, card.fromName || "",
-          card.purchaserEmail || "", card.recipientName || "", card.recipientEmail || "", card.message || "",
-          card.note || "", new Date().toISOString())
+          VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) RETURNING *`)
+        .bind(newGiftCode(), card.amountCents, card.source, card.stripeSessionId || null, card.purchaseKey || null,
+          card.fromName || "", card.purchaserEmail || "", card.recipientName || "", card.recipientEmail || "",
+          card.message || "", card.note || "", new Date().toISOString())
         .first();
       return toCard(row);
     } catch (error) {
       const message = error.message || "";
-      // Bought already (the webhook and thank-you page both create it): that one.
-      if (card.stripeSessionId && /UNIQUE.*stripe_session_id/i.test(message)) {
-        return toCard(await env.DB.prepare("SELECT * FROM gift_cards WHERE stripe_session_id = ?1").bind(card.stripeSessionId).first());
+      // Made already (the webhook and the thank-you page both make them): that one.
+      if (card.purchaseKey && /UNIQUE.*purchase_key/i.test(message)) {
+        return toCard(await env.DB.prepare("SELECT * FROM gift_cards WHERE purchase_key = ?1").bind(card.purchaseKey).first());
       }
       // A code clash (astronomically rare): try another code.
       if (!/UNIQUE.*code/i.test(message)) throw error;

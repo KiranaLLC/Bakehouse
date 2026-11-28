@@ -118,23 +118,27 @@ export const STRIPE_MINIMUM_CENTS = 50;
 /*
   How much of a card an order uses, and the
   payment processing fee on what's left.
-    baseCents: loaves + delivery − discount
-    tipCents:  the tip
+    baseCents:      loaves + delivery − discount
+    tipCents:       the tip
+    giftCardsCents: gift cards being bought in the
+                    same order (a gift card can't pay
+                    for those, but they carry the fee)
   Returns { giftCents, serviceFee, totalCents }.
   Never leaves a card payment under Stripe's 50¢
   minimum: the card covers the whole order, or
   leaves at least 50¢ to pay.
 */
-export function planGiftCard(balanceCents, { baseCents, tipCents }, fee = SERVICE_FEE) {
+export function planGiftCard(balanceCents, { baseCents, tipCents, giftCardsCents = 0 }, fee = SERVICE_FEE) {
   const base = Math.max(0, baseCents);
   const tip = Math.max(0, tipCents);
+  const bought = Math.max(0, giftCardsCents);
   const balance = Math.max(0, balanceCents);
 
   let onBase = Math.min(balance, base);
   let onTip = Math.min(balance - onBase, tip);
   const totalFor = () => {
-    const serviceFee = calculateServiceFee(fee, base - onBase);
-    return { serviceFee, totalCents: base - onBase + serviceFee + tip - onTip };
+    const serviceFee = calculateServiceFee(fee, base - onBase + bought);
+    return { serviceFee, totalCents: base - onBase + bought + serviceFee + tip - onTip };
   };
 
   let { serviceFee, totalCents } = totalFor();

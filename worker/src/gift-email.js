@@ -3,10 +3,12 @@
 GIFT CARD EMAILS
 
 The gift card itself (to the person receiving
-it), in a holiday design with a plain-text copy
-for mail apps that don't show designs; a copy for
-the person who bought it; and a note to the
-bakery. Sent through Resend (email.js).
+it), with the sender's message; one email to the
+buyer with every card from their order; and a
+note to the bakery. Sent through Resend
+(email.js). Each has a plain-text version, and
+the gift card has a simple design in the bakery's
+colors for mail apps that show it.
 ==================================================
 */
 
@@ -21,73 +23,71 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
-const HOW_TO_USE = "Enter your code in the Gift card box when you check out on our order page. Any balance stays on the card for next time, and it never expires.";
+export const GIFT_CARD_TERMS =
+  "This gift card can only be used for orders on our website. Enter the code in the Gift card box when you check out; anything left stays on the card for your next order.";
 
-export function giftCardEmail(card, siteUrl = SITE) {
+const siteName = siteUrl => (siteUrl || SITE).replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+// The gift card, to whoever it's for (or the buyer, when it's for them to pass on).
+export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
   const orderUrl = `${siteUrl || SITE}/order.html`;
   const amount = dollars(card.initialCents);
-  const to = firstName(card.recipientName);
+  const greeting = card.recipientName ? firstName(card.recipientName) : "there";
   const from = card.fromName || "Kirana Bakehouse";
+  const terms = GIFT_CARD_TERMS.replace("our website", `our website, ${siteName(siteUrl)}`);
 
   const text = [
-    `Hi ${to},`,
+    `Hi ${greeting},`,
     "",
-    `${from} sent you a ${amount} Kirana Bakehouse gift card!`,
+    `${from} sent you a ${amount} Kirana Bakehouse gift card.`,
     ...(card.message ? ["", `"${card.message}"`, `– ${from}`] : []),
     "",
     `Your code: ${card.code}`,
     `Balance: ${dollars(card.balanceCents)}`,
     "",
-    HOW_TO_USE,
+    terms,
     `Order here: ${orderUrl}`,
     "",
     `Questions? Just reply to this email, or DM us on Instagram @${CONTACT.instagram}.`,
     "",
-    "Happy holidays,",
     "Kirana Bakehouse"
   ].join("\n");
 
-  const gold = "#d9b45a";
-  const green = "#1f3d2b";
-  const red = "#a3221a";
+  const brown = "#4d1a00";
+  const terracotta = "#b31d00";
   const cream = "#fbf7ea";
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Your Kirana Bakehouse gift card</title></head>
-<body style="margin:0;padding:0;background:#efe6cf;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efe6cf;padding:24px 12px;">
+<body style="margin:0;padding:0;background:#f0e7cc;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0e7cc;padding:24px 12px;">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${cream};border-radius:18px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;color:#2a1a10;">
-  <tr><td style="background:${red};padding:22px 24px;text-align:center;">
-    <div style="color:${gold};font-size:14px;letter-spacing:6px;">&#10052; &#10022; &#10052; &#10022; &#10052;</div>
-    <div style="color:#fff;font-size:28px;font-style:italic;margin-top:6px;">Kirana Bakehouse</div>
-    <div style="color:#f6dc8a;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:3px;margin-top:4px;">HAPPY HOLIDAYS</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:${cream};border-radius:16px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:${brown};">
+  <tr><td style="background:${brown};padding:20px 24px;text-align:center;color:${cream};font-size:22px;font-weight:bold;letter-spacing:1px;">Kirana Bakehouse</td></tr>
+  <tr><td style="padding:26px 28px 6px;text-align:center;">
+    <div style="font-size:20px;font-weight:bold;">Hi ${escapeHtml(greeting)},</div>
+    <div style="font-size:15px;color:#6b5a4a;margin-top:8px;">${escapeHtml(from)} sent you a Kirana Bakehouse gift card.</div>
   </td></tr>
-  <tr><td style="padding:28px 28px 8px;text-align:center;">
-    <div style="font-size:24px;line-height:1.3;">A gift for you, ${escapeHtml(to)}!</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#6b5a4a;margin-top:8px;">${escapeHtml(from)} sent you a Kirana Bakehouse gift card.</div>
-  </td></tr>
-  <tr><td style="padding:16px 24px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${green};border:3px solid ${gold};border-radius:16px;">
-      <tr><td style="padding:24px;text-align:center;">
-        <div style="color:${gold};font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:4px;">GIFT CARD</div>
-        <div style="color:#fff;font-size:56px;line-height:1.1;margin:8px 0 14px;">${escapeHtml(amount)}</div>
-        <div style="display:inline-block;background:${cream};color:${green};font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:bold;letter-spacing:2px;padding:10px 16px;border-radius:10px;">${escapeHtml(card.code)}</div>
-        <div style="color:#d8e3d8;font-family:Arial,Helvetica,sans-serif;font-size:12px;margin-top:10px;">Balance: ${escapeHtml(dollars(card.balanceCents))}</div>
+  ${card.message ? `<tr><td style="padding:12px 36px 2px;text-align:center;">
+    <div style="font-size:17px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(card.message)}&rdquo;</div>
+    <div style="font-size:14px;color:#6b5a4a;margin-top:6px;">&ndash; ${escapeHtml(from)}</div>
+  </td></tr>` : ""}
+  <tr><td style="padding:18px 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${brown};border-radius:14px;background:#fff;">
+      <tr><td style="padding:22px;text-align:center;">
+        <div style="font-size:12px;letter-spacing:3px;color:#6b5a4a;">GIFT CARD</div>
+        <div style="font-size:44px;font-weight:bold;margin:6px 0 12px;">${escapeHtml(amount)}</div>
+        <div style="display:inline-block;background:${cream};border:1px dashed ${brown};font-family:'Courier New',Courier,monospace;font-size:20px;font-weight:bold;letter-spacing:2px;padding:9px 14px;border-radius:8px;">${escapeHtml(card.code)}</div>
+        <div style="font-size:12px;color:#6b5a4a;margin-top:8px;">Balance: ${escapeHtml(dollars(card.balanceCents))}</div>
       </td></tr>
     </table>
   </td></tr>
-  ${card.message ? `<tr><td style="padding:8px 36px 4px;text-align:center;">
-    <div style="font-size:18px;font-style:italic;line-height:1.5;color:#4d1a00;">&ldquo;${escapeHtml(card.message)}&rdquo;</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b5a4a;margin-top:6px;">&ndash; ${escapeHtml(from)}</div>
-  </td></tr>` : ""}
-  <tr><td style="padding:22px 24px 6px;text-align:center;">
-    <a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:${red};color:#fff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:999px;">Order sourdough</a>
+  <tr><td style="padding:6px 24px;text-align:center;">
+    <a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:${terracotta};color:#fff;text-decoration:none;font-weight:bold;font-size:16px;padding:13px 26px;border-radius:999px;">Order sourdough</a>
   </td></tr>
-  <tr><td style="padding:14px 32px 8px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#6b5a4a;">${escapeHtml(HOW_TO_USE)}</td></tr>
-  <tr><td style="padding:14px 24px 24px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#8a7a6a;">
-    Questions? Reply to this email or DM <a href="https://instagram.com/${escapeHtml(CONTACT.instagram)}" style="color:${red};">@${escapeHtml(CONTACT.instagram)}</a>.
-    <div style="color:${gold};font-size:14px;letter-spacing:6px;margin-top:12px;">&#10052; &#10022; &#10052;</div>
+  <tr><td style="padding:14px 32px 6px;text-align:center;font-size:13px;line-height:1.5;color:#6b5a4a;">${escapeHtml(terms)}</td></tr>
+  <tr><td style="padding:10px 24px 22px;text-align:center;font-size:12px;color:#8a7a6a;">
+    Questions? Reply to this email or DM <a href="https://instagram.com/${escapeHtml(CONTACT.instagram)}" style="color:${terracotta};">@${escapeHtml(CONTACT.instagram)}</a>.
   </td></tr>
 </table>
 </td></tr>
@@ -95,26 +95,36 @@ export function giftCardEmail(card, siteUrl = SITE) {
 </body></html>`;
 
   return {
-    to: card.recipientEmail,
+    to: to || card.recipientEmail,
     subject: `${from} sent you a ${amount} Kirana Bakehouse gift card`,
     text,
     html
   };
 }
 
-// For the buyer: it's on its way, and the code in case it's needed.
-export function giftCardBuyerCopy(card, buyerEmail) {
-  const amount = dollars(card.initialCents);
+/*
+  For the buyer: every gift card in their order,
+  with its code, and whether we emailed it to
+  someone or it's theirs to pass on.
+*/
+export function buyerGiftCardsEmail(cards, buyerEmail, siteUrl = SITE) {
+  const total = cards.reduce((sum, card) => sum + card.initialCents, 0);
+  const lines = cards.map(card => card.recipientEmail
+    ? `${dollars(card.initialCents)} for ${card.recipientName || card.recipientEmail}: ${card.code} (emailed to ${card.recipientEmail})`
+    : `${dollars(card.initialCents)}${card.recipientName ? ` for ${card.recipientName}` : ""}: ${card.code}`);
+  const toPassOn = cards.some(card => !card.recipientEmail);
   return {
     to: buyerEmail,
-    subject: `Your ${amount} gift card for ${card.recipientName} is on its way`,
+    subject: cards.length === 1 ? `Your ${dollars(total)} Kirana Bakehouse gift card` : `Your ${cards.length} Kirana Bakehouse gift cards`,
     text: [
-      `Hi ${firstName(card.fromName)},`,
+      "Hi,",
       "",
-      `Thank you! We've emailed your ${amount} Kirana Bakehouse gift card to ${card.recipientName} (${card.recipientEmail}).`,
+      `Thank you for buying ${cards.length === 1 ? "a Kirana Bakehouse gift card" : `${cards.length} Kirana Bakehouse gift cards`}!`,
       "",
-      `Their code, in case it goes astray: ${card.code}`,
-      ...(card.message ? ["", "Your message:", `"${card.message}"`] : []),
+      ...lines,
+      "",
+      ...(toPassOn ? ["To give a card, pass on its code. They enter it in the Gift card box when they order.", ""] : []),
+      GIFT_CARD_TERMS.replace("our website", `our website, ${siteName(siteUrl)}`),
       "",
       "Stripe sends your receipt separately.",
       "",
@@ -125,15 +135,15 @@ export function giftCardBuyerCopy(card, buyerEmail) {
   };
 }
 
-export function giftCardAlert(card) {
+export function giftCardAlert(cards, buyerEmail) {
+  const total = cards.reduce((sum, card) => sum + card.initialCents, 0);
   return {
     to: BAKERY_EMAIL,
-    subject: `New gift card: ${dollars(card.initialCents)} for ${card.recipientName}`,
+    subject: `New gift card${cards.length === 1 ? "" : "s"}: ${dollars(total)}`,
     text: [
-      `${card.fromName || "Someone"} (${card.purchaserEmail || "no email"}) bought a ${dollars(card.initialCents)} gift card`,
-      `for ${card.recipientName} (${card.recipientEmail}).`,
+      `${buyerEmail || "Someone"} bought:`,
+      ...cards.map(card => `- ${dollars(card.initialCents)} ${card.code}${card.recipientName ? ` for ${card.recipientName}` : ""}${card.recipientEmail ? ` (${card.recipientEmail})` : ""}`),
       "",
-      `Code: ${card.code}`,
       "See every gift card on the orders page, Gift cards tab."
     ].join("\n")
   };

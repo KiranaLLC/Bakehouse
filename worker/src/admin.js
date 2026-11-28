@@ -60,7 +60,7 @@ import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, send
 import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 import { GiftCardError, createGiftCard, getGiftCard, listGiftCards } from "./gift-cards.js";
-import { emailGiftCard } from "./gift-purchase.js";
+import { emailGiftCard } from "./gift-orders.js";
 import { canEmail as canSendEmail } from "./email.js";
 import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
 
@@ -631,7 +631,8 @@ async function describeOrder(session, today, env, stripe) {
     totalCents: session.amount_total || 0,
     tipCents: Number(metadata.tip_cents) || 0,
     serviceFeeCents: Number(metadata.service_fee_cents) || 0,
-    giftCents: Number(metadata.gift_cents) || 0
+    giftCents: Number(metadata.gift_cents) || 0,
+    giftCardsBoughtCents: Number(metadata.gift_cards_cents) || 0
   };
 
 }

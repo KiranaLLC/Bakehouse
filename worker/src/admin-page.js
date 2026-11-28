@@ -86,6 +86,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .gift-card dt { color: var(--muted); }
   .gift-card dd { margin: 0; overflow-wrap: anywhere; }
   .gift-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .badge.cancelled { color: var(--terracotta); }
+  .linkish.danger { color: var(--terracotta); }
   .gift-issue { padding: 12px 16px; margin-bottom: 14px; }
   .gift-issue summary { font-weight: 700; cursor: pointer; color: var(--deep-brown); }
   .gift-issue[open] summary { margin-bottom: 8px; }
@@ -849,7 +851,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }
 
     var cards = state.gifts.cards;
-    var outstanding = cards.reduce(function (sum, card) { return sum + card.balanceCents; }, 0);
+    var outstanding = cards.reduce(function (sum, card) { return sum + (card.cancelledAt ? 0 : card.balanceCents); }, 0);
     var search = el("input", { type: "search", class: "past-search", placeholder: "Search by code, name or email", value: state.giftQuery, "aria-label": "Search gift cards" });
     var list = el("div", { id: "gift-list" });
 
@@ -880,6 +882,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   }
 
   function giftCardItem(card) {
+    var cancelled = Boolean(card.cancelledAt);
     var used = card.balanceCents <= 0;
     var copy = el("button", { type: "button", class: "linkish", text: "Copy code" });
     copy.addEventListener("click", function () {
@@ -888,7 +891,27 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       else copy.textContent = card.code;
     });
     var actions = el("div", { class: "gift-actions" }, copy);
-    if (card.recipientEmail && state.gifts.emailReady) {
+
+    // Cancel (asks once more first), or restore a cancelled card.
+    var cancel = el("button", { type: "button", class: "linkish" + (cancelled ? "" : " danger"), text: cancelled ? "Restore card" : "Cancel card" });
+    var confirming = false;
+    cancel.addEventListener("click", function () {
+      if (!cancelled && !confirming) {
+        confirming = true;
+        cancel.textContent = "Yes, cancel it (it can't be used after this)";
+        return;
+      }
+      cancel.disabled = true;
+      api("POST", "gift-cards/" + card.id + "/cancel", { cancelled: !cancelled }).then(function (result) {
+        Object.assign(card, result.card);
+        renderGifts();
+      }).catch(function (error) {
+        cancel.disabled = false;
+        if (error.message !== "signed-out") alertInCard(cancel, error.message);
+      });
+    });
+
+    if (card.recipientEmail && state.gifts.emailReady && !cancelled) {
       var send = el("button", { type: "button", class: "linkish", text: card.emailedAt ? "Email it again" : "Email it to them" });
       send.addEventListener("click", function () {
         send.disabled = true;
@@ -904,12 +927,13 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       });
       actions.append(send);
     }
+    actions.append(cancel);
 
-    return el("article", { class: "card gift-card" + (used ? " used" : "") },
+    return el("article", { class: "card gift-card" + (used || cancelled ? " used" : "") },
       el("div", { class: "gift-top" },
         el("code", { class: "gift-code", text: card.code }),
         el("span", { class: "badge" + (card.source === "issued" ? " moved" : " pickup"), text: card.source === "issued" ? "Issued" : "Bought" }),
-        used ? el("span", { class: "badge", text: "Used up" }) : null
+        cancelled ? el("span", { class: "badge cancelled", text: "Cancelled " + shortTime(card.cancelledAt) }) : used ? el("span", { class: "badge", text: "Used up" }) : null
       ),
       el("p", { class: "gift-balance" },
         el("strong", { text: money(card.balanceCents) }),

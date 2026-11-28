@@ -66,6 +66,7 @@ export function toCard(row) {
     message: row.message,
     note: row.note,
     emailedAt: row.emailed_at,
+    cancelledAt: row.cancelled_at || "",
     createdAt: row.created_at,
     stripeSessionId: row.stripe_session_id || ""
   };
@@ -77,6 +78,7 @@ export async function findGiftCard(env, rawCode) {
   if (!code) throw new GiftCardError("That gift card code doesn't look right. It's like KIRANA-7QKM-X2PD.");
   const row = await env.DB.prepare("SELECT * FROM gift_cards WHERE code = ?1").bind(code).first();
   if (!row) throw new GiftCardError("We couldn't find that gift card code.");
+  if (row.cancelled_at) throw new GiftCardError("That gift card has been cancelled. Questions? Get in touch with us.");
   return toCard(row);
 }
 
@@ -225,4 +227,27 @@ export async function getGiftCard(env, id) {
   needDatabase(env);
   const row = await env.DB.prepare("SELECT * FROM gift_cards WHERE id = ?1").bind(Number(id)).first();
   return row ? toCard(row) : null;
+}
+
+/*
+  Cancelling a card from the orders page: it keeps
+  its balance (so it can be restored), but can't
+  be used. The column came after the table, so an
+  older database gets it added here.
+*/
+async function ensureCancelledColumn(env) {
+  try {
+    await env.DB.prepare("ALTER TABLE gift_cards ADD COLUMN cancelled_at TEXT NOT NULL DEFAULT ''").run();
+  } catch (error) {
+    if (!/duplicate column/i.test(error.message || "")) throw error;
+  }
+}
+
+export async function setGiftCardCancelled(env, id, cancelled) {
+  needDatabase(env);
+  await ensureCancelledColumn(env);
+  const row = await env.DB.prepare("UPDATE gift_cards SET cancelled_at = ?2 WHERE id = ?1 RETURNING *")
+    .bind(Number(id), cancelled ? new Date().toISOString() : "").first();
+  if (!row) throw new GiftCardError("That gift card wasn't found.");
+  return toCard(row);
 }

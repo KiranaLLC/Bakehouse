@@ -34,13 +34,16 @@ export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
   const amount = dollars(card.initialCents);
   const greeting = card.recipientName ? firstName(card.recipientName) : "there";
   const from = card.fromName || "Kirana Bakehouse";
+  // Issued by the bakery itself: "from us", not "Kirana Bakehouse sent you a Kirana Bakehouse…".
+  const fromBakery = card.source === "issued" || /^kirana bakehouse$/i.test(from);
+  const intro = fromBakery ? `Here's a ${amount} gift card from us.` : `${from} sent you a ${amount} gift card.`;
   const terms = `${GIFT_CARD_TERMS.replace("our website.", `our website, ${siteName(siteUrl)}.`)} ${HOW_TO_USE}`;
 
   const text = [
     `Hi ${greeting},`,
     "",
-    `${from} sent you a ${amount} Kirana Bakehouse gift card.`,
-    ...(card.message ? ["", `"${card.message}"`, `– ${from}`] : []),
+    intro,
+    ...(card.message ? ["", `"${card.message}"`, `– ${fromBakery ? "Kirana Bakehouse" : from}`] : []),
     "",
     `Your code: ${card.code}`,
     `Balance: ${dollars(card.balanceCents)}`,
@@ -66,7 +69,7 @@ export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
   <tr><td style="background:${brown};padding:20px 24px;text-align:center;color:${cream};font-size:22px;font-weight:bold;letter-spacing:1px;">Kirana Bakehouse</td></tr>
   <tr><td style="padding:26px 28px 6px;text-align:center;">
     <div style="font-size:20px;font-weight:bold;">Hi ${escapeHtml(greeting)},</div>
-    <div style="font-size:15px;color:#6b5a4a;margin-top:8px;">${escapeHtml(from)} sent you a Kirana Bakehouse gift card.</div>
+    <div style="font-size:15px;color:#6b5a4a;margin-top:8px;">${escapeHtml(intro)}</div>
   </td></tr>
   ${card.message ? `<tr><td style="padding:12px 36px 2px;text-align:center;">
     <div style="font-size:17px;font-style:italic;line-height:1.5;">&ldquo;${escapeHtml(card.message)}&rdquo;</div>
@@ -96,7 +99,7 @@ export function giftCardEmail(card, siteUrl = SITE, { to } = {}) {
 
   return {
     to: to || card.recipientEmail,
-    subject: `${from} sent you a ${amount} Kirana Bakehouse gift card`,
+    subject: fromBakery ? `A ${amount} gift card from Kirana Bakehouse` : `${from} sent you a ${amount} Kirana Bakehouse gift card`,
     text,
     html
   };

@@ -341,7 +341,9 @@ check, whichever comes first, and only once.
 The orders page has a **Gift cards** tab: every card, who it's for and from,
 what's left on it and how many orders it's paid for, with search. **Issue a
 gift card** makes a free one (giveaways, making up for a mistake), emailed to
-them if you give an address; **Email it again** resends any card.
+them if you give an address; **Email it again** resends any card. **Cancel
+card** stops a card from being used (it asks once more first); its balance is
+kept, and **Restore card** turns it back on.
 
 Needs the pickup database with the latest `schema.sql` applied, and email
 (Resend, above) for the emails. Amounts and limits are `GIFT_CARDS` in

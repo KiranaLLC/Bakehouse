@@ -600,4 +600,11 @@ test("the orders page lists gift cards and can issue one", async () => {
   assert.equal(list.body.emailReady, false);
   assert.deepEqual(list.body.cards.map(({ recipientName, balanceCents, note }) => [recipientName, balanceCents, note]), [["Kim", 2500, "Late delivery"]]);
   assert.match((await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/email`)).body.error, /isn't set up/);
+
+  // Cancel it: checkout turns it away. Restore it: it works again.
+  const cancelled = await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/cancel`, { cancelled: true });
+  assert.ok(cancelled.body.card.cancelledAt);
+  assert.match((await callCheckout("POST", "/api/gift-cards/check", { code: issued.body.card.code })).body.error, /cancelled/);
+  await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/cancel`, { cancelled: false });
+  assert.equal((await callCheckout("POST", "/api/gift-cards/check", { code: issued.body.card.code })).body.balanceCents, 2500);
 });

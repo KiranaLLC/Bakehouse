@@ -58,10 +58,10 @@ import {
   updateDrop
 } from "./drops.js";
 import { EmailError, canEmail, deliveredEmail, firstName, pickupReadyEmail, sendEmail } from "./email.js";
-import { announceDrop, announceKey, dropCustomerEmails, placeLines, remindDrop, remindKey } from "./email-flows.js";
+import { announceDrop, announceKey, dropCustomerEmails, placeLines, previewDropEmail, remindDrop, remindKey } from "./email-flows.js";
 import { dropStatus, weekdayBefore, formatMoment, formatPickupWhen, utcToLocal } from "../../pickup-rules.js";
 import { GiftCardError, createGiftCard, getGiftCard, listGiftCards, setGiftCardCancelled } from "./gift-cards.js";
-import { emailGiftCard } from "./gift-orders.js";
+import { emailGiftCard, previewGiftCardEmail } from "./gift-orders.js";
 import { canEmail as canSendEmail } from "./email.js";
 import { getMove, insertMove, listMoves, movedOutByOrder, setMoveDelivered, sumItems, updateMoveItems, updateMoveTarget } from "./moves.js";
 
@@ -74,7 +74,7 @@ const FAILED_LOGIN_DELAY_MS = 1000;
 
 const encoder = new TextEncoder();
 
-const SEND_BUTTONS = /^\/admin\/api\/(orders\/[^/]+\/email|gift-cards|gift-cards\/\d+\/email|drops\/\d+\/(announce|remind))$/;
+const SEND_BUTTONS = /^\/admin\/api\/(orders\/[^/]+\/email|gift-cards\/\d+\/email|drops\/\d+\/(announce|remind))$/;
 
 export async function handleAdmin(request, env, { stripe }) {
 
@@ -144,6 +144,12 @@ export async function handleAdmin(request, env, { stripe }) {
       const body = await request.json().catch(() => ({}));
       const result = await moveOrder(moveMatch[1], body, env, stripe);
       return json(result, result.ok ? 200 : 400);
+    }
+
+    const orderPreview = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/email\/preview$/);
+    if (request.method === "POST" && orderPreview) {
+      const message = await customerEmail(orderPreview[1], env, stripe);
+      return json({ recipients: [message.to], message });
     }
 
     const emailMatch = path.match(/^\/admin\/api\/orders\/((?:cs|in)_[A-Za-z0-9_]+|mv_\d+)\/email$/);
@@ -378,23 +384,21 @@ async function handleGiftCards(request, path, env) {
     }
     if (request.method === "POST" && path === "/admin/api/gift-cards") {
       const body = await request.json().catch(() => ({}));
+      // Making a card never emails it: the page shows a preview to send after.
       const card = await issueGiftCard(env, body);
-      let emailed = false;
-      let emailError = "";
-      if (body.send && card.recipientEmail) {
-        try {
-          await emailGiftCard(env, card);
-          emailed = true;
-        } catch (error) {
-          emailError = error.message;
-        }
-      }
-      return json({ ok: true, card, emailed, emailError });
+      return json({ ok: true, card, emailed: false });
     }
     const cancelMatch = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/cancel$/);
     if (request.method === "POST" && cancelMatch) {
       const body = await request.json().catch(() => ({}));
       return json({ ok: true, card: await setGiftCardCancelled(env, cancelMatch[1], body.cancelled !== false) });
+    }
+    const giftPreview = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/email\/preview$/);
+    if (request.method === "POST" && giftPreview) {
+      const card = await getGiftCard(env, giftPreview[1]);
+      if (!card) return json({ error: "That gift card wasn't found." }, 404);
+      const message = previewGiftCardEmail(env, card);
+      return json({ recipients: [message.to], message });
     }
     const match = path.match(/^\/admin\/api\/gift-cards\/(\d+)\/email$/);
     if (request.method === "POST" && match) {
@@ -685,8 +689,15 @@ Stripe so the email matches it.
 */
 
 async function emailCustomer(id, env, stripe) {
-
   if (!canEmail(env)) throw new EmailError("Email isn't set up yet, so use the draft instead.");
+  const message = await customerEmail(id, env, stripe);
+  await sendEmail(env, message);
+  if (hasDatabase(env)) await logEmail(env, `order:${id}`, 1).catch(() => {});
+  return { ok: true, sentAt: new Date().toISOString() };
+}
+
+// The email for an order, built but not sent (also used for the preview).
+async function customerEmail(id, env, stripe) {
 
   const order = await describeAny(id, bakeryTodayValue(), env, stripe);
   if (!order) throw new EmailError("That order wasn't found.");
@@ -704,10 +715,7 @@ async function emailCustomer(id, env, stripe) {
     message = deliveredEmail({ to: order.email, name, items: order.items });
   }
 
-  await sendEmail(env, message);
-  if (hasDatabase(env)) await logEmail(env, `order:${id}`, 1).catch(() => {});
-
-  return { ok: true, sentAt: new Date().toISOString() };
+  return message;
 
 }
 
@@ -1120,6 +1128,13 @@ async function handleDropRoutes(request, path, env, stripe) {
   const updateMatch = path.match(/^\/admin\/api\/drops\/(\d+)$/);
   if (request.method === "POST" && updateMatch) {
     return json({ drop: await updateDrop(env, Number(updateMatch[1]), body) });
+  }
+
+  const dropPreview = path.match(/^\/admin\/api\/drops\/(\d+)\/(announce|remind)\/preview$/);
+  if (request.method === "POST" && dropPreview) {
+    const drop = await getDrop(env, Number(dropPreview[1]));
+    if (!drop) return json({ error: "That drop doesn't exist." }, 404);
+    return json(await previewDropEmail(env, stripe, drop, dropPreview[2]));
   }
 
   const sendMatch = path.match(/^\/admin\/api\/drops\/(\d+)\/(announce|remind)$/);

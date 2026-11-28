@@ -594,9 +594,11 @@ test("the orders page lists gift cards and can issue one", async () => {
   const issued = await callOrders("POST", "/admin/api/gift-cards", { amountCents: 2500, recipientName: "Kim", recipientEmail: "kim@example.com", note: "Late delivery", send: true });
   assert.equal(issued.status, 200, JSON.stringify(issued.body));
   assert.equal(issued.body.card.source, "issued");
-  // No email set up: made, not sent, and it says why.
+  // Making a card never emails it, even if asked: the page previews it first.
   assert.equal(issued.body.emailed, false);
-  assert.match(issued.body.emailError, /isn't set up/);
+  const preview = await callOrders("POST", `/admin/api/gift-cards/${issued.body.card.id}/email/preview`);
+  assert.deepEqual(preview.body.recipients, ["kim@example.com"]);
+  assert.match(preview.body.message.html, new RegExp(issued.body.card.code));
   assert.match((await callOrders("POST", "/admin/api/gift-cards", { amountCents: 0, recipientName: "Kim" })).body.error, /amount/);
 
   const list = await callOrders("GET", "/admin/api/gift-cards");

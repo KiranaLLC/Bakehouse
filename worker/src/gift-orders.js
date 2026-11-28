@@ -153,6 +153,12 @@ export async function fulfillPendingGiftCardOrders(env) {
   return done;
 }
 
+// Preview of a card's email. Sends nothing.
+export function previewGiftCardEmail(env, card, siteUrl) {
+  if (!card.recipientEmail) throw new GiftCardError("This gift card has no email address to send to.");
+  return giftCardEmail(card, siteUrl || env.SITE_URL || SITE);
+}
+
 // Orders page: email a card (new or again). Throws if email isn't set up or fails.
 export async function emailGiftCard(env, card, siteUrl) {
   if (!card.recipientEmail) throw new GiftCardError("This gift card has no email address to send to.");

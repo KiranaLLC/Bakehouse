@@ -90,22 +90,42 @@ async function summarize(env, prefix) {
 }
 
 // Everyone confirmed on the list, each with their own unsubscribe link.
-export async function announceDrop(env, drop, { now = Date.now(), force = false } = {}) {
-
-  const people = (await listSubscribers(env)).map(({ email }) => email);
-  const opening = now < Date.parse(drop.opensAt)
+function openingLine(drop, now) {
+  return now < Date.parse(drop.opensAt)
     ? `Ordering opens ${formatMoment(drop.opensAt)} and closes ${formatMoment(drop.closesAt)}.`
     : `Ordering is open now and closes ${formatMoment(drop.closesAt)}.`;
+}
 
-  return sendToEach(env, announceKey(drop), people, async email => dropOpenEmail({
+function announceMessage(env, drop, now) {
+  const opening = openingLine(drop, now);
+  return async email => dropOpenEmail({
     to: email,
     when: formatPickupWhen(drop),
     place: placeLines(drop),
     opening,
     orderUrl: orderPageUrl(env),
     unsubscribeUrl: `${API.origin}/api/unsubscribe?token=${await unsubscribeToken(env, email)}`
-  }), { force });
+  });
+}
 
+export async function announceDrop(env, drop, { now = Date.now(), force = false } = {}) {
+  const people = (await listSubscribers(env)).map(({ email }) => email);
+  return sendToEach(env, announceKey(drop), people, announceMessage(env, drop, now), { force });
+}
+
+const remindMessage = drop => to => pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) });
+
+// Preview: who it would go to, and the email as the first of them would get
+// it. Sends nothing.
+export async function previewDropEmail(env, stripe, drop, kind, { now = Date.now() } = {}) {
+  const recipients = kind === "announce"
+    ? (await listSubscribers(env)).map(({ email }) => email)
+    : await dropCustomerEmails(env, stripe, drop);
+  const sample = recipients[0] || "someone@example.com";
+  const message = kind === "announce"
+    ? dropOpenEmail({ to: sample, when: formatPickupWhen(drop), place: placeLines(drop), opening: openingLine(drop, now), orderUrl: orderPageUrl(env), unsubscribeUrl: `${API.origin}/api/unsubscribe?token=(each person's own link)` })
+    : remindMessage(drop)(sample);
+  return { recipients, message };
 }
 
 // Emails of everyone with a paid order for this drop, each once.
@@ -129,7 +149,6 @@ export async function dropCustomerEmails(env, stripe, drop) {
 
 export async function remindDrop(env, stripe, drop, { force = false } = {}) {
   const emails = await dropCustomerEmails(env, stripe, drop);
-  return sendToEach(env, remindKey(drop), emails,
-    to => pickupReminderEmail({ to, when: formatPickupWhen(drop), place: placeLines(drop) }), { force });
+  return sendToEach(env, remindKey(drop), emails, remindMessage(drop), { force });
 }
 

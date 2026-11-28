@@ -86,6 +86,18 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .gift-card dt { color: var(--muted); }
   .gift-card dd { margin: 0; overflow-wrap: anywhere; }
   .gift-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .preview-shade { position: fixed; inset: 0; background: rgba(40, 20, 5, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .preview-panel { background: #fffaf0; border-radius: 14px; width: 100%; max-width: 640px; max-height: 92vh; overflow: auto; padding: 18px 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .preview-note { margin: 0 0 10px; font-weight: 700; color: #7a5200; background: #fff4d6; border: 1px solid #e6c77a; border-radius: 8px; padding: 6px 10px; }
+  .preview-to, .preview-subject { margin: 4px 0; word-break: break-word; }
+  .preview-to details { display: inline; }
+  .preview-body { margin-top: 10px; border: 1px solid #e3d5bd; border-radius: 10px; background: #fff; }
+  .preview-text { white-space: pre-wrap; font: inherit; margin: 0; padding: 14px; }
+  .preview-frame { width: 100%; height: 60vh; border: 0; border-radius: 10px; display: block; }
+  .preview-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .preview-send { background: #4a1f00; color: #fff; border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700; }
+  .preview-send:disabled { opacity: 0.5; }
+  .preview-actions .secondary { background: transparent; border: 1px solid #4a1f00; color: #4a1f00; border-radius: 999px; padding: 10px 18px; font-weight: 600; }
   .gift-waiting { background: #fff4d6; border: 1px solid #e6c77a; color: #7a5200; border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; font-weight: 600; }
   .badge.cancelled { color: var(--terracotta); }
   .linkish.danger { color: var(--terracotta); }
@@ -774,8 +786,76 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     return wrap;
   }
 
-  // Every send asks first. Nothing goes out unless you press OK.
-  var CHECK = "Send with Resend? This emails right away and can't be undone.\n\n";
+  /*
+    Every send shows the email first: who it goes to, the subject and the
+    whole message. Nothing goes out unless you press "Send with Resend".
+  */
+  function previewEmail(previewPath, send) {
+    var box = el("div", { class: "preview-body", text: "Loading the preview…" });
+    var to = el("div", { class: "preview-to" });
+    var subject = el("div", { class: "preview-subject" });
+    var problem = el("p", { class: "error", hidden: "" });
+    var cancel = el("button", { type: "button", class: "secondary", text: "Cancel" });
+    var go = el("button", { type: "button", class: "preview-send", text: "Send with Resend", disabled: "" });
+    var panel = el("div", { class: "preview-panel", role: "dialog", "aria-modal": "true", "aria-label": "Email preview" },
+      el("p", { class: "preview-note", text: "Preview · nothing has been sent" }),
+      to, subject, box, problem,
+      el("div", { class: "preview-actions" }, cancel, go));
+    var shade = el("div", { class: "preview-shade" }, panel);
+    function close() { shade.remove(); document.removeEventListener("keydown", onKey); }
+    function onKey(event) { if (event.key === "Escape" && !go.dataset.busy) close(); }
+    cancel.addEventListener("click", close);
+    shade.addEventListener("click", function (event) { if (event.target === shade && !go.dataset.busy) close(); });
+    document.addEventListener("keydown", onKey);
+    document.body.append(shade);
+
+    api("POST", previewPath, {}).then(function (data) {
+      var people = data.recipients || [];
+      var message = data.message || {};
+      if (!people.length) {
+        to.replaceChildren(el("strong", { text: "To: " }), "nobody yet");
+        box.replaceChildren(el("p", { class: "muted", text: "There's no one to send this to." }));
+        subject.replaceChildren(el("strong", { text: "Subject: " }), message.subject || "");
+        return;
+      }
+      if (people.length === 1) {
+        to.replaceChildren(el("strong", { text: "To: " }), people[0]);
+      } else {
+        to.replaceChildren(el("strong", { text: "To: " }), people.length + " people, each getting their own copy ",
+          el("details", {}, el("summary", { text: "see who" }), el("p", { class: "muted", text: people.join(", ") })));
+        box.before(el("p", { class: "muted", text: "Shown as " + people[0] + " will get it." }));
+      }
+      subject.replaceChildren(el("strong", { text: "Subject: " }), message.subject || "");
+      if (message.html) {
+        box.replaceChildren(el("iframe", { class: "preview-frame", sandbox: "", title: "Email preview", srcdoc: message.html }));
+      } else {
+        box.replaceChildren(el("pre", { class: "preview-text", text: message.text || "" }));
+      }
+      go.textContent = people.length === 1 ? "Send with Resend" : "Send to " + people.length + " people with Resend";
+      go.disabled = false;
+    }).catch(function (error) {
+      if (error.message === "signed-out") { close(); return; }
+      box.replaceChildren();
+      problem.textContent = error.message;
+      problem.hidden = false;
+    });
+
+    go.addEventListener("click", function () {
+      go.disabled = true;
+      cancel.disabled = true;
+      go.dataset.busy = "1";
+      go.textContent = "Sending…";
+      Promise.resolve(send()).then(close).catch(function (error) {
+        delete go.dataset.busy;
+        cancel.disabled = false;
+        go.textContent = "Try again";
+        go.disabled = false;
+        if (error.message === "signed-out") { close(); return; }
+        problem.textContent = error.message;
+        problem.hidden = false;
+      });
+    });
+  }
 
   // With email set up, the button sends the email itself; otherwise it opens a draft.
   function emailControl(order, className) {
@@ -783,17 +863,11 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var label = (order.emailedAt ? "Email again" : "Email " + firstName(order));
     var button = el("button", { class: className + (order.emailedAt ? " sent" : ""), type: "button", text: label });
     button.addEventListener("click", function () {
-      var what = order.fulfillment === "pickup" ? "\u201cready for pickup\u201d" : "\u201cdelivered\u201d";
-      if (!window.confirm(CHECK + "Send the " + what + " email to " + order.email + "?")) return;
-      button.disabled = true;
-      button.textContent = "Sending\u2026";
-      api("POST", "orders/" + order.id + "/email", {}).then(function (result) {
-        order.emailedAt = result.sentAt;
-        render();
-      }).catch(function (error) {
-        if (error.message === "signed-out") return;
-        button.textContent = label;
-        alertInCard(button, error.message);
+      previewEmail("orders/" + order.id + "/email/preview", function () {
+        return api("POST", "orders/" + order.id + "/email", {}).then(function (result) {
+          order.emailedAt = result.sentAt;
+          render();
+        });
       });
     });
     return button;
@@ -919,17 +993,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     if (card.recipientEmail && state.gifts.emailReady && !cancelled) {
       var send = el("button", { type: "button", class: "linkish", text: card.emailedAt ? "Email it again" : "Email it to them" });
       send.addEventListener("click", function () {
-        if (!window.confirm(CHECK + "Email this gift card to " + card.recipientEmail + "?")) return;
-        send.disabled = true;
-        send.textContent = "Sending\u2026";
-        api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
-          send.textContent = "Sent";
-          card.emailedAt = new Date().toISOString();
-        }).catch(function (error) {
-          send.disabled = false;
-          send.textContent = "Email it again";
-          if (error.message !== "signed-out") alertInCard(send, error.message);
-        });
+        previewGiftCard(card);
       });
       actions.append(send);
     }
@@ -981,7 +1045,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }
 
     button.addEventListener("click", function () {
-      if (send.checked && !window.confirm(CHECK + "Make this gift card and email it to " + email.value + "?")) return;
       error.hidden = true;
       done.hidden = true;
       button.disabled = true;
@@ -991,16 +1054,18 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
         recipientEmail: email.value,
         message: message.value,
         note: note.value,
-        send: send.checked
+        send: false
       }).then(function (result) {
         button.disabled = false;
-        state.gifts.cards.unshift(Object.assign({ timesUsed: 0 }, result.card, result.emailed ? { emailedAt: new Date().toISOString() } : {}));
+        var wantsEmail = send.checked && result.card.recipientEmail;
+        state.gifts.cards.unshift(Object.assign({ timesUsed: 0 }, result.card));
         renderGifts();
         var again = $("gift-done-note");
         if (again) {
-          again.textContent = "Made " + result.card.code + " for " + result.card.recipientName + (result.emailed ? ", and emailed it." : result.emailError ? ". The email didn't send: " + result.emailError : ". Copy the code to send it yourself.");
+          again.textContent = "Made " + result.card.code + " for " + result.card.recipientName + (wantsEmail ? ". Check the email preview, then send it." : ". Copy the code to send it yourself, or press “Email it to them”.");
           again.hidden = false;
         }
+        if (wantsEmail) previewGiftCard(result.card);
       }).catch(function (problem) {
         button.disabled = false;
         if (problem.message === "signed-out") return;
@@ -1017,7 +1082,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       field("Their email (optional)", email),
       field("Message to them (optional)", message),
       field("Note for you (optional)", note),
-      el("label", { class: "issue-send", for: "issue-send" }, send, state.gifts.emailReady ? " Email it to them now" : " Email it to them now (needs email set up)"),
+      el("label", { class: "issue-send", for: "issue-send" }, send, state.gifts.emailReady ? " Preview the email to send next" : " Email it (needs email set up)"),
       error,
       el("div", { class: "part-buttons" }, button)
     );
@@ -1130,6 +1195,15 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       ),
       undo
     );
+  }
+
+  function previewGiftCard(card) {
+    previewEmail("gift-cards/" + card.id + "/email/preview", function () {
+      return api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
+        card.emailedAt = new Date().toISOString();
+        renderGifts();
+      });
+    });
   }
 
   function alertInCard(node, message) {
@@ -1476,14 +1550,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   function sendButton(drop, kind, count, label) {
     var button = el("button", { type: "button", text: label + " (" + count + ")" });
     button.addEventListener("click", function () {
-      var what = kind === "announce" ? "the \u201cnew drop is open\u201d email to " + plural(count, "person").replace("persons", "people") + " on the list" : "a pickup reminder to " + plural(count, "customer");
-      if (!window.confirm(CHECK + "Send " + what + "?")) return;
-      button.disabled = true;
-      button.textContent = "Sending\u2026";
-      api("POST", "drops/" + drop.id + "/" + kind, {}).then(reloadDrops).catch(function (error) {
-        if (error.message === "signed-out") return;
-        button.textContent = label + " (" + count + ")";
-        alertInCard(button, error.message);
+      previewEmail("drops/" + drop.id + "/" + kind + "/preview", function () {
+        return api("POST", "drops/" + drop.id + "/" + kind, {}).then(reloadDrops);
       });
     });
     return button;

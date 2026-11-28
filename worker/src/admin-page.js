@@ -1482,7 +1482,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
 
   function sentLine(drop) {
     var parts = [];
-    if (drop.announce === false && !drop.announced) parts.push("Opens quietly: no automatic email to the list");
     if (drop.announced) parts.push("New-drop email sent to " + plural(drop.announced.recipients, "person").replace("persons", "people") + " " + shortTime(drop.announced.sentAt));
     if (drop.reminded) parts.push("Reminder sent to " + plural(drop.reminded.recipients, "customer") + " " + shortTime(drop.reminded.sentAt));
     return parts.length ? el("p", { class: "sent-note", text: parts.join(" \u00b7 ") }) : null;
@@ -1582,9 +1581,6 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
       field("Ordering opens (Pacific time)", f.opens, true),
       field("Ordering closes (Pacific time)", f.closes, true),
       field("Loaves available", f.limit),
-      data.emailReady ? el("label", { class: "check", for: "drop-announce" }, f.announce,
-        el("span", null, "Email the notify list when ordering opens",
-          el("small", { text: "Untick to open this drop quietly. You can still email the list from the drop's card." }))) : null,
       error,
       el("div", { class: "buttons" }, save, cancel)
     );

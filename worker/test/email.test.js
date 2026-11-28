@@ -278,26 +278,14 @@ test("if the alert email fails, Stripe is asked to try again and the retry sends
 
 /* ---------- Hourly drop emails ---------- */
 
-test("the hourly run announces a newly opened drop to the list, once", async () => {
+test("the hourly run never announces drops to the list (only the orders page does)", async () => {
   await signUpAndConfirm("eve@example.com");
   await signUpAndConfirm("fay@example.com");
   await makeDrop();
-  emails = [];
-
-  assert.deepEqual(await runScheduledEmails(env, stripe), { announced: 2, reminded: 0 });
-  assert.equal(emails.length, 2);
-  assert.match(emails[0].text, /Ordering is open now/);
-
-  assert.deepEqual(await runScheduledEmails(env, stripe), { announced: 0, reminded: 0 });
-  assert.equal(emails.length, 2);
-});
-
-test("drops that opened days ago, or haven't opened, aren't announced by the schedule", async () => {
-  await signUpAndConfirm("gus@example.com");
   await makeDrop({ opensAt: hoursFromNow(-72) });
-  await makeDrop({ pickupDate: addDays(today, 9), opensAt: hoursFromNow(5), closesAt: hoursFromNow(80) });
   emails = [];
-  assert.deepEqual(await runScheduledEmails(env, stripe), { announced: 0, reminded: 0 });
+  assert.deepEqual(await runScheduledEmails(env, stripe), { reminded: 0 });
+  assert.equal(emails.length, 0);
 });
 
 test("pickup reminders go to that drop's customers from 5 pm the day before, once each", async () => {
@@ -335,7 +323,7 @@ test("a reminder sent from the orders page isn't sent again by the schedule", as
 test("without email set up, the schedule sends nothing", async () => {
   delete env.RESEND_API_KEY;
   await makeDrop();
-  assert.deepEqual(await runScheduledEmails(env, stripe), { announced: 0, reminded: 0 });
+  assert.deepEqual(await runScheduledEmails(env, stripe), { reminded: 0 });
 });
 
 /* ---------- Orders page: email a customer ---------- */
@@ -372,17 +360,6 @@ test("without email set up, the orders page's send buttons say to use the draft"
   assert.equal((await callOrders("GET", "/admin/api/orders")).body.emailReady, false);
 });
 
-test("people who join the list after a drop's email went out still get it on the next hourly run", async () => {
-  await signUpAndConfirm("first@example.com");
-  await makeDrop();
-  emails = [];
-  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
-  await signUpAndConfirm("later@example.com");
-  emails = [];
-  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
-  assert.deepEqual(emails[0].to, ["later@example.com"]);
-});
-
 test("customers who order after the reminders went out get one too, until pickup ends", async () => {
   const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
   paidOrder({ dropId: drop.id, email: "early@example.com" });
@@ -396,14 +373,15 @@ test("customers who order after the reminders went out get one too, until pickup
 });
 
 test("if sending fails, nothing is marked sent and the next run sends it", async () => {
-  await signUpAndConfirm("try@example.com");
-  await makeDrop();
+  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
+  paidOrder({ dropId: drop.id, email: "try@example.com" });
+  const evening = Date.parse(localToUtc(dayBefore(drop.pickupDate), "18:00"));
   emails = [];
   resendFails = true;
-  await assert.rejects(runScheduledEmails(env, stripe));
+  await assert.rejects(runScheduledEmails(env, stripe, evening));
   resendFails = false;
-  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
-  assert.equal((await runScheduledEmails(env, stripe)).announced, 0);
+  assert.equal((await runScheduledEmails(env, stripe, evening)).reminded, 1);
+  assert.equal((await runScheduledEmails(env, stripe, evening)).reminded, 0);
 });
 
 test("before schema.sql is re-run, the send buttons say what to do instead of failing", async () => {
@@ -416,22 +394,14 @@ test("before schema.sql is re-run, the send buttons say what to do instead of fa
   assert.equal(emails.length, 0);
 });
 
-test("a drop set not to email the list opens quietly, and can still be sent by hand", async () => {
+test("a drop is only announced when the orders page sends it, once per person", async () => {
   await signUpAndConfirm("quiet@example.com");
-  const drop = await makeDrop({ announce: false });
+  const drop = await makeDrop();
   emails = [];
-  assert.equal((await runScheduledEmails(env, stripe)).announced, 0);
-  assert.equal((await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === drop.id).announce, false);
-
+  assert.equal((await runScheduledEmails(env, stripe)).reminded, 0);
+  assert.equal(emails.length, 0);
   assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/announce`)).body.sent, 1);
-
-  // Turning it back on: anyone who hasn't had it yet gets it on the next run.
-  await signUpAndConfirm("later@example.com");
-  const edit = await callOrders("POST", `/admin/api/drops/${drop.id}`, { ...drop, announce: true });
-  assert.equal(edit.status, 200, JSON.stringify(edit.body));
-  emails = [];
-  assert.equal((await runScheduledEmails(env, stripe)).announced, 1);
-  assert.deepEqual(emails[0].to, ["later@example.com"]);
+  assert.equal(emails.length, 1);
 });
 
 test("drops are announced unless told otherwise, and saving without the choice keeps it", async () => {

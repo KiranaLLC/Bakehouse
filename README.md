@@ -241,11 +241,9 @@ Once it's on:
 - **Customer emails**: the orders page's **Email** button sends the
   "delivered" or "ready for pickup" email itself (it asks first), and shows when
   it was sent.
-- **New drop open**: everyone on the next-drop list gets an email within an
-  hour of a drop opening for orders (and anyone who joins that day gets it on
-  the next hourly run). **Email notify list** on the Drops tab sends it to
-  everyone straight away. To open a drop without emailing the list, untick
-  **Email the notify list when ordering opens** when creating or editing it.
+- **New drop open**: never sent automatically. To tell the next-drop list
+  about a drop, press **Email notify list** on that drop in the Drops tab; it
+  goes to everyone on the list straight away.
 - **Pickup reminders**: everyone with a paid order for a drop gets a reminder
   from 5 pm the day before (later orders get one up until pickup ends).
   **Remind customers** sends it to everyone straight away. The schedule never

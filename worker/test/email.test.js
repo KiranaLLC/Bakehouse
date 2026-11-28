@@ -14,6 +14,7 @@ import { forgetStripeLists } from "../src/stripe-cache.js";
 
 import checkoutWorker, { isFromStripe } from "../src/index.js";
 import ordersWorker from "../src/orders.js";
+import { sendEmail, sendEmails } from "../src/email.js";
 import { createFakeD1 } from "./fake-d1.js";
 import { bakeryTodayValue } from "../../delivery-rules.js";
 
@@ -184,6 +185,13 @@ test("the hourly run sends nothing: no announcements, no reminders", async () =>
   emails = [];
   await runHourly();
   await runHourly();
+  assert.equal(emails.length, 0);
+});
+
+test("the safety lock: nothing can be sent without a send button press, even by mistake", async () => {
+  const message = { to: "x@example.com", subject: "Hi", text: "Hi" };
+  await assert.rejects(sendEmail(env, message), /press a send button/);
+  await assert.rejects(sendEmails(env, [message]), /press a send button/);
   assert.equal(emails.length, 0);
 });
 

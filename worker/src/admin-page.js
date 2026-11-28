@@ -916,6 +916,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     if (card.recipientEmail && state.gifts.emailReady && !cancelled) {
       var send = el("button", { type: "button", class: "linkish", text: card.emailedAt ? "Email it again" : "Email it to them" });
       send.addEventListener("click", function () {
+        if (!window.confirm("Email this gift card to " + card.recipientEmail + "?")) return;
         send.disabled = true;
         send.textContent = "Sending\u2026";
         api("POST", "gift-cards/" + card.id + "/email", {}).then(function () {
@@ -977,6 +978,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     }
 
     button.addEventListener("click", function () {
+      if (send.checked && !window.confirm("Make this gift card and email it to " + email.value + "?")) return;
       error.hidden = true;
       done.hidden = true;
       button.disabled = true;

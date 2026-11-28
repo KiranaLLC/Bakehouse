@@ -51,7 +51,12 @@ function toResend(env, { to, subject, text, html, headers }) {
   };
 }
 
+// Safety lock: nothing is sent unless the bakery pressed a send button on the
+// orders page. Only those button requests set SEND_PRESSED (see handleAdmin);
+// the public site, the Stripe webhook and the hourly run never do, so even a
+// future mistake in the code can't send an email on its own.
 async function resend(env, path, body) {
+  if (env.SEND_PRESSED !== true) throw new EmailError("Not sent: email only goes out when you press a send button on the orders page.");
   if (!canEmail(env)) throw new EmailError("Email isn't set up yet (RESEND_API_KEY is missing).");
   const response = await fetch(`${RESEND_URL}${path}`, {
     method: "POST",

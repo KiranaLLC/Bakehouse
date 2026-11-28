@@ -74,11 +74,16 @@ const FAILED_LOGIN_DELAY_MS = 1000;
 
 const encoder = new TextEncoder();
 
+const SEND_BUTTONS = /^\/admin\/api\/(orders\/[^/]+\/email|gift-cards|gift-cards\/\d+\/email|drops\/\d+\/(announce|remind))$/;
+
 export async function handleAdmin(request, env, { stripe }) {
 
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "") || "/";
   const secure = url.protocol === "https:";
+
+  // Only these send-button requests (after the password check below) may email.
+  if (request.method === "POST" && SEND_BUTTONS.test(path)) env = { ...env, SEND_PRESSED: true };
 
   try {
 

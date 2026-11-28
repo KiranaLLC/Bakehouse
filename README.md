@@ -235,24 +235,22 @@ The site can send its own emails through [Resend](https://resend.com) (free up
 to 3,000 a month). Until it's set up, nothing is sent and the orders page keeps
 opening drafts in the Mail app, so this is optional.
 
-Once it's on:
+**The site never sends an email on its own.** Nothing goes out when someone
+signs up, places an order or buys a gift card, and there's no schedule. Every
+email is sent only when you press a send button on the orders page:
 
-- **New-order alert**: every paid order emails hellokiranabakehouse@gmail.com.
-- **Customer emails**: the orders page's **Email** button sends the
-  "delivered" or "ready for pickup" email itself (it asks first), and shows when
-  it was sent.
-- **New drop open**: never sent automatically. To tell the next-drop list
-  about a drop, press **Email notify list** on that drop in the Drops tab; it
-  goes to everyone on the list straight away.
-- **Pickup reminders**: everyone with a paid order for a drop gets a reminder
-  from 5 pm the day before (later orders get one up until pickup ends).
-  **Remind customers** sends it to everyone straight away. The schedule never
-  sends anyone the same email twice.
-- **Next-drop list**: signing up sends a confirm link (at most one every 10
-  minutes per address, valid 14 days), and people only join the list once they
-  tap it. Every drop email has an unsubscribe link, which asks before
-  unsubscribing, plus one-click unsubscribe for mail apps. People already on
-  the list stay on it.
+- **Email** on an order card: the "delivered" or "ready for pickup" email (it
+  asks first), and shows when it was sent.
+- **Email notify list** on a drop: "a new drop is open" to everyone on the
+  next-drop list.
+- **Remind customers** on a drop: a pickup reminder to everyone who ordered
+  from it.
+- **Email it to them** / **Email it again** on a gift card, or ticking
+  **Email it to them now** (never ticked for you) when issuing one.
+
+Signing up for the next-drop list adds people straight away (no confirm
+email). Every drop email has an unsubscribe link, which asks before
+unsubscribing, plus one-click unsubscribe for mail apps.
 
 Emails come from `hello@kiranabakehouse.com` (`EMAIL_FROM` in both wrangler
 files); replies go to the Gmail. To set it up:
@@ -276,7 +274,7 @@ files); replies go to the Gmail. To set it up:
    npm run deploy:orders
    ```
 
-5. For the new-order alert, in Stripe: **Developers → Webhooks → Add endpoint**,
+5. For gift cards and holds, in Stripe: **Developers → Webhooks → Add endpoint**,
    URL `https://kirana-checkout.vanya-weng.workers.dev/api/stripe-webhook`,
    events `checkout.session.completed`,
    `checkout.session.async_payment_succeeded` and `checkout.session.expired`
@@ -288,8 +286,8 @@ files); replies go to the Gmail. To set it up:
    npx wrangler secret put STRIPE_WEBHOOK_SECRET
    ```
 
-The hourly schedule is in `worker/wrangler.toml` (`[triggers]`); the 5 pm
-reminder time is `SCHEDULE` in `worker/src/email-flows.js`.
+The hourly check in `worker/wrangler.toml` (`[triggers]`) only tidies up gift
+card holds and makes paid-for gift cards; it never sends email.
 
 ### Payment processing fee
 
@@ -316,11 +314,11 @@ from). It goes in the cart, and is paid for together with any loaves, or on
 its own (then no day, address or tip is needed). The payment processing fee
 applies to gift cards too, and a gift card can't be used to buy gift cards.
 
-Once paid, each card is made with a code like `KIRANA-7QKM-X2PD`. Cards with
-an email are sent to that person with the message; the buyer gets one email
-with every code from their order (to pass on any without an email), and you
-get a note. The thank-you page shows the codes too, so nothing depends on
-email.
+Once paid, each card is made with a code like `KIRANA-7QKM-X2PD`, and the
+thank-you page shows the codes. Nothing is emailed automatically: bought cards
+show up in the **Gift cards** tab with a note that they haven't been emailed,
+and **Email it to them** sends each one (to the person it's for, or to the buyer
+if they didn't give one) when you press it.
 
 Gift cards can only be used on purchases made through the website, and don't
 expire. On
@@ -338,8 +336,8 @@ check, whichever comes first, and only once.
 
 The orders page has a **Gift cards** tab: every card, who it's for and from,
 what's left on it and how many orders it's paid for, with search. **Issue a
-gift card** makes a free one (giveaways, making up for a mistake), emailed to
-them if you give an address; **Email it again** resends any card. **Cancel
+gift card** makes a free one (giveaways, making up for a mistake); it's only
+emailed if you tick **Email it to them now**. **Email it again** resends any card. **Cancel
 card** stops a card from being used (it asks once more first); its balance is
 kept, and **Restore card** turns it back on.
 

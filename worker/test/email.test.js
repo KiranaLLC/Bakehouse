@@ -1,7 +1,8 @@
 /*
-  Email tests: next-drop sign-up with a confirm link, unsubscribe links, the
-  Stripe "order paid" webhook, the hourly drop emails, and the orders page's
-  send buttons. Run from the worker folder with: npm test
+  Email tests. The rule: the site NEVER sends an email on its own. Sign-ups,
+  paid orders, gift card purchases and the hourly run send nothing; email
+  only goes out when the bakery presses a send button on the orders page.
+  Run from the worker folder with: npm test
 
   Resend and Stripe are faked in memory; the database is a local SQLite copy
   of schema.sql. Nothing here sends a real email.
@@ -13,11 +14,8 @@ import { forgetStripeLists } from "../src/stripe-cache.js";
 
 import checkoutWorker, { isFromStripe } from "../src/index.js";
 import ordersWorker from "../src/orders.js";
-import { runScheduledEmails } from "../src/email-flows.js";
-import { stripe } from "../src/stripe.js";
 import { createFakeD1 } from "./fake-d1.js";
 import { bakeryTodayValue } from "../../delivery-rules.js";
-import { dayBefore, localToUtc } from "../../pickup-rules.js";
 
 const SITE = "https://www.kiranabakehouse.com";
 const CHECKOUT = "https://kirana-checkout.example.workers.dev";
@@ -128,13 +126,16 @@ async function makeDrop(overrides = {}) {
   return body.drop;
 }
 
-async function signUpAndConfirm(email) {
-  const signUp = await callCheckout("POST", "/api/subscribe", { email });
-  assert.equal(signUp.body.confirm, true);
-  const link = emails.at(-1).text.match(/https:\/\/\S+\/api\/subscribe\/confirm\?token=\S+/)[0];
-  const confirmed = await checkoutWorker.fetch(new Request(link), env);
-  assert.equal(confirmed.status, 200);
-  return link;
+async function signUp(email) {
+  const result = await callCheckout("POST", "/api/subscribe", { email });
+  assert.equal(result.status, 200);
+  return result;
+}
+
+async function runHourly() {
+  const waits = [];
+  await checkoutWorker.scheduled({ cron: "0 * * * *", scheduledTime: Date.now() }, env, { waitUntil: promise => waits.push(promise) });
+  await Promise.allSettled(waits);
 }
 
 async function signedWebhook(event, { secret = WEBHOOK_SECRET, time = Math.floor(Date.now() / 1000) } = {}) {
@@ -145,59 +146,86 @@ async function signedWebhook(event, { secret = WEBHOOK_SECRET, time = Math.floor
   return callCheckout("POST", "/api/stripe-webhook", payload, { "Stripe-Signature": `t=${time},v1=${signature}` });
 }
 
-/* ---------- Sign-up, confirm, unsubscribe ---------- */
+/* ---------- Nothing is ever sent automatically ---------- */
 
-test("with email on, signing up sends a confirm link, and only confirmed people are on the list", async () => {
-  const signUp = await callCheckout("POST", "/api/subscribe", { email: "Ana@Example.com" });
-  assert.deepEqual(signUp.body, { ok: true, confirm: true });
-  assert.equal(emails.length, 1);
-  assert.deepEqual(emails[0].to, ["ana@example.com"]);
-  assert.equal(emails[0].reply_to, "hellokiranabakehouse@gmail.com");
-  assert.match(emails[0].text, /\/api\/subscribe\/confirm\?token=/);
-
-  assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 0);
-
-  const link = emails[0].text.match(/https:\/\/\S+\/api\/subscribe\/confirm\?token=\S+/)[0];
-  const page = await checkoutWorker.fetch(new Request(link), env);
-  assert.equal(page.status, 200);
-  assert.match(await page.text(), /on the list/);
+test("signing up sends nothing and joins the list straight away", async () => {
+  const result = await signUp("Ana@Example.com");
+  assert.equal(result.body.ok, true);
+  assert.equal(result.body.confirm, undefined);
+  assert.equal(emails.length, 0);
   assert.deepEqual((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.map(({ email }) => email), ["ana@example.com"]);
-
-  // The same link again, or a made-up one, doesn't work.
-  assert.equal((await checkoutWorker.fetch(new Request(link), env)).status, 404);
-  assert.equal((await checkoutWorker.fetch(new Request(`${CHECKOUT}/api/subscribe/confirm?token=nope`), env)).status, 404);
-});
-
-test("without email set up, signing up joins the list straight away", async () => {
-  delete env.RESEND_API_KEY;
-  const signUp = await callCheckout("POST", "/api/subscribe", { email: "ben@example.com" });
-  assert.equal(signUp.body.confirm, undefined);
-  assert.equal(emails.length, 0);
+  await signUp("ana@example.com");
   assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 1);
+  assert.equal(emails.length, 0);
 });
 
-test("no extra email for someone already on the list, or asked again within minutes, and the answer doesn't tell", async () => {
-  await signUpAndConfirm("cy@example.com");
-  emails = [];
-  const again = await callCheckout("POST", "/api/subscribe", { email: "cy@example.com" });
-  assert.deepEqual(again.body, { ok: true, confirm: true });
+test("a paid order sends nothing, to the bakery or the customer", async () => {
+  const id = paidOrder({ dropId: 3, name: "Sam Rivera", email: "sam@example.com" });
+  const event = { type: "checkout.session.completed", data: { object: sessions.find(session => session.id === id) } };
+  assert.equal((await signedWebhook(event)).status, 200);
+  assert.equal((await signedWebhook(event)).status, 200);
   assert.equal(emails.length, 0);
+});
 
-  await callCheckout("POST", "/api/subscribe", { email: "new@example.com" });
-  await callCheckout("POST", "/api/subscribe", { email: "new@example.com" });
-  await callCheckout("POST", "/api/subscribe", { email: "new@example.com" });
+test("webhook calls that aren't really from Stripe are refused", async () => {
+  const event = { type: "checkout.session.completed", data: { object: { id: "cs_fake", payment_status: "paid", metadata: {} } } };
+  assert.equal((await signedWebhook(event, { secret: "whsec_wrong" })).status, 400);
+  assert.equal((await signedWebhook(event, { time: Math.floor(Date.now() / 1000) - 3600 })).status, 400);
+  assert.equal((await callCheckout("POST", "/api/stripe-webhook", JSON.stringify(event))).status, 400);
+  assert.equal(emails.length, 0);
+  assert.equal(await isFromStripe("{}", "t=1,v1=00", "x"), false);
+});
+
+test("the hourly run sends nothing: no announcements, no reminders", async () => {
+  await signUp("eve@example.com");
+  const drop = await makeDrop();
+  await makeDrop({ opensAt: hoursFromNow(-72), pickupDate: addDays(today, 1) });
+  paidOrder({ dropId: drop.id, email: "hal@example.com" });
+  emails = [];
+  await runHourly();
+  await runHourly();
+  assert.equal(emails.length, 0);
+});
+
+/* ---------- Send buttons on the orders page ---------- */
+
+test("a drop is only announced when the orders page button is pressed", async () => {
+  await signUp("quiet@example.com");
+  const drop = await makeDrop();
+  assert.equal(emails.length, 0);
+  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/announce`)).body.sent, 1);
+  assert.equal(emails.length, 1);
+  await runHourly();
   assert.equal(emails.length, 1);
 });
 
-test("confirm links stop working after 14 days", async () => {
-  await callCheckout("POST", "/api/subscribe", { email: "old@example.com" });
-  const link = emails[0].text.match(/https:\/\/\S+\/api\/subscribe\/confirm\?token=\S+/)[0];
-  await env.DB.prepare("UPDATE pending_subscribers SET created_at = ?1").bind(new Date(Date.now() - 15 * 864e5).toISOString()).run();
-  assert.equal((await checkoutWorker.fetch(new Request(link), env)).status, 404);
+test("reminders only go out when the Remind button is pressed, once per customer", async () => {
+  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
+  paidOrder({ dropId: drop.id, email: "hal@example.com" });
+  paidOrder({ dropId: drop.id, email: "HAL@example.com" });
+  paidOrder({ dropId: drop.id, email: "ivy@example.com" });
+  paidOrder({ dropId: 999, email: "other@example.com" });
+  await runHourly();
+  assert.equal(emails.length, 0);
+  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/remind`)).body.sent, 2);
+  assert.deepEqual(emails.map(({ to }) => to[0]).sort(), ["hal@example.com", "ivy@example.com"]);
+  assert.match(emails[0].subject, /Reminder: your pickup/);
+  const listed = (await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === drop.id);
+  assert.equal(listed.reminded.recipients, 2);
+});
+
+test("if a reminder send fails, nothing is marked sent and pressing again sends it", async () => {
+  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
+  paidOrder({ dropId: drop.id, email: "try@example.com" });
+  resendFails = true;
+  assert.notEqual((await callOrders("POST", `/admin/api/drops/${drop.id}/remind`)).status, 200);
+  resendFails = false;
+  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/remind`)).body.sent, 1);
+  assert.equal(emails.length, 1);
 });
 
 test("each drop email has a working one-click unsubscribe link", async () => {
-  await signUpAndConfirm("dee@example.com");
+  await signUp("dee@example.com");
   const drop = await makeDrop();
   emails = [];
 
@@ -223,107 +251,13 @@ test("each drop email has a working one-click unsubscribe link", async () => {
 });
 
 test("the Unsubscribe button on the page takes someone off the list", async () => {
-  await signUpAndConfirm("eli@example.com");
+  await signUp("eli@example.com");
   const drop = await makeDrop();
   await callOrders("POST", `/admin/api/drops/${drop.id}/announce`);
   const local = emails.at(-1).headers["List-Unsubscribe"].slice(1, -1).replace(/^https:\/\/[^/]+/, CHECKOUT);
   const done = await checkoutWorker.fetch(new Request(local, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "" }), env);
   assert.match(await done.text(), /You're unsubscribed/);
   assert.equal((await callOrders("GET", "/admin/api/subscribers")).body.subscribers.length, 0);
-});
-
-/* ---------- New-order alert (Stripe webhook) ---------- */
-
-test("a paid order emails the bakery and the customer once each, even if Stripe sends the event twice", async () => {
-  const id = paidOrder({ dropId: 3, name: "Sam Rivera", email: "sam@example.com" });
-  const event = { type: "checkout.session.completed", data: { object: sessions.find(session => session.id === id) } };
-
-  assert.equal((await signedWebhook(event)).status, 200);
-  assert.equal((await signedWebhook(event)).status, 200);
-
-  assert.equal(emails.length, 2);
-  const confirmation = emails[1];
-  assert.deepEqual(confirmation.to, ["sam@example.com"]);
-  assert.match(confirmation.subject, /Your Kirana Bakehouse order: pickup Saturday, Nov 14/);
-  assert.match(confirmation.text, /^Hi Sam,/);
-  assert.match(confirmation.text, /Where: Verve, 162 University Ave/);
-  assert.match(confirmation.text, /Can't find us at pickup\? Call or text \(408\) 548-7856\./);
-  assert.deepEqual(emails[0].to, ["hellokiranabakehouse@gmail.com"]);
-  assert.match(emails[0].subject, /New pickup order: Sam Rivera, Saturday, Nov 14, 2 pm – 3 pm \(2 loaves\)/);
-  assert.match(emails[0].text, /1 × House White/);
-  assert.match(emails[0].text, /Paid: \$32\.00 \(incl\. \$3\.00 tip\)/);
-});
-
-test("webhook calls that aren't really from Stripe are refused", async () => {
-  const event = { type: "checkout.session.completed", data: { object: { id: "cs_fake", payment_status: "paid", metadata: {} } } };
-  assert.equal((await signedWebhook(event, { secret: "whsec_wrong" })).status, 400);
-  assert.equal((await signedWebhook(event, { time: Math.floor(Date.now() / 1000) - 3600 })).status, 400);
-  assert.equal((await callCheckout("POST", "/api/stripe-webhook", JSON.stringify(event))).status, 400);
-  assert.equal(emails.length, 0);
-  assert.equal(await isFromStripe("{}", "t=1,v1=00", "x"), false);
-});
-
-test("if the alert email fails, Stripe is asked to try again and the retry sends it", async () => {
-  const id = paidOrder({ delivery: true });
-  const event = { type: "checkout.session.completed", data: { object: sessions.find(session => session.id === id) } };
-  resendFails = true;
-  assert.equal((await signedWebhook(event)).status, 500);
-  resendFails = false;
-  assert.equal((await signedWebhook(event)).status, 200);
-  assert.equal(emails.length, 2);
-  assert.match(emails[0].subject, /New delivery order/);
-  assert.match(emails[1].subject, /delivery Friday, November 13/);
-  assert.doesNotMatch(emails[1].text, /Can't find us/);
-});
-
-/* ---------- Hourly drop emails ---------- */
-
-test("the hourly run never announces drops to the list (only the orders page does)", async () => {
-  await signUpAndConfirm("eve@example.com");
-  await signUpAndConfirm("fay@example.com");
-  await makeDrop();
-  await makeDrop({ opensAt: hoursFromNow(-72) });
-  emails = [];
-  assert.deepEqual(await runScheduledEmails(env, stripe), { reminded: 0 });
-  assert.equal(emails.length, 0);
-});
-
-test("pickup reminders go to that drop's customers from 5 pm the day before, once each", async () => {
-  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
-  paidOrder({ dropId: drop.id, email: "hal@example.com" });
-  paidOrder({ dropId: drop.id, email: "HAL@example.com" });
-  paidOrder({ dropId: drop.id, email: "ivy@example.com" });
-  paidOrder({ dropId: 999, email: "other@example.com" });
-  emails = [];
-
-  const dayBeforePickup = dayBefore(drop.pickupDate);
-  const fourPm = Date.parse(localToUtc(dayBeforePickup, "16:00"));
-  const sixPm = Date.parse(localToUtc(dayBeforePickup, "18:00"));
-
-  assert.equal((await runScheduledEmails(env, stripe, fourPm)).reminded, 0);
-  assert.equal((await runScheduledEmails(env, stripe, sixPm)).reminded, 2);
-  assert.deepEqual(emails.map(({ to }) => to[0]).sort(), ["hal@example.com", "ivy@example.com"]);
-  assert.match(emails[0].subject, /Reminder: your pickup/);
-  assert.equal((await runScheduledEmails(env, stripe, sixPm + 36e5)).reminded, 0);
-});
-
-test("a reminder sent from the orders page isn't sent again by the schedule", async () => {
-  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
-  paidOrder({ dropId: drop.id });
-  emails = [];
-  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/remind`)).body.sent, 1);
-  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(dayBefore(drop.pickupDate), "18:00")))).reminded, 0);
-  assert.equal(emails.length, 1);
-
-  const listed = (await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === drop.id);
-  assert.equal(listed.reminded.recipients, 1);
-  assert.equal(listed.customerCount, 1);
-});
-
-test("without email set up, the schedule sends nothing", async () => {
-  delete env.RESEND_API_KEY;
-  await makeDrop();
-  assert.deepEqual(await runScheduledEmails(env, stripe), { reminded: 0 });
 });
 
 /* ---------- Orders page: email a customer ---------- */
@@ -360,30 +294,6 @@ test("without email set up, the orders page's send buttons say to use the draft"
   assert.equal((await callOrders("GET", "/admin/api/orders")).body.emailReady, false);
 });
 
-test("customers who order after the reminders went out get one too, until pickup ends", async () => {
-  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
-  paidOrder({ dropId: drop.id, email: "early@example.com" });
-  emails = [];
-  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(dayBefore(drop.pickupDate), "18:00")))).reminded, 1);
-  paidOrder({ dropId: drop.id, email: "late@example.com" });
-  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(drop.pickupDate, "09:00")))).reminded, 1);
-  assert.deepEqual(emails.map(({ to }) => to[0]), ["early@example.com", "late@example.com"]);
-  paidOrder({ dropId: drop.id, email: "after@example.com" });
-  assert.equal((await runScheduledEmails(env, stripe, Date.parse(localToUtc(drop.pickupDate, "15:30")))).reminded, 0);
-});
-
-test("if sending fails, nothing is marked sent and the next run sends it", async () => {
-  const drop = await makeDrop({ opensAt: hoursFromNow(-72) });
-  paidOrder({ dropId: drop.id, email: "try@example.com" });
-  const evening = Date.parse(localToUtc(dayBefore(drop.pickupDate), "18:00"));
-  emails = [];
-  resendFails = true;
-  await assert.rejects(runScheduledEmails(env, stripe, evening));
-  resendFails = false;
-  assert.equal((await runScheduledEmails(env, stripe, evening)).reminded, 1);
-  assert.equal((await runScheduledEmails(env, stripe, evening)).reminded, 0);
-});
-
 test("before schema.sql is re-run, the send buttons say what to do instead of failing", async () => {
   const drop = await makeDrop();
   paidOrder({ dropId: drop.id });
@@ -392,23 +302,4 @@ test("before schema.sql is re-run, the send buttons say what to do instead of fa
   assert.equal(result.status, 400);
   assert.match(result.body.error, /schema\.sql/);
   assert.equal(emails.length, 0);
-});
-
-test("a drop is only announced when the orders page sends it, once per person", async () => {
-  await signUpAndConfirm("quiet@example.com");
-  const drop = await makeDrop();
-  emails = [];
-  assert.equal((await runScheduledEmails(env, stripe)).reminded, 0);
-  assert.equal(emails.length, 0);
-  assert.equal((await callOrders("POST", `/admin/api/drops/${drop.id}/announce`)).body.sent, 1);
-  assert.equal(emails.length, 1);
-});
-
-test("drops are announced unless told otherwise, and saving without the choice keeps it", async () => {
-  await signUpAndConfirm("default@example.com");
-  const drop = await makeDrop({ announce: false });
-  await callOrders("POST", `/admin/api/drops/${drop.id}`, { ...drop });
-  assert.equal((await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === drop.id).announce, false);
-  const other = await makeDrop({ pickupDate: addDays(today, 6) });
-  assert.equal((await callOrders("GET", "/admin/api/drops")).body.drops.find(({ id }) => id === other.id).announce, true);
 });

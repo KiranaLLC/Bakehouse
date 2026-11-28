@@ -288,7 +288,7 @@ export const GIFT_CARDS = Object.freeze({
   maxQuantity: 10,
   messageMaxLength: 300,
   name: "Gift Card",
-  description: "Choose your amount. We'll email it to you, or straight to them.",
+  description: "Choose your amount, and add a message if you like.",
   terms: "This gift card can only be used on purchases made through our website."
 });
 

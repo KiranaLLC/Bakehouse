@@ -116,7 +116,7 @@ function renderOrderSummary(order) {
   const total = row("Total paid", formatMoney(order.amountTotal));
   total.classList.add("summary-total");
 
-  const cards = giftCardList(order.giftCards || []);
+  const cards = giftCardList(order.giftCards || [], order.email);
 
   // Just gift cards: nothing to bake or deliver.
   if (order.kind === "gift_cards") {
@@ -156,7 +156,7 @@ function renderOrderSummary(order) {
   whether we emailed it to someone or it's the
   buyer's to pass on.
 */
-function giftCardList(cards) {
+function giftCardList(cards, buyerEmail = "") {
   if (!cards.length) return [];
   const title = document.createElement("h3");
   title.className = "gift-codes-title";
@@ -169,15 +169,15 @@ function giftCardList(cards) {
     code.textContent = card.code;
     const note = document.createElement("span");
     note.textContent = `${formatMoney(card.amountCents)}${card.recipientName ? ` for ${card.recipientName}` : ""}. ` +
-      (card.recipientEmail
-        ? (card.emailed ? `Emailed to ${card.recipientEmail}.` : `We'll email it to ${card.recipientEmail}.`)
+      (card.recipientEmail && card.recipientEmail.toLowerCase() !== String(buyerEmail).toLowerCase()
+        ? (card.emailed ? `Emailed to ${card.recipientEmail}.` : `We'll send it to ${card.recipientEmail}.`)
         : "Pass the code on, or use it yourself.");
     item.append(code, note);
     list.append(item);
   }
   const hint = document.createElement("p");
   hint.className = "gift-codes-hint";
-  hint.textContent = "We've also emailed you every code. Gift cards can only be used on purchases made through our website.";
+  hint.textContent = "Keep a note of these codes. Gift cards can only be used on purchases made through our website.";
   return [title, list, hint];
 }
 

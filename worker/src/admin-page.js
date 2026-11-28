@@ -86,6 +86,7 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
   .gift-card dt { color: var(--muted); }
   .gift-card dd { margin: 0; overflow-wrap: anywhere; }
   .gift-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .gift-waiting { background: #fff4d6; border: 1px solid #e6c77a; color: #7a5200; border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; font-weight: 600; }
   .badge.cancelled { color: var(--terracotta); }
   .linkish.danger { color: var(--terracotta); }
   .gift-issue { padding: 12px 16px; margin-bottom: 14px; }
@@ -854,8 +855,10 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var search = el("input", { type: "search", class: "past-search", placeholder: "Search by code, name or email", value: state.giftQuery, "aria-label": "Search gift cards" });
     var list = el("div", { id: "gift-list" });
 
+    var waiting = cards.filter(function (card) { return card.source === "purchase" && card.recipientEmail && !card.emailedAt && !card.cancelledAt; }).length;
     view.replaceChildren(
       el("p", { class: "summary", text: plural(cards.length, "gift card") + " \u00b7 " + money(outstanding) + " still to spend" }),
+      waiting ? el("p", { class: "gift-waiting", text: plural(waiting, "bought gift card") + " not emailed yet. Nothing is sent automatically: press \u201cEmail it to them\u201d on each one when you're ready." }) : null,
       issueGiftForm(),
       search,
       list
@@ -962,7 +965,8 @@ export const ADMIN_PAGE = String.raw`<!DOCTYPE html>
     var message = el("textarea", { id: "issue-message", maxlength: "300", rows: "2" });
     var note = el("input", { type: "text", id: "issue-note", maxlength: "200", placeholder: "Just for you, e.g. Sorry about the late delivery" });
     var send = el("input", { type: "checkbox", id: "issue-send" });
-    send.checked = Boolean(state.gifts.emailReady);
+    // Never ticked for you: it only emails if you tick it yourself.
+    send.checked = false;
     send.disabled = !state.gifts.emailReady;
     var error = el("p", { class: "error", role: "alert", hidden: "hidden" });
     var done = el("p", { class: "issue-done", role: "status", hidden: "hidden" });
